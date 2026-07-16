@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:florist_frontend/features/account/presentation/account_page.dart';
 import 'package:florist_frontend/core/theme.dart';
 import 'package:florist_frontend/features/catalog/presentation/product_detail_page.dart';
 import 'package:florist_frontend/features/home/domain/product_preview.dart';
+import 'package:florist_frontend/features/orders/presentation/order_history_page.dart';
 import 'package:florist_frontend/features/home/presentation/widgets/category_chips.dart';
 import 'package:florist_frontend/features/home/presentation/widgets/florist_app_bar.dart';
 import 'package:florist_frontend/features/home/presentation/widgets/hero_banner.dart';
@@ -80,6 +82,7 @@ class _HomePageState extends State<HomePage> {
   final _scrollController = ScrollController();
   final _featuredSectionKey = GlobalKey();
   var _selectedCategory = 'Semua';
+  var _currentIndex = 0;
 
   List<ProductPreview> get _visibleProducts {
     if (_selectedCategory == 'Semua') {
@@ -100,76 +103,112 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(64),
-        child: FloristAppBar(
-          onSearchPressed: _openSearch,
-          onCartPressed: () => Navigator.pushNamed(context, '/cart'),
-        ),
+      appBar: _currentIndex == 0
+          ? PreferredSize(
+              preferredSize: const Size.fromHeight(64),
+              child: FloristAppBar(
+                onSearchPressed: _openSearch,
+                onCartPressed: () => Navigator.pushNamed(context, '/cart'),
+              ),
+            )
+          : AppBar(
+              title: Text(_currentIndex == 1 ? 'Pesanan Saya' : 'Akun & Admin'),
+            ),
+      body: _currentIndex == 0
+          ? _buildCatalogBody()
+          : _currentIndex == 1
+          ? const OrderHistoryPage()
+          : const AccountPage(),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _currentIndex,
+        onTap: (index) => setState(() => _currentIndex = index),
+        selectedItemColor: AppColors.deepRose,
+        unselectedItemColor: AppColors.mediumGray,
+        backgroundColor: AppColors.pureWhite,
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(LucideIcons.house),
+            activeIcon: Icon(LucideIcons.house),
+            label: 'Beranda',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(LucideIcons.package),
+            activeIcon: Icon(LucideIcons.packageCheck),
+            label: 'Pesanan Saya',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(LucideIcons.userRound),
+            activeIcon: Icon(LucideIcons.userRound),
+            label: 'Akun & Admin',
+          ),
+        ],
       ),
-      body: SingleChildScrollView(
-        controller: _scrollController,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            HeroBanner(onShopPressed: _scrollToFeaturedProducts),
-            Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 1280),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      final horizontalPadding = constraints.maxWidth < 640
-                          ? 16.0
-                          : constraints.maxWidth < 1024
-                          ? 24.0
-                          : 32.0;
+    );
+  }
 
-                      return Padding(
-                        padding: EdgeInsets.fromLTRB(
-                          horizontalPadding,
-                          28,
-                          horizontalPadding,
-                          56,
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Kategori Produk',
-                              style: Theme.of(context).textTheme.titleLarge,
-                            ),
-                            const SizedBox(height: 12),
-                            CategoryChips(
-                              categories: _categories,
-                              selectedCategory: _selectedCategory,
-                              onSelected: (category) {
-                                setState(() => _selectedCategory = category);
-                              },
-                            ),
-                            const SizedBox(height: 36),
-                            _FeaturedSectionHeader(
-                              key: _featuredSectionKey,
-                              onViewAllPressed: () {
-                                setState(() => _selectedCategory = 'Semua');
-                              },
-                            ),
-                            const SizedBox(height: 18),
-                            _ProductsGrid(
-                              products: _visibleProducts,
-                              onProductPressed: _openProduct,
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
+  Widget _buildCatalogBody() {
+    return SingleChildScrollView(
+      controller: _scrollController,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          HeroBanner(onShopPressed: _scrollToFeaturedProducts),
+          Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1280),
+              child: SizedBox(
+                width: double.infinity,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final horizontalPadding = constraints.maxWidth < 640
+                        ? 16.0
+                        : constraints.maxWidth < 1024
+                        ? 24.0
+                        : 32.0;
+
+                    return Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        horizontalPadding,
+                        28,
+                        horizontalPadding,
+                        56,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Kategori Produk',
+                            style: Theme.of(context).textTheme.titleLarge,
+                          ),
+                          const SizedBox(height: 12),
+                          CategoryChips(
+                            categories: _categories,
+                            selectedCategory: _selectedCategory,
+                            onSelected: (category) {
+                              setState(() => _selectedCategory = category);
+                            },
+                          ),
+                          const SizedBox(height: 36),
+                          _FeaturedSectionHeader(
+                            key: _featuredSectionKey,
+                            onViewAllPressed: () {
+                              setState(() => _selectedCategory = 'Semua');
+                            },
+                          ),
+                          const SizedBox(height: 18),
+                          _ProductsGrid(
+                            products: _visibleProducts,
+                            onProductPressed: _openProduct,
+                          ),
+                        ],
+                      ),
+                    );
+                  },
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

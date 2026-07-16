@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:florist_frontend/core/cart_state.dart';
 import 'package:florist_frontend/core/currency_formatter.dart';
+import 'package:florist_frontend/core/order_state.dart';
 import 'package:florist_frontend/core/theme.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 
@@ -28,7 +29,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
   _DeliveryMethod _deliveryMethod = _DeliveryMethod.delivery;
   var _step = 0;
   var _proofUploaded = false;
+  var _orderCreated = false;
   late final String _invoiceNumber;
+  OrderModel? _submittedOrder;
 
   @override
   void initState() {
@@ -387,9 +390,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
             Expanded(
               flex: 2,
               child: FilledButton.icon(
-                onPressed: _proofUploaded
-                    ? () => setState(() => _step = 2)
-                    : null,
+                onPressed: _proofUploaded ? _completePayment : null,
                 icon: const Icon(LucideIcons.circleCheck, size: 19),
                 label: const Text('Konfirmasi Pembayaran'),
                 style: FilledButton.styleFrom(
@@ -404,6 +405,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 
   Widget _buildSuccessStep(BuildContext context) {
+    final submittedOrder = _submittedOrder;
     return Center(
       child: Column(
         children: [
@@ -428,7 +430,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
           ),
           const SizedBox(height: 8),
           Text(
-            _invoiceNumber,
+            submittedOrder?.orderId ?? _invoiceNumber,
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
               color: AppColors.deepRose,
               fontWeight: FontWeight.w700,
@@ -446,7 +448,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
           const SizedBox(height: 28),
           FilledButton.icon(
             onPressed: () {
-              cartNotifier.clearCart();
               Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
             },
             icon: const Icon(LucideIcons.house, size: 19),
@@ -465,6 +466,35 @@ class _CheckoutPageState extends State<CheckoutPage> {
       return;
     }
     setState(() => _step = 1);
+  }
+
+  void _completePayment() {
+    if (_orderCreated || cartNotifier.value.isEmpty) {
+      setState(() => _step = 2);
+      return;
+    }
+
+    final order = OrderModel(
+      orderId: _invoiceNumber,
+      items: List.unmodifiable(cartNotifier.value),
+      total: cartNotifier.total,
+      status: OrderStatuses.waitingVerification,
+      createdAt: DateTime.now(),
+      recipientName: _recipientController.text.trim(),
+      phone: _phoneController.text.trim(),
+      address: _deliveryMethod == _DeliveryMethod.delivery
+          ? _addressController.text.trim()
+          : 'Ambil di toko Seli Florist',
+      deliveryType: _deliveryMethod == _DeliveryMethod.delivery
+          ? 'Kirim ke Alamat'
+          : 'Ambil di Toko',
+    );
+
+    orderNotifier.createOrder(order);
+    cartNotifier.clearCart();
+    _submittedOrder = order;
+    _orderCreated = true;
+    setState(() => _step = 2);
   }
 
   void _copyAccountNumber() {
