@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:florist_frontend/core/auth_state.dart';
 import 'package:florist_frontend/core/cart_state.dart';
 import 'package:florist_frontend/core/currency_formatter.dart';
 import 'package:florist_frontend/core/theme.dart';
+import 'package:florist_frontend/features/cart/presentation/widgets/auth_bottom_sheet.dart';
 import 'package:florist_frontend/features/home/presentation/widgets/product_artwork.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 
@@ -53,6 +55,8 @@ class CartPage extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 16),
+                        const _VoucherSection(),
+                        const SizedBox(height: 16),
                         const _PriceSummary(),
                       ],
                     ),
@@ -95,8 +99,7 @@ class CartPage extends StatelessWidget {
                     width: double.infinity,
                     child: FilledButton.icon(
                       key: const ValueKey('continue-to-checkout'),
-                      onPressed: () =>
-                          Navigator.pushNamed(context, '/checkout'),
+                      onPressed: () => _continueToCheckout(context),
                       iconAlignment: IconAlignment.end,
                       icon: const Icon(LucideIcons.arrowRight, size: 19),
                       label: Text(
@@ -127,6 +130,29 @@ class CartPage extends StatelessWidget {
 
   void _goHome(BuildContext context) {
     Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
+  }
+
+  Future<void> _continueToCheckout(BuildContext context) async {
+    if (authNotifier.isLoggedIn) {
+      await Navigator.pushNamed(context, '/checkout');
+      return;
+    }
+
+    final didAuthenticate = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.pureWhite,
+      barrierColor: Colors.black.withValues(alpha: 0.4),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      builder: (_) => const AuthBottomSheet(),
+    );
+
+    if (didAuthenticate == true && context.mounted) {
+      await Navigator.pushNamed(context, '/checkout');
+    }
   }
 }
 
@@ -317,6 +343,187 @@ class _CompactQuantityStepper extends StatelessWidget {
   }
 }
 
+class _VoucherSection extends StatefulWidget {
+  const _VoucherSection();
+
+  @override
+  State<_VoucherSection> createState() => _VoucherSectionState();
+}
+
+class _VoucherSectionState extends State<_VoucherSection> {
+  final _voucherController = TextEditingController();
+  String? _errorMessage;
+
+  @override
+  void dispose() {
+    _voucherController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isEligible =
+        cartNotifier.subtotal >= CartNotifier.voucherMinimumPurchase;
+    final hasVoucher = cartNotifier.discountAmount > 0;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.pureWhite,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.lightGray),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                LucideIcons.ticketPercent,
+                color: AppColors.deepRose,
+                size: 21,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Voucher Belanja',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+              ),
+            ],
+          ),
+          if (isEligible) ...[
+            const SizedBox(height: 14),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.blushRose,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.softPink),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(
+                    LucideIcons.flower2,
+                    color: AppColors.deepRose,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Dapatkan diskon Rp 20.000! Gunakan kode voucher: '
+                      'SELIPINK',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppColors.deepRose,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: 14),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final input = TextField(
+                key: const ValueKey('voucher-input'),
+                controller: _voucherController,
+                textCapitalization: TextCapitalization.characters,
+                onSubmitted: (_) => _applyVoucher(),
+                decoration: const InputDecoration(
+                  labelText: 'Kode Voucher',
+                  hintText: 'Contoh: SELIPINK',
+                  prefixIcon: Icon(LucideIcons.tag),
+                ),
+              );
+              final button = FilledButton(
+                key: const ValueKey('apply-voucher'),
+                onPressed: _applyVoucher,
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size(108, 52),
+                  padding: const EdgeInsets.symmetric(horizontal: 18),
+                ),
+                child: const Text('Gunakan'),
+              );
+
+              if (constraints.maxWidth < 360) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [input, const SizedBox(height: 10), button],
+                );
+              }
+
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: input),
+                  const SizedBox(width: 10),
+                  button,
+                ],
+              );
+            },
+          ),
+          if (hasVoucher) ...[
+            const SizedBox(height: 10),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(
+                  LucideIcons.circleCheck,
+                  color: AppColors.success,
+                  size: 18,
+                ),
+                const SizedBox(width: 7),
+                Expanded(
+                  child: Text(
+                    'Voucher SELIPINK berhasil digunakan (- Rp 20.000)',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppColors.success,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ] else if (_errorMessage != null) ...[
+            const SizedBox(height: 10),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(
+                  LucideIcons.circleAlert,
+                  color: AppColors.error,
+                  size: 18,
+                ),
+                const SizedBox(width: 7),
+                Expanded(
+                  child: Text(
+                    _errorMessage!,
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: AppColors.error),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  void _applyVoucher() {
+    FocusScope.of(context).unfocus();
+    final error = cartNotifier.applyVoucher(_voucherController.text);
+    if (mounted) {
+      setState(() => _errorMessage = error);
+    }
+  }
+}
+
 class _PriceSummary extends StatelessWidget {
   const _PriceSummary();
 
@@ -343,6 +550,14 @@ class _PriceSummary extends StatelessWidget {
             label: 'Ongkir',
             value: formatRupiah(cartNotifier.ongkir),
           ),
+          if (cartNotifier.discountAmount > 0) ...[
+            const SizedBox(height: 10),
+            _SummaryRow(
+              label: 'Diskon Voucher',
+              value: '- ${formatRupiah(cartNotifier.discountAmount)}',
+              success: true,
+            ),
+          ],
           const SizedBox(height: 10),
           _SummaryRow(
             label: 'Total Pesanan',
@@ -373,11 +588,13 @@ class _SummaryRow extends StatelessWidget {
     required this.label,
     required this.value,
     this.emphasized = false,
+    this.success = false,
   });
 
   final String label;
   final String value;
   final bool emphasized;
+  final bool success;
 
   @override
   Widget build(BuildContext context) {
@@ -385,6 +602,11 @@ class _SummaryRow extends StatelessWidget {
         ? Theme.of(context).textTheme.titleMedium?.copyWith(
             color: AppColors.deepRose,
             fontWeight: FontWeight.w700,
+          )
+        : success
+        ? Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: AppColors.success,
+            fontWeight: FontWeight.w600,
           )
         : Theme.of(context).textTheme.bodyMedium;
 

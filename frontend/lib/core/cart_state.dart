@@ -50,8 +50,12 @@ class CartNotifier extends ValueNotifier<List<CartItem>> {
   CartNotifier() : super(const []);
 
   static const deliveryFee = 15000;
+  static const voucherMinimumPurchase = 200000;
+  static const voucherDiscount = 20000;
 
   bool _isDelivery = true;
+  String? appliedVoucherCode;
+  int discountAmount = 0;
 
   bool get isDelivery => _isDelivery;
 
@@ -65,7 +69,10 @@ class CartNotifier extends ValueNotifier<List<CartItem>> {
 
   int get ongkir => _isDelivery && value.isNotEmpty ? deliveryFee : 0;
 
-  int get total => subtotal + ongkir;
+  int get total {
+    final calculatedTotal = subtotal + ongkir - discountAmount;
+    return calculatedTotal < 0 ? 0 : calculatedTotal;
+  }
 
   int get downPayment => (total / 2).ceil();
 
@@ -86,7 +93,7 @@ class CartNotifier extends ValueNotifier<List<CartItem>> {
     } else {
       items.add(item);
     }
-    value = List.unmodifiable(items);
+    _setItems(items);
   }
 
   void removeItem(CartItem item) {
@@ -97,7 +104,7 @@ class CartNotifier extends ValueNotifier<List<CartItem>> {
     }
 
     items.removeAt(itemIndex);
-    value = List.unmodifiable(items);
+    _setItems(items);
   }
 
   void updateQuantity(CartItem item, int qty) {
@@ -113,7 +120,7 @@ class CartNotifier extends ValueNotifier<List<CartItem>> {
     }
 
     items[itemIndex] = items[itemIndex].copyWith(quantity: qty);
-    value = List.unmodifiable(items);
+    _setItems(items);
   }
 
   void setDelivery(bool isDelivery) {
@@ -125,9 +132,35 @@ class CartNotifier extends ValueNotifier<List<CartItem>> {
     value = List.unmodifiable(value);
   }
 
+  String? applyVoucher(String code) {
+    final normalizedCode = code.trim().toUpperCase();
+    if (normalizedCode != 'SELIPINK') {
+      return 'Kode voucher tidak valid';
+    }
+    if (subtotal < voucherMinimumPurchase) {
+      return 'Minimal pembelian Rp 200.000';
+    }
+
+    appliedVoucherCode = 'SELIPINK';
+    discountAmount = voucherDiscount;
+    value = List.unmodifiable(value);
+    return null;
+  }
+
   void clearCart() {
     _isDelivery = true;
+    appliedVoucherCode = null;
+    discountAmount = 0;
     value = const [];
+  }
+
+  void _setItems(List<CartItem> items) {
+    final newSubtotal = items.fold(0, (total, item) => total + item.lineTotal);
+    if (newSubtotal < voucherMinimumPurchase) {
+      appliedVoucherCode = null;
+      discountAmount = 0;
+    }
+    value = List.unmodifiable(items);
   }
 
   int _findItemIndex(List<CartItem> items, CartItem target) {

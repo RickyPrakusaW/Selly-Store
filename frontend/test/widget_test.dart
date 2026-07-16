@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:florist_frontend/core/auth_state.dart';
 import 'package:florist_frontend/core/cart_state.dart';
 import 'package:florist_frontend/features/home/domain/product_preview.dart';
 import 'package:florist_frontend/main.dart';
@@ -14,7 +15,32 @@ const _testProduct = ProductPreview(
 );
 
 void main() {
-  setUp(cartNotifier.clearCart);
+  setUp(() {
+    cartNotifier.clearCart();
+    authNotifier.logout();
+  });
+
+  test('auth notifier supports mock login, register, and logout', () {
+    final notifier = AuthNotifier();
+
+    notifier.login('seli@example.com', 'password');
+    expect(notifier.isLoggedIn, isTrue);
+    expect(notifier.userName, 'Seli');
+    expect(notifier.userEmail, 'seli@example.com');
+
+    notifier.register(
+      'Seli Florist',
+      'owner@seli.test',
+      '081234567890',
+      'password',
+    );
+    expect(notifier.userName, 'Seli Florist');
+    expect(notifier.userEmail, 'owner@seli.test');
+
+    notifier.logout();
+    expect(notifier.isLoggedIn, isFalse);
+    expect(notifier.userName, isNull);
+  });
 
   test('cart notifier calculates item totals, shipping, and DP', () {
     final notifier = CartNotifier();
@@ -47,6 +73,31 @@ void main() {
     notifier.setDelivery(false);
     expect(notifier.ongkir, 0);
     expect(notifier.total, 400000);
+  });
+
+  test('voucher validates minimum purchase and updates total', () {
+    final notifier = CartNotifier();
+    const item = CartItem(
+      product: _testProduct,
+      variant: 'Standar',
+      customNote: '',
+      bookingDate: null,
+      quantity: 1,
+    );
+
+    notifier.addItem(item);
+    expect(notifier.applyVoucher('SELIPINK'), 'Minimal pembelian Rp 200.000');
+
+    notifier.addItem(item);
+    expect(notifier.applyVoucher('selipink'), isNull);
+    expect(notifier.appliedVoucherCode, 'SELIPINK');
+    expect(notifier.discountAmount, 20000);
+    expect(notifier.total, 195000);
+    expect(notifier.downPayment, 97500);
+
+    notifier.updateQuantity(notifier.value.first, 1);
+    expect(notifier.appliedVoucherCode, isNull);
+    expect(notifier.discountAmount, 0);
   });
 
   testWidgets('product detail adds a configured product to the global cart', (
@@ -107,8 +158,37 @@ void main() {
     expect(cartNotifier.totalQuantity, 2);
     expect(cartNotifier.downPayment, 107500);
 
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('voucher-input')),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('voucher-input')),
+      'SELIPINK',
+    );
+    await tester.tap(find.byKey(const ValueKey('apply-voucher')));
+    await tester.pump();
+    expect(cartNotifier.discountAmount, 20000);
+    expect(find.textContaining('berhasil digunakan'), findsOneWidget);
+    expect(cartNotifier.downPayment, 97500);
+
     await tester.tap(find.byKey(const ValueKey('continue-to-checkout')));
     await tester.pumpAndSettle();
+    expect(find.text('Selangkah lagi'), findsOneWidget);
+    expect(authNotifier.isLoggedIn, isFalse);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('login-email')),
+      'seli@example.com',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('login-password')),
+      'password',
+    );
+    await tester.tap(find.byKey(const ValueKey('submit-login')));
+    await tester.pumpAndSettle();
+    expect(authNotifier.isLoggedIn, isTrue);
     expect(find.text('Detail Pengiriman'), findsOneWidget);
 
     await tester.tap(find.text('Ambil di Toko'));
@@ -124,7 +204,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Pembayaran DP'), findsWidgets);
-    expect(find.text('Rp 100.000'), findsWidgets);
+    expect(find.text('Rp 90.000'), findsWidgets);
     await tester.tap(find.text('Upload Bukti Transfer'));
     await tester.pump();
     expect(find.text('preview-bukti-transfer.jpg'), findsOneWidget);
@@ -138,6 +218,56 @@ void main() {
     await tester.pumpAndSettle();
     expect(cartNotifier.value, isEmpty);
     expect(find.text('Seli Florist'), findsOneWidget);
+  });
+
+  testWidgets('registration tab creates account and continues checkout', (
+    tester,
+  ) async {
+    await _setMobileViewport(tester);
+    cartNotifier.addItem(
+      const CartItem(
+        product: _testProduct,
+        variant: 'Standar',
+        customNote: '',
+        bookingDate: null,
+        quantity: 2,
+      ),
+    );
+
+    await tester.pumpWidget(const FloristApp());
+    await tester.pump();
+    await tester.tap(find.byIcon(LucideIcons.shoppingCart));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('continue-to-checkout')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Daftar Baru'));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.byKey(const ValueKey('register-form')), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('register-name')),
+      'Seli Baru',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('register-email')),
+      'baru@seli.test',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('register-phone')),
+      '081234567890',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('register-password')),
+      'password',
+    );
+    await tester.ensureVisible(find.byKey(const ValueKey('submit-register')));
+    await tester.tap(find.byKey(const ValueKey('submit-register')));
+    await tester.pumpAndSettle();
+
+    expect(authNotifier.isLoggedIn, isTrue);
+    expect(authNotifier.userName, 'Seli Baru');
+    expect(find.text('Detail Pengiriman'), findsOneWidget);
   });
 
   testWidgets('home page stays overflow-free on a narrow mobile viewport', (
