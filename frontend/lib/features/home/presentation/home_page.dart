@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:florist_frontend/core/theme.dart';
+import 'package:florist_frontend/features/catalog/presentation/product_detail_page.dart';
 import 'package:florist_frontend/features/home/domain/product_preview.dart';
 import 'package:florist_frontend/features/home/presentation/widgets/category_chips.dart';
 import 'package:florist_frontend/features/home/presentation/widgets/florist_app_bar.dart';
@@ -79,7 +80,6 @@ class _HomePageState extends State<HomePage> {
   final _scrollController = ScrollController();
   final _featuredSectionKey = GlobalKey();
   var _selectedCategory = 'Semua';
-  var _cartCount = 2;
 
   List<ProductPreview> get _visibleProducts {
     if (_selectedCategory == 'Semua') {
@@ -103,9 +103,8 @@ class _HomePageState extends State<HomePage> {
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(64),
         child: FloristAppBar(
-          cartCount: _cartCount,
           onSearchPressed: _openSearch,
-          onCartPressed: _showCartSummary,
+          onCartPressed: () => Navigator.pushNamed(context, '/cart'),
         ),
       ),
       body: SingleChildScrollView(
@@ -159,7 +158,7 @@ class _HomePageState extends State<HomePage> {
                             const SizedBox(height: 18),
                             _ProductsGrid(
                               products: _visibleProducts,
-                              onAddProduct: _addProduct,
+                              onProductPressed: _openProduct,
                             ),
                           ],
                         ),
@@ -176,21 +175,13 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _openSearch() async {
-    await showSearch<ProductPreview?>(
+    final product = await showSearch<ProductPreview?>(
       context: context,
       delegate: _ProductSearchDelegate(_products),
     );
-  }
-
-  void _showCartSummary() {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text('$_cartCount produk ada di keranjang'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+    if (product != null && mounted) {
+      await _openProduct(product);
+    }
   }
 
   void _scrollToFeaturedProducts() {
@@ -207,17 +198,22 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  void _addProduct(ProductPreview product) {
-    setState(() => _cartCount++);
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text('${product.name} ditambahkan ke keranjang'),
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 2),
-        ),
-      );
+  Future<void> _openProduct(ProductPreview product) async {
+    final wasAdded = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (_) => ProductDetailPage(product: product)),
+    );
+    if (wasAdded == true && mounted) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text('${product.name} ditambahkan ke keranjang'),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+    }
   }
 }
 
@@ -276,10 +272,10 @@ class _FeaturedSectionHeader extends StatelessWidget {
 }
 
 class _ProductsGrid extends StatelessWidget {
-  const _ProductsGrid({required this.products, required this.onAddProduct});
+  const _ProductsGrid({required this.products, required this.onProductPressed});
 
   final List<ProductPreview> products;
-  final ValueChanged<ProductPreview> onAddProduct;
+  final ValueChanged<ProductPreview> onProductPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -309,7 +305,8 @@ class _ProductsGrid extends StatelessWidget {
             final product = products[index];
             return ProductCard(
               product: product,
-              onAddPressed: () => onAddProduct(product),
+              onPressed: () => onProductPressed(product),
+              onAddPressed: () => onProductPressed(product),
             );
           },
         );

@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:florist_frontend/core/cart_state.dart';
 import 'package:florist_frontend/core/theme.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 
 class FloristAppBar extends StatelessWidget {
   const FloristAppBar({
-    required this.cartCount,
     required this.onSearchPressed,
     required this.onCartPressed,
     super.key,
   });
 
-  final int cartCount;
   final VoidCallback onSearchPressed;
   final VoidCallback onCartPressed;
 
@@ -55,45 +54,53 @@ class FloristAppBar extends StatelessWidget {
                         onPressed: onSearchPressed,
                       ),
                       const SizedBox(width: 8),
-                      Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          _HeaderIconButton(
-                            tooltip: 'Keranjang belanja',
-                            icon: LucideIcons.shoppingCart,
-                            onPressed: onCartPressed,
-                          ),
-                          if (cartCount > 0)
-                            Positioned(
-                              right: -2,
-                              top: -3,
-                              child: Container(
-                                key: const ValueKey('cart-badge'),
-                                constraints: const BoxConstraints(
-                                  minWidth: 18,
-                                  minHeight: 18,
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 4,
-                                ),
-                                decoration: const BoxDecoration(
-                                  color: AppColors.primaryPink,
-                                  shape: BoxShape.circle,
-                                ),
-                                alignment: Alignment.center,
-                                child: Text(
-                                  cartCount > 99 ? '99+' : '$cartCount',
-                                  key: const ValueKey('cart-badge-count'),
-                                  style: Theme.of(context).textTheme.labelSmall
-                                      ?.copyWith(
-                                        color: AppColors.pureWhite,
-                                        fontSize: 10,
-                                        height: 1,
-                                      ),
-                                ),
+                      ValueListenableBuilder<List<CartItem>>(
+                        valueListenable: cartNotifier,
+                        builder: (context, items, _) {
+                          final cartCount = cartNotifier.totalQuantity;
+                          return Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              _HeaderIconButton(
+                                tooltip: 'Keranjang belanja',
+                                icon: LucideIcons.shoppingCart,
+                                onPressed: onCartPressed,
                               ),
-                            ),
-                        ],
+                              if (cartCount > 0)
+                                Positioned(
+                                  right: -2,
+                                  top: -3,
+                                  child: Container(
+                                    key: const ValueKey('cart-badge'),
+                                    constraints: const BoxConstraints(
+                                      minWidth: 18,
+                                      minHeight: 18,
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 4,
+                                    ),
+                                    decoration: const BoxDecoration(
+                                      color: AppColors.primaryPink,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    alignment: Alignment.center,
+                                    child: Text(
+                                      cartCount > 99 ? '99+' : '$cartCount',
+                                      key: const ValueKey('cart-badge-count'),
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .labelSmall
+                                          ?.copyWith(
+                                            color: AppColors.pureWhite,
+                                            fontSize: 10,
+                                            height: 1,
+                                          ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          );
+                        },
                       ),
                     ],
                   ),
