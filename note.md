@@ -1,17 +1,36 @@
 # CLAUDE.md — Florist, Papan Ucapan Rental & Kado E-Commerce API
 
-> Important Note: This `CLAUDE.md` is written to guide Claude Code in building a Node.js + NestJS REST API project untuk platform e-commerce florist mobile-first (Flutter Web frontend). Always prioritize security, transaction-safety (anti race-condition), ORM best practices, dan kriteria proyek yang wajib (soft-booking, anti-spam, ongkir otomatis, panel admin keuangan).
+> Important Note: This `CLAUDE.md` is written to guide Claude Code in building a Node.js + NestJS REST API project untuk platform e-commerce florist mobile-first (Flutter Web frontend). Always prioritize security, transaction-safety (anti race-condition), ORM best practices, dan semua kriteria wajib yang sudah didefinisikan.
 
 ---
 
 ## 1. Project Overview
 
 - **Name** : Florist & Papan Ucapan Rental E-Commerce API
-- **Description** : REST API untuk platform jual buket bunga, barang kado, dan sewa papan ucapan harian. Mendukung guest checkout, soft-booking anti double-booking, kalkulasi ongkir otomatis berbasis jarak (Google Distance Matrix), pembayaran manual (DP 50%, tanpa payment gateway), integrasi web-to-WhatsApp, dan panel admin dengan laporan keuangan.
-- **Goal** : Backend production-ready yang aman dari race-condition (booking papan ucapan) dan spam order fiktif, dengan laporan laba-rugi yang akurat untuk owner.
-- **Target Users**: Admin/Owner, Staff Verifikasi Pembayaran, dan Customer (guest, tanpa wajib register).
+- **Description** : REST API untuk platform jual buket bunga, barang kado, dan sewa papan ucapan harian. Pengunjung bisa melihat katalog secara publik, namun wajib register/login dan verifikasi email saat checkout atau booking. Mendukung keranjang offline-resilient, pembayaran dua tahap (DP 50% + Pelunasan), soft-booking anti double-booking, kalkulasi ongkir otomatis, pengiriman atau pickup, real-time notifikasi admin, dan panel keuangan.
+- **Goal** : Backend production-ready yang aman, scalable, dan memberikan pengalaman belanja yang nyaman termasuk saat koneksi tidak stabil.
+- **Target Users** : Admin/Owner, Staff Verifikasi Pembayaran, Customer (wajib register + verifikasi email untuk transaksi).
 - **Version** : v1.0.0
 - **Status** : Active development
+
+---
+
+### Keputusan Arsitektur Kunci (Wajib Dipahami Sebelum Coding)
+
+> Keputusan ini telah difinalisasi. Jangan mengubah logika ini tanpa konfirmasi dari owner proyek.
+
+| # | Keputusan | Pilihan yang Diambil | Alasan |
+|---|---|---|---|
+| 1 | Mix kategori dalam 1 order? | **Boleh.** 1 order bisa berisi bunga + kado + papan ucapan. | Lebih praktis untuk customer. |
+| 2 | Kapan soft-lock dipicu? | **Saat `POST /api/checkout` dikonfirmasi**, bukan saat tambah keranjang. | Mencegah lock dini hanya karena browsing. |
+| 3 | Pelunasan sisa 50%? | **Ada.** Setelah DP diverifikasi admin, customer upload bukti pelunasan dalam batas waktu. | Kepastian pembayaran penuh sebelum produksi. |
+| 4 | Batas waktu bayar DP? | **2 jam** via `DP_DEADLINE_HOURS=2`. | 15 menit terlalu singkat untuk transfer antarbank. |
+| 5 | Refresh Token? | **Ada.** Access token 1 jam, refresh token 30 hari via `httpOnly cookie`. | Mencegah user ter-logout saat mengisi form checkout. |
+| 6 | Notifikasi admin? | **WebSocket** (Socket.IO). | Admin tidak perlu polling manual ke dashboard. |
+| 7 | Pemilihan board papan ucapan? | **Otomatis oleh sistem** (first available board). Admin bisa reassign manual jika perlu. | Menghindari error saat checkout jika admin tidak online. |
+| 8 | Delivery type? | **Antar (`delivery`) atau Ambil Sendiri (`pickup`).** Jika pickup, ongkir = 0 dan Distance Matrix tidak dipanggil. | Fleksibilitas untuk customer yang mau hemat ongkir. |
+| 9 | Kebijakan refund DP (jika customer cancel)? | **DP dikembalikan dengan potongan bertingkat** berdasarkan seberapa lama setelah order dibuat: ① Cancel < 12 jam → **full refund** (100% DP kembali). ② Cancel antara 12–24 jam → **refund 75%** (potongan 25%). ③ Cancel > 24 jam → **refund 50%** (potongan 50%). Refund dilakukan **manual oleh admin** (transfer balik) karena tidak ada payment gateway. Sistem hanya mencatat nominal refund & status-nya. Jika admin/sistem yang cancel (force majeure), customer mendapat **full refund**. | Adil untuk customer sekaligus melindungi bisnis dari kerugian bahan baku yang sudah disiapkan. |
+| 10 | User kirim foto bukti bayar salah? | **Bisa cancel & kirim ulang**, selama bukti belum diverifikasi admin (`verification_status = pending`). | UX yang baik; user tidak perlu menghubungi admin hanya karena salah foto. |
 
 ---
 
@@ -20,15 +39,16 @@
 - **Runtime** : Node.js
 - **Framework** : NestJS (modular, TypeScript)
 - **Database** : PostgreSQL
-- **ORM** : Prisma (dengan Prisma CLI & Prisma Migrate)
-- **Lock/TTL Layer** : Redis (soft-booking lock 15 menit, rate-limiting)
-- **Authentication** : JWT (`@nestjs/jwt`) & bcrypt — **khusus untuk Admin/Staff**, customer tetap guest checkout
-- **Validation** : `class-validator` + `class-transformer` (DTO-based, native NestJS)
-- **File Upload** : Multer (`@nestjs/platform-express`) — validasi ekstensi `.jpg/.jpeg/.png` & max 2MB
-- **3rd Party API** : Google Distance Matrix API (ongkir), tidak ada payment gateway (manual transfer)
+- **ORM** : Prisma (Prisma CLI & Prisma Migrate)
+- **Lock/TTL Layer** : Redis (booking lock, rate-limiting, refresh token revocation)
+- **Authentication** : JWT Access Token (1 jam) + Refresh Token (30 hari, httpOnly cookie) — `@nestjs/jwt` & bcrypt
+- **Email Service** : `@nestjs-modules/mailer` + Nodemailer (verifikasi email, notifikasi order, warning pelunasan)
+- **WebSocket** : `@nestjs/websockets` + Socket.IO (notifikasi real-time ke panel admin)
+- **Validation** : `class-validator` + `class-transformer` (DTO-based)
+- **File Upload** : Multer (`@nestjs/platform-express`) — validasi mimetype & magic bytes (max 2MB)
+- **3rd Party API** : Google Distance Matrix API (hanya dipanggil jika `delivery_type = delivery`)
 - **Export Laporan** : ExcelJS (generate `.xlsx` di backend)
-- **Charting Data Source** : endpoint agregasi khusus (`/admin/reports/*`), rendering chart dilakukan di Flutter Web (`fl_chart`)
-- **Extra Libs** : cors, helmet, morgan, `@nestjs/schedule` (cron expiry lock & order), `bullmq` (queue, opsional)
+- **Extra Libs** : cors, helmet, morgan, `@nestjs/schedule` (cron), `bullmq` (job queue)
 - **Package Manager** : npm
 
 ---
@@ -37,248 +57,295 @@
 
 ```bash
 # Development
-npm run start:dev        # Jalankan dev server (watch mode)
-npm run build             # Build production
-npm run start:prod        # Jalankan production build
+npm run start:dev        # Dev server (watch mode)
+npm run build            # Build production
+npm run start:prod       # Jalankan production build
 
-# Package Management
-npm install [package]     # Install package baru
-
-# Database & ORM (Prisma CLI)
-npx prisma migrate dev --name [nama_migrasi]   # Buat & jalankan migrasi baru
-npx prisma migrate deploy                       # Deploy migrasi ke production
-npx prisma generate                              # Generate Prisma Client setelah ubah schema
-npx prisma studio                                # GUI lihat isi database
-npx prisma db seed                               # Jalankan seeder (dummy produk, admin default)
+# Database & ORM
+npx prisma migrate dev --name [nama_migrasi]
+npx prisma migrate deploy
+npx prisma generate
+npx prisma studio
+npx prisma db seed
 ```
 
-> **Catatan:** Selalu gunakan `npm` dan `npx`. Jangan gunakan `yarn` atau `pnpm`. Setiap perubahan `schema.prisma`, WAJIB jalankan `prisma migrate dev` — jangan edit tabel manual lewat DB client.
+> Selalu gunakan `npm`/`npx`. Setiap ubah `schema.prisma`, WAJIB jalankan `prisma migrate dev`.
 
 ---
 
 ## 4. Project Structure
 
-Architecture: Modular NestJS (Module - Controller - Service - Repository pattern)
-
 ```text
 [root]/
   src/
     modules/
-      auth/               # Login admin/staff (JWT), guard, role decorator
-      catalog/            # CRUD produk, kategori, varian, stok (ready/PO)
-      booking/            # Booking calendar papan ucapan, soft-lock service
-      checkout/            # Guest checkout, hitung DP, snapshot harga
-      ongkir/              # Google Distance Matrix integration & cache
-      payment-proof/       # Upload bukti bayar, validasi file, verifikasi admin
-      blacklist/           # Kelola blacklist WA/IP
-      whatsapp/            # Generator token terenkripsi & deep-link WA
-      finance/             # Modal, pengeluaran, HPP produk, laporan laba-rugi
-      reports/             # Endpoint agregasi dashboard & export XLSX
-      admin/               # Dashboard, manajemen role staff
+      auth/               # Register, login, verif email, refresh token, logout
+      catalog/            # CRUD produk, kategori, varian, foto, stok
+      cart/               # Persistent cart + offline sync
+      booking/            # Kalender & ketersediaan papan ucapan (read), auto-assign board
+      checkout/           # Checkout, kalkulasi DP & ongkir, snapshot harga
+      orders/             # Riwayat order customer, detail, cancel order, mark complete
+      payment-proof/      # Upload/retract bukti DP & pelunasan, verifikasi admin
+      notifications/      # WebSocket gateway notifikasi real-time admin
+      blacklist/          # Kelola blacklist Email/WA
+      whatsapp/           # Token terenkripsi & deep-link WA
+      finance/            # Modal, pengeluaran, HPP produk
+      reports/            # Agregasi dashboard & export XLSX
+      admin/              # Dashboard, manajemen staff
     common/
-      guards/             # AuthGuard, RolesGuard
-      interceptors/        # Response formatter, logging
-      filters/             # Global exception filter (format error konsisten)
-      decorators/           # @Roles(), @CurrentUser()
-      pipes/                # Validation pipe custom
+      guards/             # AuthGuard, RolesGuard, VerifiedGuard
+      interceptors/       # Response formatter, logging
+      filters/            # Global exception filter
+      decorators/         # @Roles(), @CurrentUser(), @VerifiedOnly()
+      pipes/              # Custom validation pipes
     jobs/
-      release-expired-lock.job.ts   # Cron: expire soft-lock booking
-      release-expired-order.job.ts  # Cron: cancel pending order lewat dp_deadline
+      release-expired-lock.job.ts       # Cron: expire soft-lock booking
+      release-expired-dp.job.ts         # Cron: cancel order lewat dp_deadline
+      release-expired-pelunasan.job.ts  # Cron: warning + cancel lewat pelunasan_deadline
     prisma/
       prisma.service.ts
       schema.prisma
-    main.ts                # Entry point (bootstrap NestJS, helmet, cors)
+    main.ts               # Bootstrap (helmet, cors, WebSocket)
     app.module.ts
   prisma/
-    migrations/            # File migrasi Prisma (auto-generated)
-    seed.ts                 # Seeder produk & admin default
-  public/
-    uploads/                 # Fallback lokal (jika tidak pakai object storage eksternal)
+    migrations/
+    seed.ts
 ```
 
-**Aturan Penempatan File:**
-- Setiap fitur baru dibuat sebagai **module NestJS terpisah** (`nest g module [nama]`), jangan taruh semua logic di satu module besar.
-- Business logic & query database selalu di **Service**, Controller hanya menerima request & memanggil service.
-- Schema tabel WAJIB dibuat lewat `schema.prisma` + `prisma migrate`, jangan buat manual di SQL.
-- JANGAN ubah `prisma.service.ts` bawaan kecuali menambah logging/middleware Prisma.
+**Aturan:**
+- Setiap fitur = module terpisah.
+- Business logic di **Service**, Controller hanya terima request & panggil service.
+- Schema tabel lewat `prisma migrate`, tidak pernah manual.
 
 ---
 
 ## 5. Naming Conventions
 
 ```text
-# File dan Folder
-- Controllers   : kebab-case contoh: booking.controller.ts, payment-proof.controller.ts
-- Services      : kebab-case contoh: booking.service.ts, ongkir.service.ts
-- Modules       : kebab-case contoh: booking.module.ts
-- DTO           : PascalCase + Dto suffix contoh: CreateBookingDto, UploadPaymentProofDto
-- Models (Prisma schema) : PascalCase contoh: Product, BoardBooking, Order, Expense
-
-# Di dalam Kode
-- Variabel      : camelCase contoh: waNumber, isSoftLocked
-- Konstanta     : UPPER_SNAKE contoh: JWT_SECRET, SOFT_LOCK_DURATION_MINUTES
-- Fungsi        : camelCase contoh: calculateOngkir, checkPendingOrderByWa
-- Model (DB)    : PascalCase contoh: Order, BoardBooking, ProductCost
-- Tabel (DB)    : snake_case (plural) contoh: orders, board_bookings, product_costs
-
-# Git Branch
-- Fitur baru    : feat/[nama-fitur]
-- Bug fix       : fix/[nama-bug]
+Controllers   : kebab-case → payment-proof.controller.ts
+Services      : kebab-case → checkout.service.ts
+DTO           : PascalCase → CreateOrderDto, UploadPaymentProofDto
+Models Prisma : PascalCase → User, Order, BoardBooking
+Tabel DB      : snake_case plural → orders, cart_items, board_bookings
+Variabel      : camelCase → dpDeadline, waNumber
+Konstanta     : UPPER_SNAKE → DP_DEADLINE_HOURS
+Git branch    : feat/[nama] | fix/[nama]
 ```
 
 ---
 
 ## 6. Code Conventions
 
-**Pendekatan Coding:**
-- Selalu gunakan try-catch (atau global exception filter) di setiap Controller/Service.
-- Validasi input via DTO + `class-validator`, jangan validasi manual di Controller.
-- Hindari callback hell, selalu gunakan async/await.
-- Logic penghitungan (ongkir, laba, HPP) **wajib** di Service backend — jangan pernah dihitung ulang di Flutter client.
+- Selalu gunakan try-catch atau global exception filter.
+- Validasi input via DTO + `class-validator`, tidak pernah manual di Controller.
+- Semua kalkulasi (ongkir, DP, pelunasan, laba, HPP) **wajib di Service backend**.
+- Terapkan **soft delete** (`deleted_at`) di `products`, `users`, `expenses` — query default filter `WHERE deleted_at IS NULL`.
+- **Pagination wajib** (`?page=1&limit=20`) di semua endpoint yang mengembalikan array.
+- Ongkir hanya dikalkulasi via Google Distance Matrix jika `delivery_type = 'delivery'`. Jika `pickup`, ongkir langsung 0.
 
-**Standar HTTP Status Code:**
-- 200 OK: Berhasil mengambil/mengupdate data.
-- 201 Created: Berhasil membuat data baru (POST).
-- 400 Bad Request: Gagal validasi DTO / Input salah / Stok-kuota tidak cukup.
-- 401 Unauthorized: Token admin tidak ada / expired.
-- 403 Forbidden: Role tidak sesuai, atau WA/IP masuk blacklist.
-- 404 Not Found: Data (Product/Order/Booking) tidak ditemukan.
-- 409 Conflict: Tanggal booking sedang di-soft-lock user lain / order pending sudah ada untuk WA tsb.
-- 500 Internal Server Error: Kesalahan server/database.
+**HTTP Status Code Standar:**
+
+| Kode | Kondisi |
+|---|---|
+| 200 | Berhasil ambil/update |
+| 201 | Berhasil buat data baru |
+| 400 | Validasi gagal / stok kurang |
+| 401 | Token tidak ada, expired, email belum verif |
+| 403 | Role salah / Email/WA di-blacklist |
+| 404 | Data tidak ditemukan |
+| 409 | Tanggal booking di-lock / order pending sudah ada |
+| 500 | Server error |
 
 ---
 
-## 7. API Response & Error Handling
+## 7. API Response Format
 
-Selalu kembalikan format JSON yang konsisten di semua endpoint.
-
-**Format Sukses:**
 ```javascript
-res.status(200).json({
-  success: true,
-  message: "Deskripsi aksi sukses",
-  data: { ... } // object atau array
-});
-```
+// Sukses (single)
+{ success: true, message: "...", data: { ... } }
 
-**Format Error (Validation / Logic / Conflict):**
-```javascript
-res.status(400).json({
-  success: false,
-  message: "Validation Error / Pesan spesifik",
-  errors: [ ... ] // Opsional, array error field dari class-validator
-});
+// Sukses (list/paginated)
+{ success: true, data: [...], meta: { page, limit, total, totalPages } }
+
+// Error
+{ success: false, message: "...", errors: [...] }
 ```
 
 ---
 
-## 8. Database & ORM Rules (Prisma)
+## 8. Database & ORM Rules
 
-1. **Wajib ORM**: Dilarang menulis raw SQL query kecuali untuk aggregasi laporan berat yang memang butuh `$queryRaw` (dan itu pun harus dikomentari alasannya).
-2. **Migration**: Setiap ada perubahan schema, WAJIB jalankan `prisma migrate dev`. Jangan ubah struktur tabel manual via DB client (DBeaver/pgAdmin).
-3. **Transaksi Booking (Anti Race-Condition)**: Saat proses soft-lock tanggal papan ucapan, WAJIB gunakan `prisma.$transaction()` dikombinasikan dengan **unique constraint** `(board_id, booking_date)` di level schema — race condition harus tetap gagal aman di level DB, bukan hanya dicegah di kode aplikasi.
-4. **Validasi Kuota/Stok**: Sebelum insert order untuk produk `ready_stock`, cek stok cukup. Untuk `pre_order`, cek `po_days` dan set estimasi tanggal siap otomatis.
-5. **Constraint Anti-Spam**: Kolom `wa_number` di tabel `orders` WAJIB punya partial unique index `WHERE status = 'pending_payment'` — jangan hanya cek via query `findFirst` di service tanpa constraint DB, karena itu tidak aman terhadap concurrent request.
-6. **HPP & Laporan Keuangan**: Setiap `OrderItem` WAJIB menyimpan `price_snapshot` DAN `cost_price_snapshot` (dari `ProductCost` saat order dibuat) — jangan hitung laba dari harga HPP produk saat ini, karena harga modal bisa berubah seiring waktu dan akan merusak akurasi laporan histori.
+1. **Wajib ORM** — raw SQL hanya untuk agregasi berat (`$queryRaw`) dan harus dikomentari alasannya.
+2. **Migration** — setiap ubah schema, jalankan `prisma migrate dev`.
+3. **Transaksi Booking** — saat checkout yang berisi papan ucapan: `prisma.$transaction()` + unique constraint `(board_id, booking_date)` di DB.
+4. **Reservasi Stok** — checkout → `reserved_qty += qty`. Order `completed` → `stock_qty -= qty`, `reserved_qty -= qty`. Order `cancelled`/`rejected` → `reserved_qty -= qty` (dikembalikan).
+5. **Validasi Stok** — cek `stock_qty - reserved_qty >= qty` sebelum insert order untuk `ready_stock`.
+6. **Snapshot Harga** — setiap `order_item` wajib simpan `price_snapshot` & `cost_price_snapshot` saat order dibuat.
+7. **Soft Delete** — kolom `deleted_at` nullable di entitas utama.
+8. **Refresh Token Revocation** — token yang di-logout disimpan di Redis (TTL 30 hari) agar tidak bisa dipakai ulang.
+9. **Auto-assign Board** — saat checkout dengan papan ucapan, backend otomatis pilih `board_id` dari `board_inventory` yang `is_active = true` dan tidak ada booking aktif di tanggal tersebut (first available).
 
 ---
 
 ## 9. Security & Validation Rules
 
-- **Password Admin/Staff**: Wajib di-hash menggunakan `bcrypt` sebelum disimpan (tidak berlaku untuk customer, karena guest checkout tidak butuh akun).
-- **Auth**: Gunakan JWT khusus untuk `/admin/*` routes. Simpan token di `Authorization: Bearer <token>`.
-- **Role Control**: Buat guard `@Roles('admin', 'owner', 'staff_verifikasi')` untuk membatasi akses endpoint tertentu — data keuangan (`/admin/finance/*`, `/admin/reports/*`) hanya boleh diakses role `owner`/`finance`.
-- **Validasi Input**: Semua `req.body` WAJIB divalidasi menggunakan DTO + `class-validator` sebelum masuk ke service/database.
-- **Validasi Upload Bukti Bayar**: Cek `Content-Type` & magic bytes file (bukan hanya ekstensi nama file), tolak jika ukuran > 2MB, simpan dengan nama file ter-randomize (UUID).
-- **Blacklist Check**: WAJIB dijalankan sebagai guard/middleware **sebelum** request menyentuh service checkout — cek `wa_number` dan `ip_address` terhadap tabel `blacklist`.
-- **Rate Limiting**: Gunakan `@nestjs/throttler` untuk membatasi request checkout per IP per menit (mencegah bot spam sebelum menyentuh DB).
+### Autentikasi Customer
+- Register → kirim email verifikasi → `is_verified = false` sampai link diklik.
+- Checkout, booking, upload bukti bayar: wajib **JWT Guard + Verified Guard** (`is_verified == true`).
+- **Access Token**: 1 jam, simpan di memori Flutter (bukan localStorage — hindari XSS).
+- **Refresh Token**: 30 hari, via `httpOnly cookie` (`Secure`, `SameSite=Strict`).
+- `Dio auth_interceptor.dart` menangkap `401` → otomatis panggil refresh → retry request.
+- Rate limit ketat di `/auth/register` & `/auth/resend-verification` (1x/2 menit/IP).
+
+### Autentikasi Admin
+- JWT terpisah untuk semua `/admin/*` routes.
+- Guard `@Roles('owner', 'finance', 'staff_verifikasi')` per endpoint.
+- `/admin/finance/*` & `/admin/reports/*` hanya untuk role `owner`/`finance`.
+
+### Validasi Upload Bukti Bayar
+1. Cek **magic bytes** buffer — pastikan file benar-benar JPG/PNG asli.
+2. Tolak jika > 2MB.
+3. Simpan dengan nama **UUID random** ke object storage.
+4. Hanya boleh upload jika belum ada bukti yang statusnya `pending` atau `approved` untuk tipe yang sama (DP/final).
+5. **Retract diperbolehkan** selama `verification_status = 'pending'` (admin belum verifikasi).
+
+### Validasi Keranjang
+- Jika `product.category == 'papan_ucapan'`, maka `booking_date` di `cart_items` **wajib diisi** — validasi di level DTO & Service.
+- `booking_date` tidak boleh di masa lalu.
 
 ---
 
 ## 10. Features & Task Breakdown (Checklist)
 
-Tandai dengan `[x]` jika sudah selesai. Jangan ubah fitur yang sudah `[x]`.
-
-### Modul 1: Auth Admin & Master Data
-- [ ] POST `/api/admin/auth/login` (JWT, hash password, return role)
-- [ ] GET, PUT `/api/admin/profile` (update profil staff/admin)
-- [ ] CRUD `/api/admin/staff` (kelola akun staff & role, khusus owner)
-- [ ] CRUD `/api/categories` (Master kategori: bunga, kado, papan_ucapan)
+### Modul 1: Auth & User Management
+- [ ] `POST /api/auth/register` — register, kirim token verif email
+- [ ] `GET /api/auth/verify?token=` — konfirmasi email → `is_verified = true`
+- [ ] `POST /api/auth/resend-verification` — kirim ulang, rate limit 1x/2mnt/IP
+- [ ] `POST /api/auth/login` — return access token + set refresh token cookie
+- [ ] `POST /api/auth/refresh-token` — tukar cookie → access token baru
+- [ ] `POST /api/auth/logout` — revoke refresh token di Redis, hapus cookie
+- [ ] `GET /api/auth/me` — profil customer aktif
+- [ ] `PUT /api/auth/me` — update nama, telepon, password
+- [ ] `POST /api/admin/auth/login` — return JWT + role
+- [ ] `GET, PUT /api/admin/profile`
+- [ ] `CRUD /api/admin/staff` — khusus owner
+- [ ] `CRUD /api/categories`
 
 ### Modul 2: Katalog Produk & Stok
-- [ ] CRUD `/api/products` (Auth: Admin, upload foto via Multer)
-- [ ] PUT `/api/products/:id/stock` (set `ready_stock` / `pre_order` + `po_days`)
-- [ ] GET `/api/products` (Public, filter kategori, cari nama)
-- [ ] GET `/api/products/:id` (Detail produk + varian + custom text request field)
+- [ ] `GET /api/products?page=&limit=&category=&search=` — public, pagination
+- [ ] `GET /api/products/:id` — public, detail + foto + varian + stok available
+- [ ] `POST, PUT, DELETE /api/admin/products` — CRUD produk (soft delete)
+- [ ] `POST /api/admin/products/:id/images` — upload foto, simpan ke `product_images`
+- [ ] `DELETE /api/admin/products/:id/images/:imageId`
+- [ ] `PUT /api/admin/products/:id/stock` — set `stock_qty`, `stock_type`, `po_days`
 
-### Modul 3: Booking Papan Ucapan (Soft-Lock)
-- [ ] GET `/api/booking/calendar?month=` (Public, lihat tanggal available/booked)
-- [ ] POST `/api/booking/lock` (Soft-lock 15 menit, transaction + unique constraint)
-- [ ] GET `/api/booking/lock/:sessionId` (Restore countdown jika reload halaman)
-- [ ] Cron job: auto-release lock expired (`@nestjs/schedule`, tiap 1 menit)
+### Modul 3: Keranjang Belanja (Persistent — Offline Resilient) ⭐
+- [ ] `GET /api/cart` — ambil keranjang dari server
+- [ ] `POST /api/cart/items` — tambah item; validasi `booking_date` wajib untuk papan ucapan, tidak boleh tanggal lalu
+- [ ] `PUT /api/cart/items/:itemId` — ubah qty / note
+- [ ] `DELETE /api/cart/items/:itemId` — hapus 1 item
+- [ ] `DELETE /api/cart` — kosongkan keranjang
+- [ ] `POST /api/cart/sync` — batch sync saat kembali online
 
-### Modul 4: Checkout, Ongkir & Pembayaran Manual
-- [ ] POST `/api/checkout/ongkir` (Hitung ongkir via Google Distance Matrix, formula tiered KM)
-- [ ] POST `/api/checkout` (Guest checkout, cek blacklist, cek 1 WA = 1 pending order, hitung DP 50%)
-- [ ] POST `/api/checkout/:orderId/payment-proof` (Upload bukti bayar, validasi ekstensi & ukuran)
-- [ ] Cron job: auto-cancel order pending lewat `dp_deadline` + release booking terkait
+### Modul 4: Kalender Ketersediaan Papan Ucapan
+- [ ] `GET /api/booking/calendar?month=` — public, tampil tanggal available/booked per board
+- [ ] `GET /api/booking/check-availability?date=` — auth customer, cek apakah tanggal masih aman sebelum checkout
+- [ ] Cron: auto-release lock expired (tiap 1 menit)
 
-### Modul 5: Verifikasi Admin & Anti-Spam
-- [ ] GET `/api/admin/orders?status=pending_payment` (Antrian verifikasi)
-- [ ] POST `/api/admin/orders/:id/approve` (Approve → generate WA deep-link)
-- [ ] POST `/api/admin/orders/:id/reject` (Reject → auto-insert blacklist WA+IP, release booking)
-- [ ] CRUD `/api/admin/blacklist` (Lihat/hapus manual entry blacklist)
+### Modul 5: Checkout & Pembayaran DP
+- [ ] `POST /api/checkout/estimate-ongkir` — auth customer, kalkulasi ongkir (hanya jika `delivery_type=delivery`)
+- [ ] `POST /api/checkout` — auth+verified: blacklist check → pending order check → stok check → ketersediaan tanggal → reserve stok → buat order & lock board (dalam 1 transaction) → return `order_id`, `dp_amount`, `dp_deadline`
+- [ ] `POST /api/orders/:orderId/payment-proof/dp` — upload bukti DP (validasi magic bytes, size, UUID rename)
+- [ ] `DELETE /api/orders/:orderId/payment-proof/dp` — **retract bukti DP** jika salah kirim foto (hanya jika status `pending`)
+- [ ] Cron: auto-cancel order lewat `dp_deadline` → release lock → kembalikan `reserved_qty`
 
-### Modul 6: Integrasi Web-to-WhatsApp
-- [ ] Generate token terenkripsi berisi ringkasan order (`order_id`, produk, tanggal, alamat, harga+ongkir)
-- [ ] GET `/o/:token` (Halaman ringkasan order untuk admin, dibuka dari link WA)
-- [ ] Endpoint generate `wa.me` deep-link dengan draft pesan singkat + link `/o/:token`
+### Modul 6: Pelunasan Sisa Pembayaran ⭐
+- [ ] `GET /api/orders/:orderId/remaining-amount` — cek sisa tagihan
+- [ ] `POST /api/orders/:orderId/payment-proof/final` — upload bukti pelunasan
+- [ ] `DELETE /api/orders/:orderId/payment-proof/final` — **retract bukti pelunasan** jika salah (hanya jika status `pending`)
+- [ ] Cron: kirim **warning email** ke customer H-1 sebelum `pelunasan_deadline`
+- [ ] Cron: auto-cancel jika masih tidak bayar setelah `pelunasan_deadline`
 
-### Modul 7: Keuangan & Panel Admin (Nilai Tambahan)
-- [ ] CRUD `/api/admin/finance/capital` (Input modal masuk)
-- [ ] CRUD `/api/admin/finance/expenses` (Input pengeluaran + kategori + upload nota)
-- [ ] CRUD `/api/admin/finance/product-costs` (Kelola HPP per produk, histori by `effective_date`)
-- [ ] GET `/api/admin/reports/summary?from=&to=` (Omzet, HPP, laba kotor, pengeluaran, laba bersih)
-- [ ] GET `/api/admin/reports/chart-data?type=&from=&to=` (Data siap-render untuk `fl_chart`)
-- [ ] GET `/api/admin/reports/export?type=profit_loss&from=&to=` (Generate & download `.xlsx` via ExcelJS)
+### Modul 7: Riwayat & Detail Order Customer ⭐
+- [ ] `GET /api/orders/my?page=&limit=&status=` — semua order milik sendiri
+- [ ] `GET /api/orders/my/:orderId` — detail order: items, status, bukti bayar, timeline
+- [ ] `POST /api/orders/my/:orderId/cancel` — **cancel order** oleh customer; jika DP belum dibayar → langsung cancel gratis; jika DP sudah diverifikasi → hitung refund bertingkat (< 12 jam = 100%, 12-24 jam = 75%, > 24 jam = 50%) → set `refund_status = pending_refund`
+
+### Modul 8: Verifikasi Admin & Notifikasi Real-time
+- [ ] `GET /api/admin/orders?status=&page=&limit=` — antrian verifikasi dengan filter & pagination
+- [ ] `GET /api/admin/orders/:id` — detail order lengkap
+- [ ] `POST /api/admin/orders/:id/verify-dp` → order jadi `dp_verified` → kirim email + WA ke customer (nominal sisa + deadline)
+- [ ] `POST /api/admin/orders/:id/verify-final` → order jadi `fully_paid` → lock board jadi `confirmed` permanen → generate WA deep-link
+- [ ] `POST /api/admin/orders/:id/reject` → blacklist Email+WA, release lock, kembalikan `reserved_qty`, catat alasan
+- [ ] `POST /api/admin/orders/:id/complete` → tandai order selesai diantar/diterima → status `completed`, `stock_qty -= qty`, `reserved_qty -= qty`
+- [ ] `POST /api/admin/orders/:id/force-cancel { admin_cancel_note }` → force-cancel (force majeure) → full refund (`refund_deduction_pct = 0`) → `refund_status = pending_refund` → email ke customer
+- [ ] `PUT /api/admin/orders/:id/refund-done { refund_note }` → tandai refund sudah ditransfer manual → `refund_status = refunded` → email konfirmasi ke customer
+- [ ] `GET /api/admin/orders?refund_status=pending_refund` → filter antrian order yang butuh proses refund manual
+- [ ] WebSocket: emit `payment_proof_submitted` ke room admin saat customer upload bukti (DP/final)
+- [ ] WebSocket: emit `proof_retracted` ke room admin saat customer tarik ulang bukti bayar
+- [ ] `GET /api/admin/boards` — lihat semua unit papan ucapan
+- [ ] `PUT /api/admin/orders/:id/reassign-board` — reassign board secara manual jika diperlukan
+- [ ] `CRUD /api/admin/blacklist`
+
+### Modul 9: Web-to-WhatsApp Integration
+- [ ] Generate token terenkripsi berisi ringkasan order
+- [ ] `GET /o/:token` — halaman ringkasan order (wajib cek JWT admin)
+- [ ] Endpoint generate `wa.me` deep-link + draft pesan + link `/o/:token`
+
+### Modul 10: Keuangan & Laporan (Owner/Finance Only)
+- [ ] `CRUD /api/admin/finance/capital`
+- [ ] `CRUD /api/admin/finance/expenses` (soft delete)
+- [ ] `CRUD /api/admin/finance/product-costs` (histori `effective_date`)
+- [ ] `GET /api/admin/reports/summary?from=&to=`
+- [ ] `GET /api/admin/reports/chart-data?type=&from=&to=`
+- [ ] `GET /api/admin/reports/export?type=profit_loss&from=&to=`
 
 ---
 
 ## 11. Do Not (SANGAT PENTING)
 
-- **JANGAN** membuat tabel database secara manual tanpa `prisma migrate`.
-- **JANGAN** menulis connection string database langsung di dalam service/controller. Gunakan `.env` + `ConfigModule`.
-- **JANGAN** mengembalikan password admin/staff di response JSON mana pun.
-- **JANGAN** pernah bypass validasi DTO/class-validator untuk input dari customer maupun admin.
-- **JANGAN** menghitung ongkir, laba, atau HPP di sisi Flutter client — semua kalkulasi finansial wajib di backend agar jadi single source of truth.
-- **JANGAN** menghapus unique constraint `(board_id, booking_date)` atau partial unique index `one_pending_order_per_wa` — ini fondasi anti race-condition & anti-spam, bukan hanya validasi aplikasi biasa.
-- **JANGAN** izinkan endpoint `/admin/finance/*` dan `/admin/reports/*` diakses role selain `owner`/`finance`.
-- Jika ada prompt yang ambigu tentang arsitektur (misal: struktur booking multi-unit papan, kebijakan refund DP), **TANYA DULU**. Jangan berasumsi.
+- **JANGAN** buat tabel manual tanpa `prisma migrate`.
+- **JANGAN** tulis connection string di service/controller — gunakan `.env` + `ConfigModule`.
+- **JANGAN** kembalikan `password_hash`, `refresh_token`, atau `verification_token` di response.
+- **JANGAN** bypass validasi DTO/class-validator.
+- **JANGAN** hitung ongkir, DP, pelunasan, atau laba di Flutter client.
+- **JANGAN** panggil Google Maps API jika `delivery_type = 'pickup'`.
+- **JANGAN** hapus unique constraint `(board_id, booking_date)` atau partial unique index `one_pending_order_per_user`.
+- **JANGAN** beri akses `/admin/finance/*` dan `/admin/reports/*` selain role `owner`/`finance`.
+- **JANGAN** simpan keranjang hanya di state Flutter — wajib sync ke server.
+- **JANGAN** simpan access token di `localStorage` — simpan di memori aplikasi.
+- **JANGAN** hard delete `products`, `users`, `expenses` — gunakan soft delete.
+- **JANGAN** trigger soft-lock papan ucapan saat tambah ke keranjang.
+- **JANGAN** izinkan upload bukti baru jika sudah ada bukti `approved` untuk tipe yang sama.
+- **JANGAN** izinkan retract bukti jika `verification_status` sudah bukan `pending`.
 
 ---
 
 ## 12. Environment Variables (.env)
 
-Selalu minta nilai ini ke file `.env` dan gunakan `process.env.NAMA_VAR` (via `@nestjs/config`).
-
-```
-# Server & Environment
+```env
+# Server
 PORT=3000
 NODE_ENV=development
 BASE_URL=http://localhost:3000
+ALLOWED_ORIGINS=http://localhost:5173,https://yourapp.com
 
-# Database Access (PostgreSQL)
+# Database
 DATABASE_URL=postgresql://user:password@localhost:5432/florist_db
 
-# Redis (Soft-lock booking & rate-limit)
+# Redis
 REDIS_HOST=127.0.0.1
 REDIS_PORT=6379
 
-# JWT (Admin/Staff only)
-JWT_SECRET=supersecretkey
-JWT_EXPIRES_IN=1d
+# JWT — Access Token
+JWT_SECRET=supersecretkey_access
+JWT_EXPIRES_IN=1h
 
-# Google Distance Matrix API (Ongkir)
+# JWT — Refresh Token
+JWT_REFRESH_SECRET=supersecretkey_refresh
+JWT_REFRESH_EXPIRES_IN=30d
+
+# Google Maps (Ongkir — hanya untuk delivery)
 GOOGLE_MAPS_API_KEY=your_google_maps_key
 TOKO_ORIGIN_LAT=-7.257472
 TOKO_ORIGIN_LNG=112.752088
@@ -288,340 +355,545 @@ ONGKIR_BASE_KM=4
 ONGKIR_BASE_FEE=10000
 ONGKIR_PER_KM_FEE=2500
 
-# WhatsApp Integration
+# WhatsApp
 WA_ADMIN_NUMBER=6281234567890
 WA_ENCRYPTION_SECRET=your_aes_secret_key
 
-# Object Storage (Bukti Bayar & Foto Produk)
+# Email
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_USER=your_email@gmail.com
+EMAIL_PASS=your_app_password
+EMAIL_FROM=no-reply@yourdomain.com
+
+# Object Storage (Cloudflare R2)
 STORAGE_PROVIDER=cloudflare_r2
 R2_ACCESS_KEY_ID=your_key
 R2_SECRET_ACCESS_KEY=your_secret
 R2_BUCKET_NAME=florist-uploads
 R2_ENDPOINT=https://xxxx.r2.cloudflarestorage.com
 
-# Upload Validation
+# Upload
 MAX_UPLOAD_SIZE_MB=2
 ALLOWED_UPLOAD_EXT=.jpg,.jpeg,.png
 
-# Booking Lock
-SOFT_LOCK_DURATION_MINUTES=15
+# Batas Waktu Pembayaran
+DP_DEADLINE_HOURS=2
+PELUNASAN_DEADLINE_DAYS=3
+
+# Kebijakan Refund DP (cancel oleh customer, potongan bertingkat)
+# Jika cancel dalam X jam pertama: potongan sekian persen dari dp_amount
+REFUND_TIER1_HOURS=12       # Cancel < 12 jam → potongan 0%
+REFUND_TIER1_DEDUCTION=0
+REFUND_TIER2_HOURS=24       # Cancel 12–24 jam → potongan 25%
+REFUND_TIER2_DEDUCTION=25
+REFUND_TIER3_DEDUCTION=50   # Cancel > 24 jam → potongan 50%
 ```
 
 ---
 
-## Referensi Silang
+# Arsitektur Sistem
 
-Dokumen ini adalah panduan teknis untuk Claude Code saat menulis kode. Untuk konteks arsitektur lengkap (diagram sistem, skema database detail, opsi tech stack alternatif, dan flowchart logika anti-spam/booking secara naratif), lihat `arsitektur-ecommerce-florist.md` di project yang sama — kedua dokumen ini saling melengkapi dan sebaiknya tetap disinkronkan setiap ada perubahan skema besar.
-
-
-
-# Arsitektur Sistem — E-Commerce Florist, Sewa Papan Ucapan & Kado
-
-## 1. Gambaran Arsitektur (High-Level)
+## 1. Diagram High-Level
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│   FLUTTER WEB (Mobile-First)                             │
-│   - Bloc/Cubit per feature (Catalog, Booking, Checkout)   │
-│   - Repository Pattern → abstraksi API                   │
-└───────────────────┬───────────────────────────────────────┘
-                    │ REST/JSON (HTTPS)
-┌───────────────────▼───────────────────────────────────────┐
-│   API GATEWAY / BACKEND (NestJS atau Supabase Edge)       │
-│   - Auth (opsional, guest-first)                          │
-│   - Order Service                                         │
-│   - Booking Lock Service (Redis TTL)                       │
-│   - Ongkir Service → Google Distance Matrix API           │
-│   - Anti-Spam/Blacklist Middleware                         │
-│   - WA Deep-link Generator (token terenkripsi)             │
-└─────┬───────────────┬───────────────┬──────────────────────┘
-      │               │               │
-┌─────▼─────┐   ┌─────▼─────┐   ┌────▼──────────┐
-│ PostgreSQL │   │   Redis   │   │ Object Storage │
-│ (data utama)│   │(lock TTL, │   │ (bukti bayar,  │
-│            │   │ rate-limit)│   │  foto produk)  │
-└────────────┘   └───────────┘   └────────────────┘
-                                        │
-                                 ┌──────▼───────┐
-                                 │ Cron Worker   │
-                                 │ (release lock,│
-                                 │ expire pending)│
-                                 └───────────────┘
+┌───────────────────────────────────────────────────────────────┐
+│  FLUTTER WEB (Mobile-First)                                    │
+│  - Bloc/Cubit per feature                                      │
+│  - Cart: localStorage buffer + auto-sync (ConnectivityService) │
+│  - Auth: access token di memori, refresh via httpOnly cookie   │
+│  - Dio interceptor: auto-refresh saat 401                      │
+└───────────────────────┬───────────────────────────────────────┘
+                        │ HTTPS + WebSocket
+┌───────────────────────▼───────────────────────────────────────┐
+│  BACKEND (NestJS)                                              │
+│  Auth · Cart · Checkout · Orders · PaymentProof               │
+│  Notification (WebSocket) · Ongkir · Blacklist · WA           │
+│  Finance · Reports · Admin                                     │
+└─────┬──────────────┬──────────────┬────────────────────────────┘
+      │              │              │
+┌─────▼──────┐  ┌────▼──────┐  ┌───▼─────────────┐
+│ PostgreSQL  │  │  Redis    │  │  Object Storage  │
+│ users       │  │ TTL lock  │  │  bukti bayar     │
+│ orders      │  │ rate-limit│  │  foto produk     │
+│ cart_items  │  │ token rev.│  └─────────────────┘
+│ board_book. │  └───────────┘
+│ product_img │        │
+└─────────────┘  ┌─────▼──────────┐
+                 │  Cron Workers   │
+                 │ - release lock  │
+                 │ - expire DP     │
+                 │ - warn pelunasan│
+                 │ - expire pelun. │
+                 └────────────────┘
 ```
-
-**Kenapa struktur ini?** Poin krusial di brief Anda (soft-booking anti race-condition, anti-spam 1 WA = 1 pending order) itu murni masalah *state management di server*, bukan di client. Flutter Web bagus untuk UX, tapi logic penguncian tanggal **wajib** ada di backend + storage yang mendukung TTL (Redis) atau row-locking (Postgres), karena kalau hanya mengandalkan state Flutter/Bloc di client, dua user beda tab tetap bisa lolos checkout di tanggal yang sama.
 
 ---
 
-## 2. Rekomendasi Arsitektur Database
+## 2. Schema Database Lengkap
 
-Menggunakan **PostgreSQL** (relasional, cocok untuk data transaksional & butuh constraint ketat seperti "1 WA = 1 pending order").
+### A. Autentikasi & Pengguna
 
-### Tabel Inti
+**`users`**
+| kolom | tipe | keterangan |
+|---|---|---|
+| id | uuid | PK |
+| email | text | unique |
+| password_hash | text | bcrypt |
+| full_name | text | |
+| phone_number | text | |
+| is_verified | bool | default: false |
+| verification_token | text | nullable |
+| token_expires_at | timestamp | nullable |
+| deleted_at | timestamp | nullable — soft delete |
+| created_at | timestamp | |
+
+**`admin_users`**
+| kolom | tipe | keterangan |
+|---|---|---|
+| id | uuid | PK |
+| email | text | unique |
+| password_hash | text | bcrypt |
+| role | enum | `owner`, `finance`, `staff_verifikasi` |
+| full_name | text | |
+| is_active | bool | default: true |
+| created_at | timestamp | |
+
+### B. Produk & Inventaris
 
 **`products`**
-| kolom | tipe | ket |
+| kolom | tipe | keterangan |
 |---|---|---|
 | id | uuid | PK |
 | category | enum | `bunga`, `kado`, `papan_ucapan` |
-| name, description | text | |
+| name | text | |
+| description | text | |
 | base_price | numeric | |
 | stock_type | enum | `ready_stock`, `pre_order` |
-| po_days | int | nullable, jumlah hari jika PO |
+| stock_qty | int | stok fisik |
+| reserved_qty | int | default: 0 — dikurangi saat checkout, dikembalikan saat cancel |
+| po_days | int | nullable — estimasi hari jika pre_order |
 | is_active | bool | |
+| deleted_at | timestamp | nullable — soft delete |
 
-**`product_variants`** (opsional, misal ukuran buket)
+**`product_images`**
+| kolom | tipe | keterangan |
+|---|---|---|
+| id | uuid | PK |
+| product_id | uuid | FK → `products` |
+| image_url | text | URL object storage |
+| is_primary | bool | satu produk hanya boleh 1 primary |
+| sort_order | int | urutan tampil |
+| uploaded_at | timestamp | |
+
+**`product_variants`**
 | id | variant_name | price_delta | product_id (FK) |
 
-**`board_inventory`** (papan ucapan fisik yang disewakan — jika ada banyak unit papan)
-| id | board_name/type | is_active |
-
-**`board_bookings`** ⭐ (jantung sistem anti-double-booking)
-| kolom | tipe | ket |
+**`board_inventory`** (unit papan ucapan fisik)
+| kolom | tipe | keterangan |
 |---|---|---|
 | id | uuid | PK |
-| board_id | FK | unit papan mana |
-| booking_date | date | tanggal sewa |
-| status | enum | `available`(implicit/no row), `soft_locked`, `confirmed`, `cancelled` |
-| locked_by_session | text | session id / phone number sementara |
+| board_name | text | misal "Papan A", "Papan B" |
+| board_type | text | nullable — jenis papan (misal standing, wall) |
+| is_active | bool | |
+
+### C. Keranjang & Transaksi
+
+**`cart_items`** ⭐
+| kolom | tipe | keterangan |
+|---|---|---|
+| id | uuid | PK |
+| user_id | uuid | FK → `users` |
+| product_id | uuid | FK → `products` |
+| variant_id | uuid | nullable — FK → `product_variants` |
+| qty | int | |
+| custom_note | text | nullable — warna, ucapan, request khusus |
+| booking_date | date | nullable — WAJIB jika papan_ucapan; tidak boleh tanggal lalu |
+| added_at | timestamp | |
+| updated_at | timestamp | |
+
+**`board_bookings`** ⭐ (anti-double-booking)
+| kolom | tipe | keterangan |
+|---|---|---|
+| id | uuid | PK |
+| board_id | uuid | FK → `board_inventory` (auto-assign saat checkout) |
+| booking_date | date | |
+| status | enum | `soft_locked`, `confirmed`, `cancelled` |
+| user_id | uuid | FK → `users` |
+| order_id | uuid | nullable — FK → `orders` |
 | locked_at | timestamp | |
-| expires_at | timestamp | locked_at + 15 menit |
-| order_id | FK | nullable, terisi saat confirmed |
-| **UNIQUE constraint (board_id, booking_date) WHERE status IN ('soft_locked','confirmed')** | | ini yang mencegah race condition di level DB |
+| expires_at | timestamp | locked_at + 15 menit (dilepas cron jika order tidak selesai DP) |
+| **UNIQUE (board_id, booking_date) WHERE status IN ('soft_locked','confirmed')** | | race condition prevention |
 
 **`orders`**
-| kolom | tipe | ket |
+| kolom | tipe | keterangan |
 |---|---|---|
 | id | uuid | PK |
-| wa_number | text | indexed |
-| customer_name | text | |
-| status | enum | `pending_payment`, `dp_verified`, `processing`, `completed`, `cancelled`, `rejected` |
-| subtotal, ongkir_fee, dp_amount, total | numeric | |
-| custom_text_request | text | (isi tulisan papan, request warna dll) |
-| created_at, dp_deadline (created_at+15m) | timestamp | |
+| user_id | uuid | FK → `users` |
+| wa_number | text | nomor WA pemesan (untuk notifikasi admin via WA) |
+| customer_name | text | nama pemesan |
+| recipient_name | text | nama penerima (bisa beda dengan pemesan) |
+| recipient_phone | text | nomor telepon penerima |
+| delivery_type | enum | `delivery`, `pickup` |
+| status | enum | `pending_payment`, `dp_verified`, `pending_final_payment`, `fully_paid`, `processing`, `completed`, `cancelled`, `rejected` |
+| subtotal | numeric | |
+| ongkir_fee | numeric | 0 jika pickup |
+| dp_amount | numeric | 50% dari (subtotal + ongkir_fee) |
+| remaining_amount | numeric | sisa 50% |
+| total | numeric | subtotal + ongkir_fee |
+| custom_text_request | text | ucapan papan / request khusus |
+| estimated_ready_date | date | nullable — diisi jika ada item pre_order (created_at + max po_days) |
+| dp_deadline | timestamp | created_at + DP_DEADLINE_HOURS |
+| dp_verified_at | timestamp | nullable — diisi saat admin verif DP |
+| pelunasan_deadline | timestamp | dp_verified_at + PELUNASAN_DEADLINE_DAYS |
+| cancelled_at | timestamp | nullable — waktu pembatalan |
+| cancelled_by | enum | nullable — `customer`, `admin`, `system` |
+| cancel_reason | text | nullable — alasan pembatalan (diisi admin atau sistem) |
+| refund_amount | numeric | nullable — nominal DP yang dikembalikan ke customer (hasil hitung potongan bertingkat) |
+| refund_deduction_pct | int | nullable — persen potongan yang dikenakan (0, 25, atau 50) |
+| refund_status | enum | nullable — `pending_refund`, `refunded` — diupdate admin setelah transfer balik selesai |
+| refund_note | text | nullable — catatan rekam jejak refund manual oleh admin (no. rekening, tanggal transfer, dll) |
+| admin_cancel_note | text | nullable — catatan force-cancel oleh admin (force majeure, dll) |
+| created_at | timestamp | |
 
 **`order_items`**
-| id | order_id (FK) | product_id (FK) | qty | price_snapshot |
+| kolom | tipe | keterangan |
+|---|---|---|
+| id | uuid | PK |
+| order_id | uuid | FK → `orders` |
+| product_id | uuid | FK → `products` |
+| variant_id | uuid | nullable |
+| qty | int | |
+| price_snapshot | numeric | harga jual saat transaksi |
+| cost_price_snapshot | numeric | HPP saat transaksi (untuk kalkulasi laba historis) |
+| estimated_ready_date | date | nullable — created_at + po_days jika pre_order |
 
 **`delivery_addresses`**
 | id | order_id (FK) | full_address | lat | lng | distance_km | ongkir_calculated |
 
-**`payment_proofs`**
-| id | order_id (FK) | file_url | uploaded_at | file_size | mime_type | verification_status (`pending`,`approved`,`rejected`) | rejected_reason |
+> Jika `delivery_type = 'pickup'`, baris ini tidak dibuat dan ongkir_fee di `orders` = 0.
+
+**`payment_proofs`** ⭐
+| kolom | tipe | keterangan |
+|---|---|---|
+| id | uuid | PK |
+| order_id | uuid | FK → `orders` |
+| proof_type | enum | `dp`, `final` |
+| file_url | text | URL object storage (UUID filename) |
+| original_filename | text | nama asli untuk referensi admin (tidak diekspos publik) |
+| uploaded_at | timestamp | |
+| file_size | int | bytes |
+| mime_type | text | |
+| verification_status | enum | `pending`, `approved`, `rejected` |
+| rejected_reason | text | nullable |
+| verified_by_admin_id | uuid | nullable |
+| verified_at | timestamp | nullable |
+| retracted_at | timestamp | nullable — diisi saat user tarik ulang bukti salah |
 
 **`blacklist`**
-| id | type (`wa_number`/`ip`) | value | reason | blacklisted_at | blacklisted_by_admin_id |
+| id | type (`email`/`wa_number`) | value | reason | blacklisted_at | blacklisted_by_admin_id |
 
-**`admin_users`** — untuk dashboard admin (verifikasi bukti bayar, kelola blacklist, kelola stok)
+**`audit_logs`**
+| id | action | entity_type | entity_id | performed_by | performed_by_role | details (jsonb) | created_at |
 
-**`audit_logs`** — jejak semua perubahan status booking/order (penting untuk investigasi jika ada dispute)
+### D. Keuangan
 
-### Tabel Keuangan (Modal, Pemasukan, Pengeluaran, Laba)
+**`product_costs`** (HPP historis)
+| id | product_id (FK) | cost_price | effective_date |
 
-**`product_costs`** ⭐ (HPP — Harga Pokok Produksi, wajib ada agar laba bisa dihitung akurat, bukan sekadar omzet)
-| kolom | tipe | ket |
+**`capital_injections`** (modal masuk)
+| id | amount | source | note | injected_at | created_by_admin_id (FK) |
+
+**`expenses`** (pengeluaran operasional)
+| kolom | tipe | keterangan |
 |---|---|---|
 | id | uuid | PK |
-| product_id | FK | |
-| cost_price | numeric | modal bahan baku per unit (bunga, boneka, dll) |
-| effective_date | date | HPP bisa berubah seiring waktu (harga bunga naik-turun), simpan histori bukan overwrite |
-
-**`capital_injections`** (modal masuk — dari owner/investor)
-| kolom | tipe | ket |
-|---|---|---|
-| id | uuid | PK |
-| amount | numeric | |
-| source | text | misal "Modal Awal Owner", "Suntikan Dana" |
-| injected_at | timestamp | |
-| note | text | |
-| created_by_admin_id | FK | |
-
-**`expenses`** (pengeluaran operasional — di luar HPP produk)
-| kolom | tipe | ket |
-|---|---|---|
-| id | uuid | PK |
-| category | enum | `bahan_baku`, `operasional` (listrik/internet), `gaji`, `transport/bensin`, `marketing`, `lainnya` |
+| category | enum | `bahan_baku`, `operasional`, `gaji`, `transport`, `marketing`, `lainnya` |
 | amount | numeric | |
 | description | text | |
 | expense_date | date | |
-| attachment_url | text | nullable, bukti struk/nota jika admin upload |
-| created_by_admin_id | FK | |
+| attachment_url | text | nullable |
+| created_by_admin_id | uuid | FK |
+| deleted_at | timestamp | nullable — soft delete |
 
-**`revenue_ledger`** (opsional — view/materialized, atau tabel ringkasan harian hasil agregasi dari `orders`)
-| kolom | tipe | ket |
-|---|---|---|
-| date | date | PK per hari |
-| gross_revenue | numeric | total dari order `completed` |
-| total_hpp | numeric | agregasi cost_price × qty dari `order_items` |
-| total_ongkir_collected | numeric | |
-| gross_profit | numeric | `gross_revenue - total_hpp` |
+**`revenue_ledger`** (ringkasan harian — materialized view atau tabel)
+| date (PK) | gross_revenue | total_hpp | total_ongkir_collected | gross_profit |
 
-> **Catatan penting:** Laba **bersih** = Gross Profit − `expenses` (periode sama) − alokasi lain. Jangan hitung laba hanya dari `orders.total`, karena itu omzet kotor. HPP per produk (`product_costs`) adalah kunci supaya laporan tidak menyesatkan (misal buket harga jual 150rb tapi modal bunga 90rb → laba kotor sebenarnya cuma 60rb, bukan 150rb).
+### E. Constraint SQL Kritis
 
-### Constraint Kunci untuk Anti-Spam
 ```sql
--- Hanya boleh 1 order pending per nomor WA (partial unique index)
-CREATE UNIQUE INDEX one_pending_order_per_wa
-ON orders (wa_number)
-WHERE status = 'pending_payment';
+-- Max 1 order pending per user
+CREATE UNIQUE INDEX one_pending_order_per_user
+  ON orders (user_id)
+  WHERE status = 'pending_payment';
+
+-- Cegah duplikasi item di keranjang
+CREATE UNIQUE INDEX unique_cart_item
+  ON cart_items (
+    user_id,
+    product_id,
+    COALESCE(variant_id, '00000000-0000-0000-0000-000000000000'::uuid),
+    COALESCE(booking_date, '1970-01-01'::date)
+  );
+
+-- Cegah upload 2 bukti aktif untuk tipe yang sama
+CREATE UNIQUE INDEX one_active_proof_per_type
+  ON payment_proofs (order_id, proof_type)
+  WHERE verification_status IN ('pending', 'approved');
 ```
-Ini memastikan validasi tidak bisa "bocor" walau ada bug di level aplikasi — DB sendiri yang menolak insert kedua.
 
 ---
 
-## 3. Rekomendasi Backend, Storage & Integrasi (dikawinkan dengan Flutter Web)
+## 3. Rekomendasi Stack & Integrasi
 
-### Opsi A — Full Control (direkomendasikan untuk logic booking yang kompleks)
-| Layer | Rekomendasi | Alasan |
+| Layer | Pilihan | Alasan |
 |---|---|---|
-| Backend framework | **NestJS (Node.js + TypeScript)** | Struktur modular (mirip Bloc di Flutter — konsisten pola), native support WebSocket untuk update kalender real-time, ekosistem matang untuk queue/cron (BullMQ) |
-| Database | **PostgreSQL** (managed: Supabase/Neon/RDS) | Butuh constraint & transaction ketat untuk booking |
-| Lock/TTL layer | **Redis** | `SETEX board:16-07-2026 900 "locked_by_session_x"` — TTL native 15 menit, auto-expire tanpa perlu cron rumit |
-| Cron/Worker | **BullMQ (Node)** atau `pg_cron` | Backup safety-net untuk expire pending order/booking jika Redis event terlewat |
-| Object Storage | **Cloudflare R2** atau **Supabase Storage** | S3-compatible, murah, tidak ada egress fee (R2), cocok untuk simpan bukti bayar & foto produk |
-| Deploy | Railway / Fly.io / VPS (jika budget terbatas) | |
+| Backend | **NestJS + TypeScript** | Modular, WebSocket bawaan, BullMQ, Cron native |
+| Database | **PostgreSQL** (Supabase/Neon/RDS) | Partial index, transaction, constraint ketat |
+| Cache/Lock | **Redis** | TTL native, token revocation |
+| Object Storage | **Cloudflare R2** | S3-compatible, tanpa egress fee |
+| Deploy | Railway / Fly.io / VPS | |
 
-### Opsi B — Rapid Development (jika ingin lebih cepat MVP)
-| Layer | Rekomendasi |
-|---|---|
-| Backend | **Supabase** (Postgres + Auto REST/GraphQL + Edge Functions untuk logic custom seperti hitung ongkir & generate WA link) |
-| Realtime kalender | **Supabase Realtime** (built-in, Flutter punya package `supabase_flutter` resmi) |
-| Storage bukti bayar | **Supabase Storage** (built-in, bisa set policy ukuran file & mime type langsung di level bucket) |
-| Lock TTL | Gunakan kolom `expires_at` + Postgres Edge Function/cron (`pg_cron`) untuk auto-release, karena Supabase tidak native expose Redis |
+### Frontend Flutter Web — Struktur Folder
 
-> **Rekomendasi saya:** mulai dengan **Opsi B (Supabase)** untuk kecepatan MVP — terutama karena guest checkout, upload bukti bayar, dan realtime kalender semua sudah tersedia sebagai fitur bawaan. Migrasi ke Opsi A (NestJS+Redis) bisa dilakukan nanti kalau traffic booking sudah tinggi dan butuh presisi TTL yang lebih ketat dari sekadar polling `expires_at`.
-
-### Tambahan untuk Panel Admin — Charting & Export
-| Kebutuhan | Rekomendasi | Alasan |
-|---|---|---|
-| Chart di Flutter Web (admin dashboard) | **fl_chart** atau **syncfusion_flutter_charts** | `fl_chart` ringan & open-source untuk bar/line/pie sederhana; `syncfusion_flutter_charts` lebih kaya (drill-down, export gambar) jika butuh chart lebih kompleks — Syncfusion free untuk individu/UMKM kecil (community license) |
-| Export ke XLSX | Generate di **backend** (bukan di Flutter client) pakai **ExcelJS** (Node/NestJS) atau **openpyxl** (jika backend Python) | Data finansial sebaiknya diformat & divalidasi di server sebelum jadi file, juga menghindari expose seluruh raw data ke client hanya untuk generate file |
-| Alternatif ringan (Supabase/no dedicated backend) | Edge Function Supabase (Deno) + library **xlsx (SheetJS)** untuk generate file, upload sementara ke Storage, kirim signed URL download ke admin | Cocok jika pakai Opsi B (Supabase) |
-
-### Integrasi Pendukung
-- **Google Distance Matrix API** — dipanggil dari **backend**, bukan langsung dari Flutter Web, supaya API key tidak ter-expose di client. Hasil jarak di-cache per kombinasi origin-destination (rounding ke 100m) untuk hemat kuota API.
-- **Rumus ongkir** dihitung di server saat checkout, lalu disimpan sebagai snapshot di `delivery_addresses.ongkir_calculated` (jangan hitung ulang di client, agar harga tidak berubah antara "lihat estimasi" dan "checkout final").
-- **WA Deep-link** — backend generate token terenkripsi (misal JWT pendek atau AES) berisi `order_id`, lalu buat URL: `https://domain.com/o/{token}` yang saat diklik oleh admin membuka halaman ringkasan order (auth admin), *atau* langsung encode ringkasan singkat ke `https://wa.me/62812xxxx?text={encoded_summary}` untuk draft pesan otomatis. Kombinasi keduanya ideal: teks WA singkat + link ke halaman detail lengkap (menghindari batas panjang URL WA).
-- **Rate limiting per IP** — middleware sederhana (Nest Guard / Supabase Edge Function) untuk membatasi jumlah request checkout per IP per menit, mencegah bot spam sebelum menyentuh DB.
-
-### Frontend (Flutter Web + Bloc) — struktur folder singkat
 ```
 lib/
  ├── features/
- │    ├── catalog/           (CatalogBloc)
- │    ├── booking/           (BookingCalendarBloc — pegang state soft-lock + countdown timer)
- │    ├── checkout/          (CheckoutBloc — alamat, ongkir, DP)
- │    ├── payment_proof/     (PaymentUploadBloc)
- │    ├── whatsapp_redirect/
+ │    ├── auth/
+ │    │    ├── auth_bloc.dart
+ │    │    └── token_manager.dart        # Access token di memori
+ │    ├── catalog/
+ │    ├── cart/
+ │    │    ├── cart_bloc.dart            # Optimistic update + pending queue
+ │    │    └── cart_local_storage.dart   # Buffer offline (IndexedDB)
+ │    ├── booking/                        # Tampil kalender, cek ketersediaan
+ │    ├── checkout/                       # Ongkir, delivery type, submit checkout
+ │    ├── orders/
+ │    │    ├── order_history_bloc.dart
+ │    │    ├── order_detail_bloc.dart
+ │    │    └── cancel_order_bloc.dart
+ │    ├── payment_proof/
+ │    │    ├── upload_proof_bloc.dart     # Upload DP & final
+ │    │    └── retract_proof_bloc.dart    # Tarik ulang bukti salah
  │    └── admin/
- │         ├── dashboard/       (AdminDashboardBloc — ringkasan omzet/laba/grafik)
- │         ├── order_verification/ (AdminOrderBloc — approve/reject bukti bayar)
- │         ├── finance/         (FinanceBloc — CRUD expenses, capital, laporan laba-rugi)
- │         ├── export/          (ExportBloc — trigger request export xlsx ke backend)
- │         ├── blacklist/       (BlacklistBloc)
- │         └── product_stock/   (StockBloc — kelola ready_stock/PO)
- ├── repositories/            (abstraksi API, easy untuk mock saat testing)
+ │         ├── dashboard/
+ │         ├── order_verification/        # + WebSocket listener notifikasi
+ │         ├── finance/
+ │         ├── export/
+ │         ├── blacklist/
+ │         └── product_stock/
+ ├── repositories/
+ ├── services/
+ │    └── connectivity_service.dart      # Monitor koneksi, trigger cart sync
  └── core/
-      ├── network/ (Dio + interceptor)
+      ├── network/
+      │    ├── dio_client.dart
+      │    └── auth_interceptor.dart     # Auto-refresh token saat 401
       └── theme/
 ```
-Panel admin sebaiknya jadi **route/module terpisah** (`/admin/*`) dengan auth guard (admin_users login wajib pakai password, beda dengan guest checkout customer), dan idealnya di-build sebagai bagian dari aplikasi Flutter Web yang sama namun lazy-loaded, atau bahkan project Flutter terpisah jika ingin isolasi total dari bundle customer-facing (mengurangi ukuran bundle web publik).
-
-`BookingCalendarBloc` sebaiknya juga subscribe ke realtime channel (Supabase Realtime/WebSocket) agar begitu user lain berhasil lock tanggal, kalender user lain otomatis update jadi "tidak tersedia" tanpa perlu refresh.
 
 ---
 
-## 4. Panel Admin — Laporan Keuangan, Grafik & Export
+## 4. Keranjang Offline-Resilient ⭐
 
-### A. Modul yang Perlu Ada
-1. **Dashboard Ringkasan** — kartu angka: Omzet (gross revenue), Total HPP, Laba Kotor, Total Pengeluaran, **Laba Bersih**, Modal masuk, filter by rentang tanggal (harian/mingguan/bulanan/custom range)
-2. **Manajemen Order** — antrian verifikasi bukti bayar (approve/reject), status tracking
-3. **Manajemen Keuangan**
-   - Input **Modal** (`capital_injections`) — catat suntikan dana owner
-   - Input **Pengeluaran** (`expenses`) — kategori bebas (bahan baku non-produk, gaji, transport, marketing dll), bisa upload nota
-   - Kelola **HPP produk** (`product_costs`) — supaya perhitungan laba akurat per item terjual
-4. **Grafik/Visualisasi**
-   - Line chart: tren omzet vs pengeluaran per hari/bulan
-   - Bar chart: perbandingan laba per kategori produk (bunga vs kado vs sewa papan)
-   - Pie/donut chart: komposisi pengeluaran per kategori
-   - Progress/gauge: modal terpakai vs modal masuk
-5. **Export Laporan**
-   - Tombol "Export ke XLSX" di setiap laporan (transaksi, laba-rugi, pengeluaran) dengan filter tanggal
-   - Format sheet disarankan: `Ringkasan`, `Detail Transaksi`, `Detail Pengeluaran`, `Detail Modal` (multi-sheet dalam satu file agar tetap rapi untuk pembukuan manual/akuntan)
+**Prinsip: Offline-First, Sync Later**
 
-### B. Logika Perhitungan Laba (Formula)
+| Storage | Tujuan |
+|---|---|
+| `localStorage`/`IndexedDB` (browser) | Buffer sementara saat offline |
+| Tabel `cart_items` di PostgreSQL | Single source of truth |
+
+**Alur Normal (online):**
 ```
-Gross Revenue (Omzet)   = SUM(orders.total) WHERE status = 'completed' AND date IN range
-Total HPP               = SUM(order_items.qty × product_costs.cost_price) untuk order yang sama
-Gross Profit             = Gross Revenue − Total HPP
-Total Expenses           = SUM(expenses.amount) WHERE expense_date IN range
-Net Profit (Laba Bersih) = Gross Profit − Total Expenses
-Modal Tersisa            = SUM(capital_injections.amount) − SUM(expenses.amount kategori bahan_baku/awal) [opsional, tergantung kebutuhan tracking modal riil vs P&L]
+User tambah item → POST /api/cart/items
+  → Backend insert cart_items → return state terbaru
+  → CartBloc update state + perbarui cache lokal
 ```
-> Catatan: Ongkir yang dibayar customer sebaiknya dipisah dari omzet produk jika biaya BBM/operasional kurir juga dicatat di `expenses` kategori `transport`, supaya tidak dobel hitung atau malah tersembunyi selisihnya (ongkir masuk vs biaya bensin riil bisa surplus/minus, ini insight yang berguna buat owner).
 
-### C. Alur Teknis Grafik & Export
-- Backend menyediakan endpoint agregasi khusus laporan, contoh:
-  - `GET /admin/reports/summary?from=2026-07-01&to=2026-07-31` → return angka-angka siap pakai (jangan kirim raw rows lalu dihitung di Flutter, supaya konsisten dan ringan di client)
-  - `GET /admin/reports/export?type=profit_loss&from=...&to=...` → backend generate file xlsx on-the-fly, return sebagai file download / signed URL
-- Perhitungan agregasi berat (SUM, JOIN besar) sebaiknya dilakukan via **materialized view** atau **scheduled aggregation job** (misal setiap malam, hitung ulang `revenue_ledger` harian) — jangan hitung real-time dari jutaan baris `orders` tiap kali admin buka dashboard, supaya dashboard tetap responsif seiring data bertambah
-- `AdminDashboardBloc` (Flutter) cukup fetch angka & series data yang sudah diagregasi, lalu render lewat `fl_chart`/`syncfusion_flutter_charts` — tidak perlu logic kalkulasi laba di client sama sekali (single source of truth di backend, hindari selisih angka antara dashboard dan file export)
+**Saat offline:**
+```
+API call gagal → simpan aksi ke "pending queue" di localStorage
+  → UI update optimistik (item tampil)
+  → Tampilkan badge kecil "Menyimpan..." di ikon keranjang
+```
 
-### D. Keamanan Panel Admin
-- Wajib **login admin terpisah** (bukan guest) — gunakan Supabase Auth / JWT NestJS dengan role `admin`/`super_admin`
-- **Role-based access**: misal staf gudang hanya bisa lihat stok, sedangkan data keuangan (modal, laba) hanya bisa diakses role `owner`/`finance` — penting kalau nanti ada beberapa staf admin
-- Audit log khusus untuk aksi input pengeluaran/modal (siapa input, kapan, nilai berapa) — mencegah manipulasi angka laporan oleh staf
+**Saat kembali online:**
+```
+ConnectivityService deteksi → CartBloc.syncPendingQueue()
+  → POST /api/cart/sync (kirim seluruh state lokal)
+  → Backend: hapus cart_items lama → insert batch baru → return final state
+  → CartBloc update dari server, hapus pending queue lokal
+```
 
----
-
-## 5. Flowchart Logika — Anti-Spam & Anti-Double-Booking
-
-### A. Soft-Booking Papan Ucapan (Race Condition Prevention)
-- User pilih tanggal di kalender → frontend kirim request `POST /booking/lock {board_id, date, session_id}`
-- Backend, di dalam **satu transaction**:
-  - Cek row `board_bookings` untuk `(board_id, date)` dengan status `soft_locked` atau `confirmed`
-    - Jika **ada dan belum expired** → tolak, respon `409 Conflict: tanggal sedang diproses user lain`
-    - Jika **ada tapi sudah expired** (expires_at < now) → update jadi lock baru untuk user ini
-    - Jika **tidak ada** → insert row baru, status `soft_locked`, `expires_at = now + 15 menit`
-  - Constraint unique index di DB jadi *safety net* terakhir kalau dua request masuk bersamaan (race condition murni) — salah satu pasti gagal insert
-- Frontend tampilkan **countdown timer 15 menit** (dari `expires_at` yang dikembalikan backend, bukan dihitung ulang di client agar sinkron)
-- Selama countdown:
-  - Jika user submit bukti bayar sebelum expired → status booking jadi `confirmed`, linked ke `order_id`
-  - Jika waktu habis tanpa upload bukti bayar → job cron (tiap 1 menit) scan `expires_at < now AND status='soft_locked'` → set balik ke *available* (hapus/soft-delete row lock)
-- Jika user reload halaman/pindah tab lalu balik lagi → frontend re-check status lock by `session_id` untuk restore countdown (bukan mulai baru), supaya user tidak bisa "reset" lock terus-menerus untuk hold tanggal selamanya.
-
-### B. Anti-Spam Order Fiktif (1 WA = 1 Pending Order)
-- Saat user klik "Checkout" → backend jalankan urutan validasi **sebelum** insert order:
-  1. Cek `blacklist` table: apakah `wa_number` atau `ip_address` request ini terdaftar? → jika ya, **tolak langsung**, tidak beri pesan detail (hindari beri tahu penipu alasan spesifik)
-  2. Cek `orders` table: apakah ada row dengan `wa_number` sama dan `status = 'pending_payment'`? → jika ya, tolak dengan pesan: *"Anda memiliki pesanan yang belum diselesaikan, silakan selesaikan atau tunggu hingga kedaluwarsa."*
-  3. Jika lolos kedua cek → insert order baru, status `pending_payment`, set `dp_deadline`
-- Cron job juga expire order pending yang sudah lewat `dp_deadline` tanpa upload bukti bayar → status jadi `cancelled`, dan **release booking terkait** (kembali ke available) supaya slot tidak "tersandera" order fiktif.
-
-### C. Validasi Upload Bukti Bayar
-- **Client-side (Flutter)**: filter file picker hanya `.jpg/.jpeg/.png`, cek ukuran sebelum upload (quick feedback, UX saja — bukan security boundary)
-- **Server-side (wajib, jangan percaya client)**:
-  - Cek `Content-Type` header & **magic bytes** file (bukan hanya ekstensi nama file — orang bisa rename `.exe` jadi `.jpg`)
-  - Tolak jika ukuran > 2MB (reject sebelum file selesai ter-upload penuh kalau bisa, pakai stream size check)
-  - Simpan ke storage dengan nama file ter-randomize (UUID), bukan nama asli, untuk hindari path traversal/collision
-  - Set status `payment_proofs.verification_status = pending`, order tetap `pending_payment` sampai admin verifikasi manual
-
-### D. Blacklist Flow (Admin Action)
-- Admin buka dashboard → lihat antrian bukti bayar pending
-- Admin verifikasi:
-  - **Approve** → order jadi `dp_verified` → generate WA deep-link → booking (jika ada) jadi `confirmed` permanen
-  - **Reject** (bukti palsu/foto random) → admin isi alasan → sistem otomatis:
-    - Insert ke `blacklist` (wa_number **dan** IP address yang terekam saat submit)
-    - Order jadi `rejected`
-    - Booking terkait (jika papan ucapan) di-release kembali ke *available*
-- Request checkout/upload berikutnya dari WA/IP yang sama otomatis tertolak di layer validasi (poin B.1) tanpa perlu intervensi admin lagi.
+**Aturan Keranjang:**
+- Keranjang **TIDAK dihapus saat logout** — tetap ada saat login kembali.
+- Keranjang dikosongkan backend setelah `POST /api/checkout` berhasil.
+- Item papan ucapan wajib punya `booking_date` yang tidak di masa lalu.
 
 ---
 
-## Catatan Implementasi Prioritas (Urutan Build yang Disarankan)
-1. Skema database + constraint unique (fondasi anti-spam & anti-double-booking ada di level DB, bukan hanya kode aplikasi)
-2. Booking lock service + cron expiry (fitur paling rawan bug jika di-skip testing race condition-nya)
-3. Katalog + checkout guest + kalkulasi ongkir (Distance Matrix)
-4. Upload bukti bayar + validasi + WA deep-link
-5. Dashboard admin dasar (login, verifikasi bukti bayar, kelola blacklist, kelola stok)
-6. Modul keuangan admin (input modal & pengeluaran, HPP produk, agregasi laporan)
-7. Grafik dashboard + export XLSX (paling terakhir — bergantung data transaksi & keuangan poin 1-6 sudah berjalan & terisi)
+## 5. Alur Retract & Kirim Ulang Bukti Bayar ⭐
+
+> Fitur ini memungkinkan customer yang salah upload foto (misalnya foto selfie bukan foto bukti transfer) untuk menarik ulang dan mengunggah yang benar, **selama admin belum memverifikasi**.
+
+```
+[Customer upload bukti DP yang salah]
+  → payment_proofs: { proof_type: 'dp', verification_status: 'pending' }
+  → Customer sadar salah foto
+  │
+  ▼
+[Customer klik "Ganti Foto Bukti Bayar"]
+  → DELETE /api/orders/:orderId/payment-proof/dp
+  → Backend: cek bahwa verification_status == 'pending' (bukan approved/rejected)
+  → Jika ya: tandai proof lama dengan retracted_at = now, hapus file dari storage
+  → Response: 200 OK, customer bisa upload ulang
+  │
+  ▼
+[Customer upload ulang foto yang benar]
+  → POST /api/orders/:orderId/payment-proof/dp (file baru)
+  → WebSocket emit 'proof_retracted' + 'payment_proof_submitted' ke admin
+  → Alur verifikasi berjalan normal
+```
+
+**Aturan Retract:**
+- Hanya bisa dilakukan jika `verification_status = 'pending'`.
+- Jika status sudah `approved` → **tidak bisa retract** → hubungi admin.
+- Jika status sudah `rejected` → tidak perlu retract, langsung upload ulang (bukti rejected dianggap tidak aktif).
+- Constraint SQL `one_active_proof_per_type` mencegah ada 2 bukti aktif untuk tipe yang sama.
+- Admin mendapat notifikasi WebSocket (`proof_retracted`) agar tidak memverifikasi bukti yang sudah ditarik.
+
+---
+
+## 6. Alur Pembayaran Dua Tahap (DP + Pelunasan) ⭐
+
+```
+[Checkout] → Order: status=pending_payment, dp_deadline=+2jam
+     ↓
+[Customer upload bukti DP]
+     ↓
+[Admin verify-dp]
+  → status: pending_final_payment
+  → dp_verified_at = now
+  → pelunasan_deadline = dp_verified_at + 3 hari
+  → Email + WA ke customer: sisa tagihan + deadline pelunasan
+     ↓
+[H-1 sebelum pelunasan_deadline] → Cron kirim warning email ke customer
+     ↓
+[Customer upload bukti pelunasan]
+     ↓
+[Admin verify-final]
+  → status: fully_paid
+  → booking papan ucapan (jika ada) → confirmed permanen
+  → Generate WA deep-link ringkasan final
+     ↓
+[Admin mark complete] → POST /api/admin/orders/:id/complete
+  → status: completed
+  → stock_qty -= qty (stok fisik resmi dikurangi)
+  → reserved_qty -= qty
+
+--- SKENARIO PEMBATALAN ---
+
+[Customer cancel] (hanya saat status: pending_payment atau dp_verified/pending_final_payment)
+  → POST /api/orders/my/:orderId/cancel { reason? }
+  → release booking lock → reserved_qty dikembalikan
+  → Hitung refund_amount berdasarkan usia order (waktu sejak created_at):
+
+       Usia order saat cancel   │ Potongan  │ Refund ke customer
+       ─────────────────────────┼───────────┼───────────────────
+       < 12 jam                 │ 0%        │ 100% dari dp_amount
+       12 jam – 24 jam          │ 25%       │ 75% dari dp_amount
+       > 24 jam                 │ 50%       │ 50% dari dp_amount
+
+  → Jika DP belum dibayar (status masih pending_payment): langsung cancel, tidak ada refund
+  → Jika DP sudah diverifikasi: isi orders.refund_amount, refund_deduction_pct, refund_status='pending_refund'
+  → Email ke customer: konfirmasi cancel + nominal yang akan dikembalikan + instruksi
+  → Email ke admin: ada order dibatalkan customer, perlu proses refund manual
+
+[Admin proses refund manual]
+  → PUT /api/admin/orders/:id/refund-done
+  → Isi refund_note (nomor rekening tujuan, tanggal transfer, bukti transfer)
+  → refund_status → 'refunded'
+  → Email ke customer: konfirmasi refund sudah dikirim
+
+[Admin force-cancel] (force majeure / stok habis mendadak)
+  → POST /api/admin/orders/:id/force-cancel { admin_cancel_note }
+  → cancelled_by = 'admin', full refund (refund_deduction_pct = 0, refund_amount = dp_amount)
+  → release booking lock → reserved_qty dikembalikan
+  → refund_status = 'pending_refund'
+  → Email ke customer: order dibatalkan pihak toko + alasan + instruksi klaim refund penuh
+
+[DP tidak dibayar lewat dp_deadline]
+  → Cron auto-cancel (cancelled_by='system') → release lock → reserved_qty kembali
+  → Tidak ada refund (DP belum terbukti dibayar)
+
+[Pelunasan tidak dibayar lewat pelunasan_deadline]
+  → Cron auto-cancel (cancelled_by='system') → release lock → reserved_qty kembali
+  → Hitung refund DP dengan potongan berdasarkan usia order (sama dengan aturan customer cancel di atas)
+  → Email notifikasi ke customer: order dibatalkan + nominal refund DP
+```
+
+---
+
+## 7. Alur Checkout (Semua Validasi Tergabung)
+
+```
+POST /api/checkout { items[], delivery_type, address?, wa_number, custom_text }
+  → [Guard] JWT valid + is_verified = true
+  → [Guard] Cek email & wa_number di blacklist → 403
+  → [Service] Cek pending order user → 409
+  → [Service] Validasi stok: stock_qty - reserved_qty >= qty (ready_stock)
+  → [Service] Jika ada papan_ucapan: cek booking_date tersedia di semua board
+  → [Service] Jika delivery: kalkulasi ongkir via Google Distance Matrix
+  → [DB Transaction prisma.$transaction()]
+      INSERT orders + order_items + delivery_address (jika delivery)
+      UPDATE products: reserved_qty += qty (setiap item)
+      INSERT board_bookings: auto-assign board yang available, soft_locked, expires_at = +15mnt
+      (DB constraint sebagai safety net terakhir jika ada race condition)
+  → Return { orderId, dpAmount, dpDeadline, remainingAmount }
+```
+
+---
+
+## 8. Formula Laporan Keuangan
+
+```
+Gross Revenue  = SUM(orders.total) WHERE status IN ('fully_paid','processing','completed')
+Total HPP      = SUM(order_items.qty × order_items.cost_price_snapshot)
+Gross Profit   = Gross Revenue − Total HPP
+Total Expenses = SUM(expenses.amount) WHERE expense_date IN range
+Net Profit     = Gross Profit − Total Expenses
+```
+
+> Ongkir dipisah dari omzet produk. Biaya bensin/kurir dicatat di `expenses` kategori `transport`. Ini memberi insight apakah ongkir yang diterima surplus/defisit vs biaya pengiriman riil.
+
+---
+
+## 9. Anti-Spam — Defense in Depth
+
+| Layer | Mekanisme |
+|---|---|
+| 1 | Email Verification Barrier — wajib verif email sebelum transaksi |
+| 2 | Blacklist Check — cek email & WA di middleware sebelum checkout/auth |
+| 3 | Single Pending Constraint — partial unique index di DB |
+| 4 | Rate Limiting — `@nestjs/throttler` per IP di auth & checkout |
+| 5 | DP Deadline — 2 jam; lewat → auto-cancel + release lock |
+
+---
+
+## 10. Urutan Implementasi
+
+| # | Modul | Ketergantungan |
+|---|---|---|
+| 1 | Schema DB + semua constraint & index | — |
+| 2 | Auth (register, verif email, login, refresh token) | Schema DB |
+| 3 | Katalog produk (CRUD + foto + stok) | Auth |
+| 4 | Cart (server-side + offline sync) | Auth + Katalog |
+| 5 | Kalender ketersediaan papan (read-only) | Auth + DB |
+| 6 | Checkout + DP flow + auto-assign board | Cart + Kalender |
+| 7 | Upload & retract bukti DP + WebSocket notif admin | Checkout |
+| 8 | Pelunasan + upload & retract bukti final | DP flow |
+| 9 | Riwayat order customer + cancel order | Checkout |
+| 10 | Dashboard admin (verifikasi, blacklist, stok, mark complete) | Semua transaksi |
+| 11 | Force cancel admin + WA deep-link | Dashboard admin |
+| 12 | Modul keuangan (modal, pengeluaran, HPP) | Auth admin |
+| 13 | Laporan, grafik, export XLSX | Modul keuangan + transaksi |
