@@ -1,0 +1,171 @@
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { Prisma } from '@prisma/client';
+import { PrismaService } from '../../prisma/prisma.service';
+import { AddCartItemDto, SyncCartDto, UpdateCartItemDto } from './dto/cart.dto';
+
+const BOARD_CATEGORY = 'papan_ucapan';
+
+@Injectable()
+export class CartService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  get(userId: string) {
+    return this.prisma.cartItem.findMany({
+      where: { userId, product: { deletedAt: null, isActive: true } },
+      orderBy: { addedAt: 'asc' },
+      include: {
+        product: {
+          include: {
+            category: true,
+            images: { where: { deletedAt: null, isPrimary: true }, take: 1 },
+          },
+        },
+        variant: true,
+      },
+    });
+  }
+
+  async add(userId: string, dto: AddCartItemDto) {
+    const normalized = await this.validateItem(dto);
+    try {
+      const existing = await this.prisma.cartItem.findFirst({
+        where: {
+          userId,
+          productId: dto.productId,
+          variantId: dto.variantId ?? null,
+          bookingDate: normalized.bookingDate,
+        },
+      });
+      if (existing) {
+        await this.prisma.cartItem.update({
+          where: { id: existing.id },
+          data: {
+            qty: existing.qty + dto.qty,
+            customNote: dto.customNote ?? existing.customNote,
+          },
+        });
+      } else {
+        await this.prisma.cartItem.create({ data: { userId, ...normalized } });
+      }
+      return this.get(userId);
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new ConflictException(
+          'The same cart item was modified concurrently; retry the request',
+        );
+      }
+      throw error;
+    }
+  }
+
+  async update(userId: string, itemId: string, dto: UpdateCartItemDto) {
+    const item = await this.prisma.cartItem.findFirst({
+      where: { id: itemId, userId },
+      include: { product: { include: { category: true } } },
+    });
+    if (!item) throw new NotFoundException('Cart item not found');
+    let bookingDate = item.bookingDate;
+    if (dto.bookingDate) bookingDate = this.parseFutureDate(dto.bookingDate);
+    if (item.product.category.slug === BOARD_CATEGORY && !bookingDate)
+      throw new BadRequestException(
+        'bookingDate is required for board products',
+      );
+    await this.prisma.cartItem.update({
+      where: { id: itemId },
+      data: { qty: dto.qty, customNote: dto.customNote, bookingDate },
+    });
+    return this.get(userId);
+  }
+
+  async remove(userId: string, itemId: string) {
+    const deleted = await this.prisma.cartItem.deleteMany({
+      where: { id: itemId, userId },
+    });
+    if (!deleted.count) throw new NotFoundException('Cart item not found');
+    return this.get(userId);
+  }
+
+  async clear(userId: string) {
+    await this.prisma.cartItem.deleteMany({ where: { userId } });
+    return [];
+  }
+
+  async sync(userId: string, dto: SyncCartDto) {
+    const normalized = await Promise.all(
+      dto.items.map((item) => this.validateItem(item)),
+    );
+    const keys = new Set<string>();
+    for (const item of normalized) {
+      const key = `${item.productId}:${item.variantId ?? ''}:${item.bookingDate?.toISOString() ?? ''}`;
+      if (keys.has(key))
+        throw new BadRequestException(
+          'Sync payload contains duplicate cart items',
+        );
+      keys.add(key);
+    }
+    await this.prisma.$transaction(
+      async (tx) => {
+        await tx.cartItem.deleteMany({ where: { userId } });
+        if (normalized.length)
+          await tx.cartItem.createMany({
+            data: normalized.map((item) => ({ userId, ...item })),
+          });
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    );
+    return this.get(userId);
+  }
+
+  private async validateItem(dto: AddCartItemDto) {
+    const product = await this.prisma.product.findFirst({
+      where: { id: dto.productId, deletedAt: null, isActive: true },
+      include: { category: true },
+    });
+    if (!product) throw new NotFoundException('Product not found');
+    if (dto.variantId) {
+      const variant = await this.prisma.productVariant.findFirst({
+        where: { id: dto.variantId, productId: dto.productId, deletedAt: null },
+      });
+      if (!variant)
+        throw new BadRequestException(
+          'Variant does not belong to this product',
+        );
+    }
+    if (product.category.slug === BOARD_CATEGORY && !dto.bookingDate)
+      throw new BadRequestException(
+        'bookingDate is required for board products',
+      );
+    if (product.category.slug !== BOARD_CATEGORY && dto.bookingDate)
+      throw new BadRequestException(
+        'bookingDate is only valid for board products',
+      );
+    return {
+      productId: dto.productId,
+      variantId: dto.variantId ?? null,
+      qty: dto.qty,
+      customNote: dto.customNote,
+      bookingDate: dto.bookingDate
+        ? this.parseFutureDate(dto.bookingDate)
+        : null,
+    };
+  }
+
+  private parseFutureDate(value: string): Date {
+    const date = new Date(`${value.slice(0, 10)}T00:00:00.000Z`);
+    const today = new Date();
+    const todayUtc = new Date(
+      Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()),
+    );
+    if (Number.isNaN(date.valueOf()) || date < todayUtc)
+      throw new BadRequestException('bookingDate cannot be in the past');
+    return date;
+  }
+}

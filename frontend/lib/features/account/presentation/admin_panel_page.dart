@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:florist_frontend/core/auth_state.dart';
 import 'package:florist_frontend/core/theme.dart';
 import 'package:florist_frontend/features/admin/presentation/admin_customers_page.dart';
 import 'package:florist_frontend/features/admin/presentation/admin_inventory_page.dart';
@@ -172,6 +173,35 @@ class _AdminSidebar extends StatelessWidget {
                     minimumSize: const Size.fromHeight(50),
                     backgroundColor: AppColors.deepRose,
                     foregroundColor: AppColors.pureWhite,
+                    shape: const StadiumBorder(),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                  icon: const Icon(LucideIcons.arrowLeftRight, size: 18),
+                  label: const Text('Kembali ke Toko'),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(50),
+                    foregroundColor: AppColors.darkGray,
+                    side: const BorderSide(color: _borderColor),
+                    shape: const StadiumBorder(),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                OutlinedButton.icon(
+                  onPressed: () {
+                    authNotifier.logout();
+                    Navigator.of(context).pop();
+                  },
+                  icon: const Icon(LucideIcons.logOut, size: 18),
+                  label: const Text('Keluar Akun'),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(50),
+                    foregroundColor: AppColors.error,
+                    side: const BorderSide(color: AppColors.error),
                     shape: const StadiumBorder(),
                   ),
                 ),

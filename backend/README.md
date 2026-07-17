@@ -1,98 +1,69 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Seli Florist API
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+Production-oriented NestJS REST API for flowers, gifts, and physical greeting-board rentals. The API follows the decisions in `../note.md`: persistent carts, server-side pricing, two-stage payment, transactional stock reservation, automatic board assignment, manual tiered refunds, real-time admin events, and finance reporting.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Runtime services
 
-## Description
+- Node.js 20+ and npm
+- PostgreSQL
+- Redis (refresh-token revocation; auth refresh/logout intentionally fail closed if unavailable)
+- SMTP credentials for email delivery
+- Google Distance Matrix API for delivery orders only
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+Copy `.env.example` to `.env` and replace every production secret. `JWT_SECRET` and `JWT_REFRESH_SECRET` must be independent high-entropy values. Secure refresh cookies are always marked `httpOnly`, `Secure`, and `SameSite=Strict`, so local browser testing should use HTTPS.
 
-## Project setup
+## Setup
 
 ```bash
-$ npm install
+npm install
+npx prisma generate
+npx prisma migrate deploy
+npx prisma db seed
+npm run start:dev
 ```
 
-## Compile and run the project
+The seed is safe by default: it creates categories and board inventory but does not create a privileged account unless `SEED_OWNER_EMAIL` and `SEED_OWNER_PASSWORD` are explicitly set.
+
+## Verification
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+npx prisma validate
+npm run lint
+npm run build
+npm test -- --runInBand
 ```
 
-## Run tests
+## API structure
 
-```bash
-# unit tests
-$ npm run test
+All HTTP routes use the `/api` prefix. Public routes are limited to health, product/category reads, the booking calendar, email/auth flows, and public product images. Other routes require a bearer access token.
 
-# e2e tests
-$ npm run test:e2e
+- `auth`: registration, verification, login, refresh rotation, logout/revocation, password reset, profile
+- `catalog`: categories, products, variants/images, stock and soft deletion
+- `cart`: persistent item CRUD and atomic offline reconciliation
+- `booking`: calendar, availability, board inventory, transactional auto-assignment
+- `checkout`: pickup/delivery estimation and `SERIALIZABLE` order creation
+- `orders`: customer history/cancellation and admin verification/lifecycle/refunds
+- `payment-proof`: validated DP/final image submission and pending-proof retraction
+- `finance`, `reports`, `blacklist`, `admin`: role-restricted operations
+- `notifications`: authenticated Socket.IO namespace `/admin-notifications`
+- `jobs`: minute-level expiry and hourly final-payment reminders
 
-# test coverage
-$ npm run test:cov
-```
+List endpoints use `page` and `limit` (maximum 100). Responses have the common `{ success, data, meta? }` shape; errors have `{ success: false, message, errors? }`.
 
-## Deployment
+## Database safety
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+The initial migration contains PostgreSQL partial indexes that Prisma cannot describe in `schema.prisma`:
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+- one active board booking per `(board_id, booking_date)`
+- one pending-payment order per customer
+- one active proof per order/payment stage
+- one logical cart row per product/variant/date
+- one active primary image per product
 
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
+Checkout and board reassignment also use `SERIALIZABLE` transactions with conflict retries. Application writes use Prisma's parameterized query API; no user input is interpolated into SQL.
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+## Upload boundary
 
-## Resources
+Uploads are held in memory up to 2 MB, checked against PNG/JPEG start and terminal signatures, checked against the declared MIME type, and stored under server-generated UUID names. Original names are metadata only and never become paths. Product images are public; payment proofs require an admin role and are returned with `Cache-Control: private, no-store`.
 
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+For multi-instance production deployment, replace the included local filesystem storage adapter with the planned R2/S3 adapter while preserving the same UUID-key contract.

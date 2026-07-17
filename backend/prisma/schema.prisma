@@ -1,0 +1,455 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  OWNER              @map("owner")
+  FINANCE            @map("finance")
+  STAFF_VERIFICATION @map("staff_verifikasi")
+  CUSTOMER           @map("customer")
+
+  @@map("user_role")
+}
+
+enum StockType {
+  READY_STOCK @map("ready_stock")
+  PRE_ORDER   @map("pre_order")
+
+  @@map("stock_type")
+}
+
+enum DeliveryType {
+  DELIVERY @map("delivery")
+  PICKUP   @map("pickup")
+
+  @@map("delivery_type")
+}
+
+enum OrderStatus {
+  PENDING_PAYMENT       @map("pending_payment")
+  DP_VERIFIED           @map("dp_verified")
+  PENDING_FINAL_PAYMENT @map("pending_final_payment")
+  FULLY_PAID            @map("fully_paid")
+  PROCESSING            @map("processing")
+  COMPLETED             @map("completed")
+  CANCELLED             @map("cancelled")
+  REJECTED              @map("rejected")
+
+  @@map("order_status")
+}
+
+enum BookingStatus {
+  SOFT_LOCKED @map("soft_locked")
+  CONFIRMED   @map("confirmed")
+  CANCELLED   @map("cancelled")
+
+  @@map("booking_status")
+}
+
+enum ProofType {
+  DP    @map("dp")
+  FINAL @map("final")
+
+  @@map("proof_type")
+}
+
+enum VerificationStatus {
+  PENDING  @map("pending")
+  APPROVED @map("approved")
+  REJECTED @map("rejected")
+
+  @@map("verification_status")
+}
+
+enum PaymentStatus {
+  WAITING_PROOF @map("waiting_proof")
+  PROOF_PENDING @map("proof_pending")
+  VERIFIED      @map("verified")
+  EXPIRED       @map("expired")
+  REFUNDED      @map("refunded")
+
+  @@map("payment_status")
+}
+
+enum CancelledBy {
+  CUSTOMER @map("customer")
+  ADMIN    @map("admin")
+  SYSTEM   @map("system")
+
+  @@map("cancelled_by")
+}
+
+enum RefundStatus {
+  PENDING_REFUND @map("pending_refund")
+  REFUNDED       @map("refunded")
+
+  @@map("refund_status")
+}
+
+enum BlacklistType {
+  EMAIL     @map("email")
+  WA_NUMBER @map("wa_number")
+
+  @@map("blacklist_type")
+}
+
+enum ExpenseCategory {
+  RAW_MATERIAL @map("bahan_baku")
+  OPERATIONAL  @map("operasional")
+  SALARY       @map("gaji")
+  TRANSPORT    @map("transport")
+  MARKETING    @map("marketing")
+  OTHER        @map("lainnya")
+
+  @@map("expense_category")
+}
+
+model User {
+  id                    String             @id @default(uuid()) @db.Uuid
+  email                 String             @unique @db.VarChar(320)
+  passwordHash          String             @map("password_hash")
+  role                  UserRole           @default(CUSTOMER)
+  fullName              String             @map("full_name") @db.VarChar(150)
+  phoneNumber           String?            @map("phone_number") @db.VarChar(32)
+  isVerified            Boolean            @default(false) @map("is_verified")
+  isActive              Boolean            @default(true) @map("is_active")
+  verificationTokenHash String?            @map("verification_token_hash")
+  tokenExpiresAt        DateTime?          @map("token_expires_at") @db.Timestamptz(3)
+  resetTokenHash        String?            @map("reset_token_hash")
+  resetTokenExpiresAt   DateTime?          @map("reset_token_expires_at") @db.Timestamptz(3)
+  deletedAt             DateTime?          @map("deleted_at") @db.Timestamptz(3)
+  createdAt             DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+  orders                Order[]
+  cartItems             CartItem[]
+  boardBookings         BoardBooking[]
+  verifiedProofs        PaymentProof[]     @relation("ProofVerifier")
+  blacklistsCreated     Blacklist[]        @relation("BlacklistCreator")
+  capitalCreated        CapitalInjection[] @relation("CapitalCreator")
+  expensesCreated       Expense[]          @relation("ExpenseCreator")
+  auditLogs             AuditLog[]         @relation("AuditActor")
+
+  @@index([role, isActive])
+  @@map("users")
+}
+
+model Category {
+  id          String    @id @default(uuid()) @db.Uuid
+  slug        String    @unique @db.VarChar(64)
+  name        String    @db.VarChar(100)
+  description String?
+  isActive    Boolean   @default(true) @map("is_active")
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  products    Product[]
+
+  @@map("categories")
+}
+
+model Product {
+  id          String           @id @default(uuid()) @db.Uuid
+  categoryId  String           @map("category_id") @db.Uuid
+  name        String           @db.VarChar(180)
+  description String
+  basePrice   Decimal          @map("base_price") @db.Decimal(15, 2)
+  stockType   StockType        @map("stock_type")
+  stockQty    Int              @default(0) @map("stock_qty")
+  reservedQty Int              @default(0) @map("reserved_qty")
+  poDays      Int?             @map("po_days")
+  isActive    Boolean          @default(true) @map("is_active")
+  deletedAt   DateTime?        @map("deleted_at") @db.Timestamptz(3)
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+  category    Category         @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  images      ProductImage[]
+  variants    ProductVariant[]
+  cartItems   CartItem[]
+  orderItems  OrderItem[]
+  costs       ProductCost[]
+
+  @@index([categoryId, isActive, deletedAt])
+  @@index([name])
+  @@map("products")
+}
+
+model ProductImage {
+  id         String    @id @default(uuid()) @db.Uuid
+  productId  String    @map("product_id") @db.Uuid
+  imageUrl   String    @map("image_url")
+  isPrimary  Boolean   @default(false) @map("is_primary")
+  sortOrder  Int       @default(0) @map("sort_order")
+  deletedAt  DateTime? @map("deleted_at") @db.Timestamptz(3)
+  uploadedAt DateTime  @default(now()) @map("uploaded_at") @db.Timestamptz(3)
+  product    Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId, sortOrder])
+  @@map("product_images")
+}
+
+model ProductVariant {
+  id          String      @id @default(uuid()) @db.Uuid
+  productId   String      @map("product_id") @db.Uuid
+  variantName String      @map("variant_name") @db.VarChar(120)
+  priceDelta  Decimal     @default(0) @map("price_delta") @db.Decimal(15, 2)
+  deletedAt   DateTime?   @map("deleted_at") @db.Timestamptz(3)
+  createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  product     Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  cartItems   CartItem[]
+  orderItems  OrderItem[]
+
+  @@unique([productId, variantName])
+  @@map("product_variants")
+}
+
+model BoardInventory {
+  id        String         @id @default(uuid()) @db.Uuid
+  boardName String         @unique @map("board_name") @db.VarChar(100)
+  boardType String?        @map("board_type") @db.VarChar(80)
+  isActive  Boolean        @default(true) @map("is_active")
+  deletedAt DateTime?      @map("deleted_at") @db.Timestamptz(3)
+  createdAt DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  bookings  BoardBooking[]
+
+  @@map("board_inventory")
+}
+
+model CartItem {
+  id          String          @id @default(uuid()) @db.Uuid
+  userId      String          @map("user_id") @db.Uuid
+  productId   String          @map("product_id") @db.Uuid
+  variantId   String?         @map("variant_id") @db.Uuid
+  qty         Int
+  customNote  String?         @map("custom_note")
+  bookingDate DateTime?       @map("booking_date") @db.Date
+  addedAt     DateTime        @default(now()) @map("added_at") @db.Timestamptz(3)
+  updatedAt   DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product     Product         @relation(fields: [productId], references: [id], onDelete: Restrict)
+  variant     ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Restrict)
+
+  @@index([userId])
+  @@map("cart_items")
+}
+
+model Order {
+  id                     String           @id @default(uuid()) @db.Uuid
+  userId                 String           @map("user_id") @db.Uuid
+  waNumber               String           @map("wa_number") @db.VarChar(32)
+  customerName           String           @map("customer_name") @db.VarChar(150)
+  recipientName          String           @map("recipient_name") @db.VarChar(150)
+  recipientPhone         String           @map("recipient_phone") @db.VarChar(32)
+  deliveryType           DeliveryType     @map("delivery_type")
+  status                 OrderStatus      @default(PENDING_PAYMENT)
+  subtotal               Decimal          @db.Decimal(15, 2)
+  ongkirFee              Decimal          @default(0) @map("ongkir_fee") @db.Decimal(15, 2)
+  dpAmount               Decimal          @map("dp_amount") @db.Decimal(15, 2)
+  remainingAmount        Decimal          @map("remaining_amount") @db.Decimal(15, 2)
+  total                  Decimal          @db.Decimal(15, 2)
+  customTextRequest      String?          @map("custom_text_request")
+  estimatedReadyDate     DateTime?        @map("estimated_ready_date") @db.Date
+  dpDeadline             DateTime         @map("dp_deadline") @db.Timestamptz(3)
+  dpVerifiedAt           DateTime?        @map("dp_verified_at") @db.Timestamptz(3)
+  finalPaymentDeadline   DateTime?        @map("pelunasan_deadline") @db.Timestamptz(3)
+  finalWarningSentAt     DateTime?        @map("final_warning_sent_at") @db.Timestamptz(3)
+  cancelledAt            DateTime?        @map("cancelled_at") @db.Timestamptz(3)
+  cancelledBy            CancelledBy?     @map("cancelled_by")
+  cancelReason           String?          @map("cancel_reason")
+  refundAmount           Decimal?         @map("refund_amount") @db.Decimal(15, 2)
+  refundDeductionPct     Int?             @map("refund_deduction_pct")
+  refundStatus           RefundStatus?    @map("refund_status")
+  refundNote             String?          @map("refund_note")
+  adminCancelNote        String?          @map("admin_cancel_note")
+  stockReservationClosed Boolean          @default(false) @map("stock_reservation_closed")
+  createdAt              DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt              DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+  user                   User             @relation(fields: [userId], references: [id], onDelete: Restrict)
+  items                  OrderItem[]
+  deliveryAddress        DeliveryAddress?
+  bookings               BoardBooking[]
+  paymentProofs          PaymentProof[]
+  downPayment            DownPayment?
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+  @@map("orders")
+}
+
+model OrderItem {
+  id                  String          @id @default(uuid()) @db.Uuid
+  orderId             String          @map("order_id") @db.Uuid
+  productId           String          @map("product_id") @db.Uuid
+  variantId           String?         @map("variant_id") @db.Uuid
+  qty                 Int
+  productNameSnapshot String          @map("product_name_snapshot") @db.VarChar(180)
+  variantNameSnapshot String?         @map("variant_name_snapshot") @db.VarChar(120)
+  customNoteSnapshot  String?         @map("custom_note_snapshot")
+  priceSnapshot       Decimal         @map("price_snapshot") @db.Decimal(15, 2)
+  costPriceSnapshot   Decimal         @map("cost_price_snapshot") @db.Decimal(15, 2)
+  bookingDate         DateTime?       @map("booking_date") @db.Date
+  estimatedReadyDate  DateTime?       @map("estimated_ready_date") @db.Date
+  order               Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product             Product         @relation(fields: [productId], references: [id], onDelete: Restrict)
+  variant             ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Restrict)
+
+  @@index([orderId])
+  @@map("order_items")
+}
+
+model DeliveryAddress {
+  id               String  @id @default(uuid()) @db.Uuid
+  orderId          String  @unique @map("order_id") @db.Uuid
+  fullAddress      String  @map("full_address")
+  latitude         Decimal @db.Decimal(10, 7)
+  longitude        Decimal @db.Decimal(10, 7)
+  distanceKm       Decimal @map("distance_km") @db.Decimal(10, 2)
+  ongkirCalculated Decimal @map("ongkir_calculated") @db.Decimal(15, 2)
+  order            Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("delivery_addresses")
+}
+
+model BoardBooking {
+  id          String         @id @default(uuid()) @db.Uuid
+  boardId     String         @map("board_id") @db.Uuid
+  bookingDate DateTime       @map("booking_date") @db.Date
+  status      BookingStatus  @default(SOFT_LOCKED)
+  userId      String         @map("user_id") @db.Uuid
+  orderId     String?        @map("order_id") @db.Uuid
+  lockedAt    DateTime       @default(now()) @map("locked_at") @db.Timestamptz(3)
+  expiresAt   DateTime?      @map("expires_at") @db.Timestamptz(3)
+  board       BoardInventory @relation(fields: [boardId], references: [id], onDelete: Restrict)
+  user        User           @relation(fields: [userId], references: [id], onDelete: Restrict)
+  order       Order?         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([bookingDate, status])
+  @@index([orderId])
+  @@map("board_bookings")
+}
+
+model DownPayment {
+  id         String        @id @default(uuid()) @db.Uuid
+  orderId    String        @unique @map("order_id") @db.Uuid
+  amount     Decimal       @db.Decimal(15, 2)
+  status     PaymentStatus @default(WAITING_PROOF)
+  deadline   DateTime      @db.Timestamptz(3)
+  verifiedAt DateTime?     @map("verified_at") @db.Timestamptz(3)
+  expiredAt  DateTime?     @map("expired_at") @db.Timestamptz(3)
+  createdAt  DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  order      Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([status, deadline])
+  @@map("down_payments")
+}
+
+model PaymentProof {
+  id                 String             @id @default(uuid()) @db.Uuid
+  orderId            String             @map("order_id") @db.Uuid
+  proofType          ProofType          @map("proof_type")
+  fileUrl            String             @map("file_url")
+  storageKey         String             @map("storage_key")
+  originalFilename   String             @map("original_filename")
+  uploadedAt         DateTime           @default(now()) @map("uploaded_at") @db.Timestamptz(3)
+  fileSize           Int                @map("file_size")
+  mimeType           String             @map("mime_type") @db.VarChar(32)
+  verificationStatus VerificationStatus @default(PENDING) @map("verification_status")
+  rejectedReason     String?            @map("rejected_reason")
+  verifiedByAdminId  String?            @map("verified_by_admin_id") @db.Uuid
+  verifiedAt         DateTime?          @map("verified_at") @db.Timestamptz(3)
+  retractedAt        DateTime?          @map("retracted_at") @db.Timestamptz(3)
+  order              Order              @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  verifiedByAdmin    User?              @relation("ProofVerifier", fields: [verifiedByAdminId], references: [id], onDelete: Restrict)
+
+  @@index([orderId, proofType, verificationStatus])
+  @@map("payment_proofs")
+}
+
+model Blacklist {
+  id                   String        @id @default(uuid()) @db.Uuid
+  type                 BlacklistType
+  value                String
+  reason               String
+  blacklistedAt        DateTime      @default(now()) @map("blacklisted_at") @db.Timestamptz(3)
+  blacklistedByAdminId String        @map("blacklisted_by_admin_id") @db.Uuid
+  blacklistedByAdmin   User          @relation("BlacklistCreator", fields: [blacklistedByAdminId], references: [id], onDelete: Restrict)
+
+  @@unique([type, value])
+  @@map("blacklist")
+}
+
+model AuditLog {
+  id              String    @id @default(uuid()) @db.Uuid
+  action          String    @db.VarChar(120)
+  entityType      String    @map("entity_type") @db.VarChar(80)
+  entityId        String?   @map("entity_id") @db.Uuid
+  performedBy     String?   @map("performed_by") @db.Uuid
+  performedByRole UserRole? @map("performed_by_role")
+  details         Json?
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  actor           User?     @relation("AuditActor", fields: [performedBy], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId])
+  @@map("audit_logs")
+}
+
+model ProductCost {
+  id            String   @id @default(uuid()) @db.Uuid
+  productId     String   @map("product_id") @db.Uuid
+  costPrice     Decimal  @map("cost_price") @db.Decimal(15, 2)
+  effectiveDate DateTime @map("effective_date") @db.Date
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  product       Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@unique([productId, effectiveDate])
+  @@index([productId, effectiveDate(sort: Desc)])
+  @@map("product_costs")
+}
+
+model CapitalInjection {
+  id               String   @id @default(uuid()) @db.Uuid
+  amount           Decimal  @db.Decimal(15, 2)
+  source           String   @db.VarChar(160)
+  note             String?
+  injectedAt       DateTime @map("injected_at") @db.Date
+  createdByAdminId String   @map("created_by_admin_id") @db.Uuid
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdByAdmin   User     @relation("CapitalCreator", fields: [createdByAdminId], references: [id], onDelete: Restrict)
+
+  @@index([injectedAt])
+  @@map("capital_injections")
+}
+
+model Expense {
+  id               String          @id @default(uuid()) @db.Uuid
+  category         ExpenseCategory
+  amount           Decimal         @db.Decimal(15, 2)
+  description      String
+  expenseDate      DateTime        @map("expense_date") @db.Date
+  attachmentUrl    String?         @map("attachment_url")
+  createdByAdminId String          @map("created_by_admin_id") @db.Uuid
+  deletedAt        DateTime?       @map("deleted_at") @db.Timestamptz(3)
+  createdAt        DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdByAdmin   User            @relation("ExpenseCreator", fields: [createdByAdminId], references: [id], onDelete: Restrict)
+
+  @@index([expenseDate, deletedAt])
+  @@map("expenses")
+}
+
+model RevenueLedger {
+  date                 DateTime @id @db.Date
+  grossRevenue         Decimal  @map("gross_revenue") @db.Decimal(15, 2)
+  totalHpp             Decimal  @map("total_hpp") @db.Decimal(15, 2)
+  totalOngkirCollected Decimal  @map("total_ongkir_collected") @db.Decimal(15, 2)
+  grossProfit          Decimal  @map("gross_profit") @db.Decimal(15, 2)
+  updatedAt            DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("revenue_ledger")
+}
