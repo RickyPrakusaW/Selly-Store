@@ -5,12 +5,17 @@ import 'package:lucide_flutter/lucide_flutter.dart';
 const _customerBackground = Color(0xFFF8F9FC);
 const _customerBorder = Color(0xFFECEEF2);
 
-class AdminCustomersPage extends StatelessWidget {
+class AdminCustomersPage extends StatefulWidget {
   const AdminCustomersPage({required this.showMenuButton, super.key});
 
   final bool showMenuButton;
 
-  static const _customers = [
+  @override
+  State<AdminCustomersPage> createState() => _AdminCustomersPageState();
+}
+
+class _AdminCustomersPageState extends State<AdminCustomersPage> {
+  static const _initialCustomers = [
     _CustomerData(
       initials: 'SW',
       name: 'Sarah Wijaya',
@@ -57,6 +62,22 @@ class AdminCustomersPage extends StatelessWidget {
     ),
   ];
 
+  late final List<_CustomerData> _customers = List.of(_initialCustomers);
+  var _query = '';
+
+  List<_CustomerData> get _filteredCustomers {
+    final query = _query.trim().toLowerCase();
+    if (query.isEmpty) return _customers;
+    return _customers
+        .where(
+          (customer) =>
+              customer.name.toLowerCase().contains(query) ||
+              customer.email.toLowerCase().contains(query) ||
+              customer.phone.contains(query),
+        )
+        .toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     final isMobile = MediaQuery.sizeOf(context).width < 600;
@@ -68,9 +89,9 @@ class AdminCustomersPage extends StatelessWidget {
           children: [
             _CustomerHeader(
               isMobile: isMobile,
-              showMenuButton: showMenuButton,
-              onAddCustomer: () =>
-                  _showMessage(context, 'Form customer baru sedang disiapkan.'),
+              showMenuButton: widget.showMenuButton,
+              onAddCustomer: _showAddCustomerDialog,
+              onSearchChanged: (value) => setState(() => _query = value),
             ),
             Expanded(
               child: SingleChildScrollView(
@@ -93,9 +114,9 @@ class AdminCustomersPage extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           if (isMobile)
-                            _MobileCustomerList(customers: _customers)
+                            _MobileCustomerList(customers: _filteredCustomers)
                           else
-                            _CustomerTable(customers: _customers),
+                            _CustomerTable(customers: _filteredCustomers),
                           const Divider(height: 1, color: _customerBorder),
                           const _CustomerPagination(),
                         ],
@@ -111,13 +132,94 @@ class AdminCustomersPage extends StatelessWidget {
     );
   }
 
-  void _showMessage(BuildContext context, String message) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
-      );
+  Future<void> _showAddCustomerDialog() async {
+    final name = TextEditingController();
+    final email = TextEditingController();
+    final phone = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Add New Customer'),
+        content: Form(
+          key: formKey,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  key: const ValueKey('new-customer-name'),
+                  controller: name,
+                  decoration: const InputDecoration(labelText: 'Nama'),
+                  validator: _required,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  key: const ValueKey('new-customer-email'),
+                  controller: email,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: const InputDecoration(labelText: 'Email'),
+                  validator: _required,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  key: const ValueKey('new-customer-phone'),
+                  controller: phone,
+                  keyboardType: TextInputType.phone,
+                  decoration: const InputDecoration(labelText: 'No WA'),
+                  validator: _required,
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            key: const ValueKey('save-new-customer'),
+            onPressed: () {
+              if (formKey.currentState!.validate()) {
+                Navigator.pop(dialogContext, true);
+              }
+            },
+            child: const Text('Simpan'),
+          ),
+        ],
+      ),
+    );
+    if (saved == true && mounted) {
+      final parts = name.text.trim().split(RegExp(r'\s+'));
+      final initials = parts
+          .take(2)
+          .map((part) => part.isEmpty ? '' : part[0].toUpperCase())
+          .join();
+      setState(() {
+        _customers.insert(
+          0,
+          _CustomerData(
+            initials: initials.isEmpty ? 'CU' : initials,
+            name: name.text.trim(),
+            joined: 'Joined Today',
+            email: email.text.trim(),
+            phone: phone.text.trim(),
+            orders: 0,
+            spend: 'Rp 0',
+            active: true,
+            avatarColor: AppColors.softPink,
+          ),
+        );
+      });
+    }
+    name.dispose();
+    email.dispose();
+    phone.dispose();
   }
+
+  static String? _required(String? value) =>
+      value == null || value.trim().isEmpty ? 'Wajib diisi' : null;
 }
 
 class _CustomerHeader extends StatelessWidget {
@@ -125,11 +227,13 @@ class _CustomerHeader extends StatelessWidget {
     required this.isMobile,
     required this.showMenuButton,
     required this.onAddCustomer,
+    required this.onSearchChanged,
   });
 
   final bool isMobile;
   final bool showMenuButton;
   final VoidCallback onAddCustomer;
+  final ValueChanged<String> onSearchChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -154,8 +258,9 @@ class _CustomerHeader extends StatelessWidget {
       ],
     );
     final search = TextField(
+      onChanged: onSearchChanged,
       decoration: InputDecoration(
-        hintText: 'Cari customer...',
+        hintText: 'Search customers...',
         prefixIcon: const Icon(LucideIcons.search, size: 19),
         filled: true,
         fillColor: _customerBackground,

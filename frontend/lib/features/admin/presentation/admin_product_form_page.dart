@@ -265,18 +265,24 @@ class _AdminProductFormPageState extends State<AdminProductFormPage> {
     if (!_formKey.currentState!.validate()) {
       return;
     }
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(
-            _isEditing
-                ? 'Perubahan produk disimpan.'
-                : 'Produk baru berhasil disimpan.',
-          ),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+    final price = int.parse(_priceController.text.trim());
+    final visual = _category == 'Papan Ucapan'
+        ? ProductVisual.board
+        : _category == 'Gift & Hampers' || _category == 'Bloom Box'
+        ? ProductVisual.gift
+        : ProductVisual.bouquet;
+    Navigator.pop(
+      context,
+      ProductPreview(
+        name: _nameController.text.trim(),
+        category: _category,
+        price: price,
+        stockStatus: _stockStatus == 'Ready'
+            ? ProductStockStatus.readyStock
+            : ProductStockStatus.preOrder,
+        visual: visual,
+      ),
+    );
   }
 }
 

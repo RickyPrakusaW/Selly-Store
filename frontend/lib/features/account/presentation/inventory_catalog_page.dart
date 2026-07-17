@@ -49,7 +49,7 @@ class _InventoryCatalogPageState extends State<InventoryCatalogPage> {
     ),
   ];
 
-  static const _products = [
+  static const _initialProducts = [
     _ProductData(
       product: ProductPreview(
         name: 'Sweet Romance Bouquet',
@@ -88,7 +88,9 @@ class _InventoryCatalogPageState extends State<InventoryCatalogPage> {
     ),
   ];
 
+  late final List<_ProductData> _products = List.of(_initialProducts);
   final _visibleProducts = <bool>[true, true, false];
+  var _currentPage = 1;
 
   @override
   Widget build(BuildContext context) {
@@ -156,6 +158,10 @@ class _InventoryCatalogPageState extends State<InventoryCatalogPage> {
                     },
                     onEdit: _openProductForm,
                     onAction: _showMessage,
+                    currentPage: _currentPage,
+                    onPageChanged: (page) {
+                      setState(() => _currentPage = page);
+                    },
                   ),
                 ],
               ),
@@ -175,10 +181,40 @@ class _InventoryCatalogPageState extends State<InventoryCatalogPage> {
   }
 
   Future<void> _openProductForm([ProductPreview? product]) async {
-    await Navigator.push<void>(
+    final result = await Navigator.push<ProductPreview>(
       context,
       MaterialPageRoute(builder: (_) => AdminProductFormPage(product: product)),
     );
+    if (result == null || !mounted) return;
+    setState(() {
+      final index = product == null
+          ? -1
+          : _products.indexWhere((item) => item.product.name == product.name);
+      final data = _ProductData(
+        product: result,
+        stock: result.stockStatus == ProductStockStatus.readyStock
+            ? '1 Ready'
+            : 'Pre-Order',
+        price: _formatPrice(result.price),
+        inStock: true,
+      );
+      if (index >= 0) {
+        _products[index] = data;
+      } else {
+        _products.insert(0, data);
+        _visibleProducts.insert(0, true);
+      }
+    });
+  }
+
+  String _formatPrice(int price) {
+    final digits = price.toString();
+    final buffer = StringBuffer();
+    for (var i = 0; i < digits.length; i++) {
+      if (i > 0 && (digits.length - i) % 3 == 0) buffer.write('.');
+      buffer.write(digits[i]);
+    }
+    return 'Rp $buffer';
   }
 }
 
@@ -339,6 +375,8 @@ class _CatalogSection extends StatelessWidget {
     required this.onVisibilityChanged,
     required this.onEdit,
     required this.onAction,
+    required this.currentPage,
+    required this.onPageChanged,
   });
 
   final bool isMobile;
@@ -347,6 +385,8 @@ class _CatalogSection extends StatelessWidget {
   final void Function(int index, bool value) onVisibilityChanged;
   final ValueChanged<ProductPreview> onEdit;
   final ValueChanged<String> onAction;
+  final int currentPage;
+  final ValueChanged<int> onPageChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -435,7 +475,10 @@ class _CatalogSection extends StatelessWidget {
               onAction: onAction,
             ),
           const Divider(height: 1, color: _inventoryBorder),
-          const _PaginationBar(),
+          _PaginationBar(
+            currentPage: currentPage,
+            onPageChanged: onPageChanged,
+          ),
         ],
       ),
     );
@@ -702,7 +745,13 @@ class _StockBadge extends StatelessWidget {
 }
 
 class _PaginationBar extends StatelessWidget {
-  const _PaginationBar();
+  const _PaginationBar({
+    required this.currentPage,
+    required this.onPageChanged,
+  });
+
+  final int currentPage;
+  final ValueChanged<int> onPageChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -711,15 +760,33 @@ class _PaginationBar extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          const _PageButton(label: '‹'),
+          _PageButton(
+            label: '‹',
+            onPressed: () => onPageChanged((currentPage - 1).clamp(1, 3)),
+          ),
           const SizedBox(width: 5),
-          const _PageButton(label: '1', selected: true),
+          _PageButton(
+            label: '1',
+            selected: currentPage == 1,
+            onPressed: () => onPageChanged(1),
+          ),
           const SizedBox(width: 5),
-          const _PageButton(label: '2'),
+          _PageButton(
+            label: '2',
+            selected: currentPage == 2,
+            onPressed: () => onPageChanged(2),
+          ),
           const SizedBox(width: 5),
-          const _PageButton(label: '3'),
+          _PageButton(
+            label: '3',
+            selected: currentPage == 3,
+            onPressed: () => onPageChanged(3),
+          ),
           const SizedBox(width: 5),
-          const _PageButton(label: '›'),
+          _PageButton(
+            label: '›',
+            onPressed: () => onPageChanged((currentPage + 1).clamp(1, 3)),
+          ),
         ],
       ),
     );
@@ -727,28 +794,40 @@ class _PaginationBar extends StatelessWidget {
 }
 
 class _PageButton extends StatelessWidget {
-  const _PageButton({required this.label, this.selected = false});
+  const _PageButton({
+    required this.label,
+    required this.onPressed,
+    this.selected = false,
+  });
 
   final String label;
   final bool selected;
+  final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 34,
-      height: 34,
-      decoration: BoxDecoration(
-        color: selected ? AppColors.primaryPink : AppColors.pureWhite,
+    return Material(
+      color: selected ? AppColors.primaryPink : AppColors.pureWhite,
+      borderRadius: BorderRadius.circular(9),
+      child: InkWell(
+        onTap: onPressed,
         borderRadius: BorderRadius.circular(9),
-        border: Border.all(
-          color: selected ? AppColors.primaryPink : _inventoryBorder,
-        ),
-      ),
-      alignment: Alignment.center,
-      child: Text(
-        label,
-        style: Theme.of(context).textTheme.labelMedium?.copyWith(
-          color: selected ? AppColors.pureWhite : AppColors.darkGray,
+        child: Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(9),
+            border: Border.all(
+              color: selected ? AppColors.primaryPink : _inventoryBorder,
+            ),
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            label,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: selected ? AppColors.pureWhite : AppColors.darkGray,
+            ),
+          ),
         ),
       ),
     );

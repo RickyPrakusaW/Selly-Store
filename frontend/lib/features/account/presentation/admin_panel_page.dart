@@ -3,6 +3,9 @@ import 'package:florist_frontend/core/theme.dart';
 import 'package:florist_frontend/features/admin/presentation/admin_customers_page.dart';
 import 'package:florist_frontend/features/admin/presentation/admin_inventory_page.dart';
 import 'package:florist_frontend/features/admin/presentation/admin_orders_page.dart';
+import 'package:florist_frontend/features/admin/presentation/admin_product_form_page.dart';
+import 'package:florist_frontend/features/admin/presentation/admin_reports_page.dart';
+import 'package:florist_frontend/features/admin/presentation/admin_settings_page.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 
 const _adminAvatar = 'assets/images/admin-manager.png';
@@ -18,6 +21,7 @@ class AdminPanelPage extends StatefulWidget {
 
 class _AdminPanelPageState extends State<AdminPanelPage> {
   var _selectedSection = 0;
+  String? _pendingOrderId;
 
   @override
   Widget build(BuildContext context) {
@@ -35,6 +39,7 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
                     selectedIndex: _selectedSection,
                     closeOnSelect: true,
                     onSelected: _selectSection,
+                    onNewProduct: _openNewProduct,
                   ),
                 ),
           body: Row(
@@ -45,6 +50,7 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
                   child: _AdminSidebar(
                     selectedIndex: _selectedSection,
                     onSelected: _selectSection,
+                    onNewProduct: _openNewProduct,
                   ),
                 ),
               Expanded(child: _buildSection(showMenuButton: !showSidebar)),
@@ -57,15 +63,40 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
 
   Widget _buildSection({required bool showMenuButton}) {
     return switch (_selectedSection) {
-      1 => AdminOrdersPage(showMenuButton: showMenuButton),
+      1 => AdminOrdersPage(
+        showMenuButton: showMenuButton,
+        initialOrderId: _pendingOrderId,
+      ),
       2 => AdminInventoryPage(showMenuButton: showMenuButton),
       3 => AdminCustomersPage(showMenuButton: showMenuButton),
-      _ => _DashboardContent(showMenuButton: showMenuButton),
+      4 => AdminReportsPage(showMenuButton: showMenuButton),
+      5 => AdminSettingsPage(showMenuButton: showMenuButton),
+      _ => _DashboardContent(
+        showMenuButton: showMenuButton,
+        onOpenOrder: _openOrder,
+      ),
     };
   }
 
   void _selectSection(int index) {
-    setState(() => _selectedSection = index);
+    setState(() {
+      _selectedSection = index;
+      _pendingOrderId = null;
+    });
+  }
+
+  void _openOrder(String orderId) {
+    setState(() {
+      _pendingOrderId = orderId;
+      _selectedSection = 1;
+    });
+  }
+
+  Future<void> _openNewProduct() async {
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute(builder: (_) => const AdminProductFormPage()),
+    );
   }
 }
 
@@ -73,11 +104,13 @@ class _AdminSidebar extends StatelessWidget {
   const _AdminSidebar({
     required this.selectedIndex,
     required this.onSelected,
+    required this.onNewProduct,
     this.closeOnSelect = false,
   });
 
   final int selectedIndex;
   final ValueChanged<int> onSelected;
+  final VoidCallback onNewProduct;
   final bool closeOnSelect;
 
   static const _items = [
@@ -127,7 +160,12 @@ class _AdminSidebar extends StatelessWidget {
                 const Spacer(),
                 FilledButton.icon(
                   key: const ValueKey('new-product-button'),
-                  onPressed: () => _handleSelection(context, 2),
+                  onPressed: () {
+                    if (closeOnSelect) {
+                      Navigator.of(context).pop();
+                    }
+                    onNewProduct();
+                  },
                   icon: const Icon(LucideIcons.plus, size: 18),
                   label: const Text('New Product'),
                   style: FilledButton.styleFrom(
@@ -146,10 +184,6 @@ class _AdminSidebar extends StatelessWidget {
   }
 
   void _handleSelection(BuildContext context, int index) {
-    if (index > 3) {
-      _showComingSoon(context, '${_items[index].$1} segera tersedia.');
-      return;
-    }
     if (closeOnSelect) {
       Navigator.of(context).pop();
     }
@@ -238,9 +272,13 @@ class _SidebarNavItem extends StatelessWidget {
 }
 
 class _DashboardContent extends StatelessWidget {
-  const _DashboardContent({required this.showMenuButton});
+  const _DashboardContent({
+    required this.showMenuButton,
+    required this.onOpenOrder,
+  });
 
   final bool showMenuButton;
+  final ValueChanged<String> onOpenOrder;
 
   @override
   Widget build(BuildContext context) {
@@ -262,14 +300,14 @@ class _DashboardContent extends StatelessWidget {
               child: Center(
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 1440),
-                  child: const Column(
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      _KpiGrid(),
-                      SizedBox(height: 24),
-                      _MiddleDataSection(),
-                      SizedBox(height: 24),
-                      _FinancialLedger(),
+                      const _KpiGrid(),
+                      const SizedBox(height: 24),
+                      _MiddleDataSection(onVerify: onOpenOrder),
+                      const SizedBox(height: 24),
+                      const _FinancialLedger(),
                     ],
                   ),
                 ),
@@ -632,7 +670,9 @@ class _TrendBadge extends StatelessWidget {
 }
 
 class _MiddleDataSection extends StatelessWidget {
-  const _MiddleDataSection();
+  const _MiddleDataSection({required this.onVerify});
+
+  final ValueChanged<String> onVerify;
 
   @override
   Widget build(BuildContext context) {
@@ -640,17 +680,17 @@ class _MiddleDataSection extends StatelessWidget {
       builder: (context, constraints) {
         final useColumns = constraints.maxWidth >= 900;
         const chart = _RevenueChartCard();
-        const queue = _VerificationQueueCard();
+        final queue = _VerificationQueueCard(onVerify: onVerify);
 
         if (!useColumns) {
-          return const Column(children: [chart, SizedBox(height: 18), queue]);
+          return Column(children: [chart, const SizedBox(height: 18), queue]);
         }
 
-        return const Row(
+        return Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(flex: 7, child: chart),
-            SizedBox(width: 18),
+            const Expanded(flex: 7, child: chart),
+            const SizedBox(width: 18),
             Expanded(flex: 3, child: queue),
           ],
         );
@@ -833,7 +873,9 @@ class _ChartPeriodSwitch extends StatelessWidget {
 }
 
 class _VerificationQueueCard extends StatelessWidget {
-  const _VerificationQueueCard();
+  const _VerificationQueueCard({required this.onVerify});
+
+  final ValueChanged<String> onVerify;
 
   static const _items = [
     ('#ORD-9921', '10 mins ago', 'Buket Mawar Blush', 'Rp 450.000'),
@@ -880,8 +922,8 @@ class _VerificationQueueCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 18),
-            ..._items.map(
-              (item) => Padding(
+            ..._items.indexed.map(
+              (entry) => Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: Container(
                   padding: const EdgeInsets.all(14),
@@ -897,29 +939,40 @@ class _VerificationQueueCard extends StatelessWidget {
                         children: [
                           Expanded(
                             child: Text(
-                              item.$1,
+                              entry.$2.$1,
                               style: Theme.of(context).textTheme.labelLarge
                                   ?.copyWith(color: AppColors.deepRose),
                             ),
                           ),
                           Text(
-                            item.$2,
+                            entry.$2.$2,
                             style: Theme.of(context).textTheme.bodySmall,
                           ),
                         ],
                       ),
                       const SizedBox(height: 9),
                       Text(
-                        item.$3,
+                        entry.$2.$3,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.labelMedium,
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        item.$4,
+                        entry.$2.$4,
                         style: Theme.of(context).textTheme.titleSmall?.copyWith(
                           color: AppColors.charcoal,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton.icon(
+                          onPressed: () => onVerify(
+                            entry.$1 == 0 ? '#ORD-0982' : '#ORD-0981',
+                          ),
+                          icon: const Icon(LucideIcons.badgeCheck, size: 16),
+                          label: const Text('Verify'),
                         ),
                       ),
                     ],
@@ -934,8 +987,15 @@ class _VerificationQueueCard extends StatelessWidget {
   }
 }
 
-class _FinancialLedger extends StatelessWidget {
+class _FinancialLedger extends StatefulWidget {
   const _FinancialLedger();
+
+  @override
+  State<_FinancialLedger> createState() => _FinancialLedgerState();
+}
+
+class _FinancialLedgerState extends State<_FinancialLedger> {
+  var _exporting = false;
 
   static const _rows = [
     ('18 Jul 2026', 'Pelunasan ORD-9921', 'Sales', '+Rp 2.250.000', true, true),
@@ -996,12 +1056,14 @@ class _FinancialLedger extends StatelessWidget {
                   ],
                 ),
                 OutlinedButton.icon(
-                  onPressed: () => _showComingSoon(
-                    context,
-                    'Laporan XLSX sedang disiapkan.',
-                  ),
-                  icon: const Icon(LucideIcons.download, size: 17),
-                  label: const Text('Export XLSX'),
+                  onPressed: _exporting ? null : _exportReport,
+                  icon: _exporting
+                      ? const SizedBox.square(
+                          dimension: 17,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(LucideIcons.download, size: 17),
+                  label: Text(_exporting ? 'Exporting...' : 'Export XLSX'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppColors.deepRose,
                     side: const BorderSide(color: AppColors.deepRose),
@@ -1063,6 +1125,21 @@ class _FinancialLedger extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _exportReport() async {
+    setState(() => _exporting = true);
+    await Future<void>.delayed(const Duration(seconds: 1));
+    if (!mounted) return;
+    setState(() => _exporting = false);
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        const SnackBar(
+          content: Text('Laporan berhasil diunduh ke folder Downloads! 📥'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
   }
 }
 

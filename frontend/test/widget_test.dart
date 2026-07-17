@@ -383,6 +383,20 @@ void main() {
     expect(find.text('Order Management'), findsOneWidget);
     expect(find.text('Search Order ID, Customer, or Phone...'), findsOneWidget);
     expect(find.text('#ORD-0982'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('admin-order-date-range')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('#ORD-0982'));
+    await tester.pumpAndSettle();
+    expect(find.text('Detail Transaksi Lengkap'), findsOneWidget);
+    expect(find.text('Info Pemesan'), findsOneWidget);
+    expect(find.text('Rincian Pembayaran'), findsOneWidget);
+    expect(find.text('DP 50% — Sudah Dibayar'), findsOneWidget);
+    expect(find.text('Bukti Transfer'), findsOneWidget);
+    await tester.tap(find.byTooltip('Tutup'));
+    await tester.pumpAndSettle();
 
     await tester.tap(find.text('Inventory'));
     await tester.pumpAndSettle();
@@ -421,6 +435,20 @@ void main() {
     expect(find.text('Customer Database'), findsOneWidget);
     expect(find.text('Sarah Wijaya'), findsOneWidget);
     expect(find.text('Rp 4.500.000'), findsOneWidget);
+
+    await tester.tap(find.text('Reports'));
+    await tester.pumpAndSettle();
+    expect(find.text('Sales & Growth Reports'), findsOneWidget);
+    expect(find.text('Monthly Revenue vs Profit'), findsOneWidget);
+    expect(find.text('Customer Growth Rate'), findsOneWidget);
+    expect(find.text('Papan Sewa Utilization'), findsOneWidget);
+
+    await tester.tap(find.text('Settings'));
+    await tester.pumpAndSettle();
+    expect(find.text('Store Settings'), findsOneWidget);
+    expect(find.text('Store Profile'), findsOneWidget);
+    expect(find.text('Delivery Settings'), findsOneWidget);
+    expect(find.text('Transaction Logic'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -481,6 +509,23 @@ void main() {
     expect(find.byType(DataTable), findsNothing);
     expect(find.text('Sarah Wijaya'), findsOneWidget);
     expect(find.text('Active'), findsWidgets);
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.byTooltip('Buka navigasi admin'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Reports'));
+    await tester.pumpAndSettle();
+    expect(find.text('Sales & Growth Reports'), findsOneWidget);
+    expect(find.text('Download Report'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.byTooltip('Buka navigasi admin'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Settings'));
+    await tester.pumpAndSettle();
+    expect(find.text('Store Settings'), findsOneWidget);
+    expect(find.text('Save Changes'), findsOneWidget);
+    expect(find.text('Need Help?'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

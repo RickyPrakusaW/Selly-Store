@@ -60,6 +60,7 @@ flutter:
 
   assets:
     - assets/images/admin-manager.png
+    - assets/images/demo-transfer-proof.png
 
   fonts:
     - family: PlayfairDisplay
