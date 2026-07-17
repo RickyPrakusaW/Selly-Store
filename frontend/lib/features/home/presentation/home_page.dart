@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:florist_frontend/core/api_client.dart';
 import 'package:florist_frontend/core/auth_state.dart';
 import 'package:florist_frontend/features/account/presentation/account_page.dart';
 import 'package:florist_frontend/core/theme.dart';
 import 'package:florist_frontend/features/catalog/presentation/product_detail_page.dart';
 import 'package:florist_frontend/features/home/domain/product_preview.dart';
+import 'package:florist_frontend/features/home/data/catalog_repository.dart';
 import 'package:florist_frontend/features/orders/presentation/order_history_page.dart';
 import 'package:florist_frontend/features/home/presentation/widgets/category_chips.dart';
 import 'package:florist_frontend/features/home/presentation/widgets/florist_app_bar.dart';
@@ -12,87 +14,38 @@ import 'package:florist_frontend/features/home/presentation/widgets/product_card
 import 'package:lucide_flutter/lucide_flutter.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  const HomePage({this.repository, super.key});
+
+  final CatalogRepository? repository;
 
   @override
   State<HomePage> createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
-  static const _categories = ['Semua', 'Bunga', 'Kado', 'Papan Sewa'];
-
-  static const _products = [
-    ProductPreview(
-      name: 'Buket Mawar Blush',
-      category: 'Bunga',
-      price: 185000,
-      stockStatus: ProductStockStatus.readyStock,
-      visual: ProductVisual.bouquet,
-    ),
-    ProductPreview(
-      name: 'Blooming Pastel Bouquet',
-      category: 'Bunga',
-      price: 225000,
-      stockStatus: ProductStockStatus.preOrder,
-      visual: ProductVisual.bouquet,
-    ),
-    ProductPreview(
-      name: 'Gift Box Sweet Moment',
-      category: 'Kado',
-      price: 149000,
-      stockStatus: ProductStockStatus.readyStock,
-      visual: ProductVisual.gift,
-    ),
-    ProductPreview(
-      name: 'Papan Ucapan Rose Garden',
-      category: 'Papan Sewa',
-      price: 350000,
-      stockStatus: ProductStockStatus.preOrder,
-      visual: ProductVisual.board,
-    ),
-    ProductPreview(
-      name: 'Buket Lily Elegance',
-      category: 'Bunga',
-      price: 275000,
-      stockStatus: ProductStockStatus.readyStock,
-      visual: ProductVisual.bouquet,
-    ),
-    ProductPreview(
-      name: 'Birthday Treasure Box',
-      category: 'Kado',
-      price: 199000,
-      stockStatus: ProductStockStatus.readyStock,
-      visual: ProductVisual.gift,
-    ),
-    ProductPreview(
-      name: 'Papan Ucapan Lavender',
-      category: 'Papan Sewa',
-      price: 325000,
-      stockStatus: ProductStockStatus.preOrder,
-      visual: ProductVisual.board,
-    ),
-    ProductPreview(
-      name: 'Buket Peach Harmony',
-      category: 'Bunga',
-      price: 210000,
-      stockStatus: ProductStockStatus.readyStock,
-      visual: ProductVisual.bouquet,
-    ),
-  ];
-
   final _scrollController = ScrollController();
   final _featuredSectionKey = GlobalKey();
-  var _selectedCategory = 'Semua';
+  late final CatalogRepository _repository;
+  List<CatalogCategory> _categories = const [];
+  List<ProductPreview> _products = const [];
+  CatalogCategory? _selectedCategory;
+  String? _catalogError;
+  var _isCatalogLoading = true;
+  var _catalogRequest = 0;
   var _currentIndex = 0;
 
-  List<ProductPreview> get _visibleProducts {
-    if (_selectedCategory == 'Semua') {
-      return _products;
-    }
+  List<String> get _categoryLabels => [
+    'Semua',
+    ..._categories.map((category) => category.name),
+  ];
 
-    return _products
-        .where((product) => product.category == _selectedCategory)
-        .toList();
+  String get _selectedCategoryLabel => _selectedCategory?.name ?? 'Semua';
+
+  @override
+  void initState() {
+    super.initState();
+    _repository = widget.repository ?? catalogRepository;
+    _loadCatalog();
   }
 
   @override
@@ -109,13 +62,11 @@ class _HomePageState extends State<HomePage> {
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(76),
         child: FloristAppBar(
-          categories: _categories,
-          selectedCategory: _selectedCategory,
+          categories: _categoryLabels,
+          selectedCategory: _selectedCategoryLabel,
           onCategorySelected: (category) {
-            setState(() {
-              _selectedCategory = category;
-              _currentIndex = 0;
-            });
+            setState(() => _currentIndex = 0);
+            _selectCategory(category);
           },
           onSearchPressed: _openSearch,
           onProfilePressed: () => setState(() => _currentIndex = 2),
@@ -204,24 +155,17 @@ class _HomePageState extends State<HomePage> {
                           ),
                           const SizedBox(height: 12),
                           CategoryChips(
-                            categories: _categories,
-                            selectedCategory: _selectedCategory,
-                            onSelected: (category) {
-                              setState(() => _selectedCategory = category);
-                            },
+                            categories: _categoryLabels,
+                            selectedCategory: _selectedCategoryLabel,
+                            onSelected: _selectCategory,
                           ),
                           const SizedBox(height: 36),
                           _FeaturedSectionHeader(
                             key: _featuredSectionKey,
-                            onViewAllPressed: () {
-                              setState(() => _selectedCategory = 'Semua');
-                            },
+                            onViewAllPressed: () => _selectCategory('Semua'),
                           ),
                           const SizedBox(height: 18),
-                          _ProductsGrid(
-                            products: _visibleProducts,
-                            onProductPressed: _openProduct,
-                          ),
+                          _buildProductsState(),
                         ],
                       ),
                     );
@@ -233,6 +177,122 @@ class _HomePageState extends State<HomePage> {
         ],
       ),
     );
+  }
+
+  Widget _buildProductsState() {
+    if (_isCatalogLoading) {
+      return const SizedBox(
+        height: 220,
+        child: Center(
+          child: CircularProgressIndicator(color: AppColors.primaryPink),
+        ),
+      );
+    }
+    if (_catalogError != null) {
+      return SizedBox(
+        height: 240,
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  LucideIcons.cloudOff,
+                  color: AppColors.deepRose,
+                  size: 38,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  _catalogError!,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 16),
+                OutlinedButton.icon(
+                  key: const ValueKey('retry-catalog'),
+                  onPressed: _loadCatalog,
+                  icon: const Icon(LucideIcons.refreshCw, size: 18),
+                  label: const Text('Coba Lagi'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+    if (_products.isEmpty) {
+      return const SizedBox(
+        height: 180,
+        child: Center(child: Text('Belum ada produk pada kategori ini.')),
+      );
+    }
+    return _ProductsGrid(products: _products, onProductPressed: _openProduct);
+  }
+
+  Future<void> _loadCatalog() async {
+    final request = ++_catalogRequest;
+    setState(() {
+      _isCatalogLoading = true;
+      _catalogError = null;
+    });
+    try {
+      final categories = await _repository.fetchCategories();
+      final products = await _repository.fetchProducts(
+        categorySlug: _selectedCategory?.slug,
+      );
+      if (!mounted || request != _catalogRequest) return;
+      setState(() {
+        _categories = categories;
+        _products = products;
+        _isCatalogLoading = false;
+      });
+    } catch (error) {
+      if (!mounted || request != _catalogRequest) return;
+      setState(() {
+        _catalogError = ApiException.from(error).message;
+        _isCatalogLoading = false;
+      });
+    }
+  }
+
+  Future<void> _selectCategory(String label) async {
+    CatalogCategory? selected;
+    if (label != 'Semua') {
+      for (final category in _categories) {
+        if (category.name == label) {
+          selected = category;
+          break;
+        }
+      }
+    }
+    if (selected?.slug == _selectedCategory?.slug) return;
+    setState(() => _selectedCategory = selected);
+    await _loadProducts();
+  }
+
+  Future<void> _loadProducts() async {
+    final request = ++_catalogRequest;
+    setState(() {
+      _isCatalogLoading = true;
+      _catalogError = null;
+    });
+    try {
+      final products = await _repository.fetchProducts(
+        categorySlug: _selectedCategory?.slug,
+      );
+      if (!mounted || request != _catalogRequest) return;
+      setState(() {
+        _products = products;
+        _isCatalogLoading = false;
+      });
+    } catch (error) {
+      if (!mounted || request != _catalogRequest) return;
+      setState(() {
+        _catalogError = ApiException.from(error).message;
+        _isCatalogLoading = false;
+      });
+    }
   }
 
   void _showWishlistComingSoon() {

@@ -1,17 +1,36 @@
-# florist_frontend
+# Seli Florist Flutter Web
 
-A new Flutter project.
+Flutter Web storefront integrated with the local NestJS API.
 
-## Getting Started
+## Local development
 
-This project is a starting point for a Flutter application.
+Start PostgreSQL, Redis, and the backend first:
 
-A few resources to get you started if this is your first Flutter project:
+```powershell
+cd D:\seli_project\backend
+npm run start:dev
+```
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+Then resolve Flutter packages and use port `5173`, which is included in the backend's default CORS allowlist:
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+```powershell
+cd D:\seli_project\frontend
+flutter pub get
+flutter run -d chrome --web-port 5173
+```
+
+The default API URL is `http://localhost:3000/api`. Override it for another environment without editing source:
+
+```powershell
+flutter run -d chrome --web-port 5173 --dart-define=API_BASE_URL=https://api.example.com/api
+```
+
+Access tokens remain in application memory. Refresh tokens are browser-managed `httpOnly` cookies; Dio's web adapter enables credentialed requests. Reloading the app attempts a refresh-cookie session restoration.
+
+## Checks
+
+```powershell
+dart format lib test
+flutter analyze
+flutter test
+```

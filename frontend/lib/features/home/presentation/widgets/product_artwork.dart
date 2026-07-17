@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:florist_frontend/core/api_client.dart';
 import 'package:florist_frontend/core/theme.dart';
 import 'package:florist_frontend/features/home/domain/product_preview.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
@@ -21,6 +22,7 @@ class ProductArtwork extends StatelessWidget {
   Widget build(BuildContext context) {
     final visualStyle = _styleFor(product.visual);
     final isReady = product.stockStatus == ProductStockStatus.readyStock;
+    final isOutOfStock = isReady && product.availableQty == 0;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -40,16 +42,21 @@ class ProductArtwork extends StatelessWidget {
           ),
           child: Stack(
             children: [
-              Center(
-                child: Semantics(
-                  label: visualStyle.semanticLabel,
-                  image: true,
-                  child: Icon(
-                    visualStyle.icon,
-                    size: iconSize,
-                    color: visualStyle.accentColor,
-                  ),
-                ),
+              Positioned.fill(
+                child: product.imageUrl == null || product.imageUrl!.isEmpty
+                    ? _PlaceholderArtwork(
+                        visualStyle: visualStyle,
+                        iconSize: iconSize,
+                      )
+                    : Image.network(
+                        _resolveImageUrl(product.imageUrl!),
+                        fit: BoxFit.cover,
+                        semanticLabel: visualStyle.semanticLabel,
+                        errorBuilder: (_, _, _) => _PlaceholderArtwork(
+                          visualStyle: visualStyle,
+                          iconSize: iconSize,
+                        ),
+                      ),
               ),
               if (showStockBadge)
                 Positioned(
@@ -57,7 +64,9 @@ class ProductArtwork extends StatelessWidget {
                   top: 8,
                   child: DecoratedBox(
                     decoration: BoxDecoration(
-                      color: isReady
+                      color: isOutOfStock
+                          ? AppColors.blushRose
+                          : isReady
                           ? AppColors.readyStockBackground
                           : AppColors.preOrderBackground,
                       borderRadius: BorderRadius.circular(999),
@@ -74,7 +83,9 @@ class ProductArtwork extends StatelessWidget {
                             width: 6,
                             height: 6,
                             decoration: BoxDecoration(
-                              color: isReady
+                              color: isOutOfStock
+                                  ? AppColors.error
+                                  : isReady
                                   ? AppColors.readyStockText
                                   : AppColors.preOrderText,
                               shape: BoxShape.circle,
@@ -82,10 +93,16 @@ class ProductArtwork extends StatelessWidget {
                           ),
                           const SizedBox(width: 5),
                           Text(
-                            isReady ? 'Ready Stock' : 'Pre-Order',
+                            isOutOfStock
+                                ? 'Stok Habis'
+                                : isReady
+                                ? 'Ready Stock'
+                                : 'Pre-Order',
                             style: Theme.of(context).textTheme.labelSmall
                                 ?.copyWith(
-                                  color: isReady
+                                  color: isOutOfStock
+                                      ? AppColors.error
+                                      : isReady
                                       ? AppColors.readyStockText
                                       : AppColors.preOrderText,
                                 ),
@@ -128,6 +145,12 @@ class ProductArtwork extends StatelessWidget {
     );
   }
 
+  String _resolveImageUrl(String value) {
+    final uri = Uri.tryParse(value);
+    if (uri?.hasScheme == true) return value;
+    return Uri.parse(apiBaseUrl).resolve(value).toString();
+  }
+
   _ProductVisualStyle _styleFor(ProductVisual visual) {
     return switch (visual) {
       ProductVisual.bouquet => const _ProductVisualStyle(
@@ -149,6 +172,31 @@ class ProductArtwork extends StatelessWidget {
         semanticLabel: 'Ilustrasi papan ucapan',
       ),
     };
+  }
+}
+
+class _PlaceholderArtwork extends StatelessWidget {
+  const _PlaceholderArtwork({
+    required this.visualStyle,
+    required this.iconSize,
+  });
+
+  final _ProductVisualStyle visualStyle;
+  final double iconSize;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Semantics(
+        label: visualStyle.semanticLabel,
+        image: true,
+        child: Icon(
+          visualStyle.icon,
+          size: iconSize,
+          color: visualStyle.accentColor,
+        ),
+      ),
+    );
   }
 }
 

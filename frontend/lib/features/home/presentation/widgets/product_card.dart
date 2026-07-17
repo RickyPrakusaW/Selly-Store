@@ -27,6 +27,9 @@ class _ProductCardState extends State<ProductCard> {
 
   @override
   Widget build(BuildContext context) {
+    final isOutOfStock =
+        widget.product.stockStatus == ProductStockStatus.readyStock &&
+        widget.product.availableQty == 0;
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
@@ -114,9 +117,11 @@ class _ProductCardState extends State<ProductCard> {
                         SizedBox(
                           width: double.infinity,
                           child: FilledButton.icon(
-                            onPressed: widget.onAddPressed,
+                            onPressed: isOutOfStock
+                                ? null
+                                : widget.onAddPressed,
                             icon: const Icon(LucideIcons.plus, size: 17),
-                            label: const Text('Tambah'),
+                            label: Text(isOutOfStock ? 'Stok Habis' : 'Tambah'),
                             style: FilledButton.styleFrom(
                               minimumSize: const Size.fromHeight(44),
                               padding: const EdgeInsets.symmetric(

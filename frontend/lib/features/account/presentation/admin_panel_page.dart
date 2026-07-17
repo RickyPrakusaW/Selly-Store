@@ -192,8 +192,13 @@ class _AdminSidebar extends StatelessWidget {
                 ),
                 const SizedBox(height: 10),
                 OutlinedButton.icon(
-                  onPressed: () {
-                    authNotifier.logout();
+                  onPressed: () async {
+                    try {
+                      await authNotifier.logout();
+                    } catch (_) {
+                      // Local credentials are cleared even if revocation fails.
+                    }
+                    if (!context.mounted) return;
                     Navigator.of(context).pop();
                   },
                   icon: const Icon(LucideIcons.logOut, size: 18),

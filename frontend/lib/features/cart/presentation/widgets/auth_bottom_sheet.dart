@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:florist_frontend/core/api_client.dart';
 import 'package:florist_frontend/core/auth_state.dart';
 import 'package:florist_frontend/core/theme.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
@@ -25,6 +26,7 @@ class _AuthBottomSheetState extends State<AuthBottomSheet> {
   var _mode = _AuthMode.login;
   var _obscureLoginPassword = true;
   var _obscureRegisterPassword = true;
+  var _isSubmitting = false;
 
   @override
   void dispose() {
@@ -188,10 +190,10 @@ class _AuthBottomSheetState extends State<AuthBottomSheet> {
             controller: _loginPasswordController,
             obscureText: _obscureLoginPassword,
             autofillHints: const [AutofillHints.password],
-            validator: _validatePassword,
+            validator: (value) => _validateRequired(value, 'Password'),
             decoration: InputDecoration(
               labelText: 'Password',
-              hintText: 'Minimal 6 karakter',
+              hintText: 'Masukkan password akun',
               prefixIcon: const Icon(LucideIcons.lockKeyhole),
               suffixIcon: IconButton(
                 tooltip: _obscureLoginPassword
@@ -211,9 +213,17 @@ class _AuthBottomSheetState extends State<AuthBottomSheet> {
           const SizedBox(height: 20),
           FilledButton.icon(
             key: const ValueKey('submit-login'),
-            onPressed: _submitLogin,
-            icon: const Icon(LucideIcons.logIn, size: 19),
-            label: const Text('Masuk'),
+            onPressed: _isSubmitting ? null : _submitLogin,
+            icon: _isSubmitting
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppColors.pureWhite,
+                    ),
+                  )
+                : const Icon(LucideIcons.logIn, size: 19),
+            label: Text(_isSubmitting ? 'Memproses...' : 'Masuk'),
             style: FilledButton.styleFrom(
               minimumSize: const Size.fromHeight(52),
             ),
@@ -261,7 +271,7 @@ class _AuthBottomSheetState extends State<AuthBottomSheet> {
             controller: _phoneController,
             keyboardType: TextInputType.phone,
             autofillHints: const [AutofillHints.telephoneNumber],
-            validator: (value) => _validateRequired(value, 'Nomor WA'),
+            validator: _validatePhone,
             decoration: const InputDecoration(
               labelText: 'Nomor WA',
               hintText: '08xxxxxxxxxx',
@@ -277,7 +287,7 @@ class _AuthBottomSheetState extends State<AuthBottomSheet> {
             validator: _validatePassword,
             decoration: InputDecoration(
               labelText: 'Password',
-              hintText: 'Minimal 6 karakter',
+              hintText: 'Minimal 10 karakter, huruf besar & angka',
               prefixIcon: const Icon(LucideIcons.lockKeyhole),
               suffixIcon: IconButton(
                 tooltip: _obscureRegisterPassword
@@ -299,9 +309,17 @@ class _AuthBottomSheetState extends State<AuthBottomSheet> {
           const SizedBox(height: 20),
           FilledButton.icon(
             key: const ValueKey('submit-register'),
-            onPressed: _submitRegister,
-            icon: const Icon(LucideIcons.userPlus, size: 19),
-            label: const Text('Daftar Akun'),
+            onPressed: _isSubmitting ? null : _submitRegister,
+            icon: _isSubmitting
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppColors.pureWhite,
+                    ),
+                  )
+                : const Icon(LucideIcons.userPlus, size: 19),
+            label: Text(_isSubmitting ? 'Memproses...' : 'Daftar Akun'),
             style: FilledButton.styleFrom(
               minimumSize: const Size.fromHeight(52),
             ),
@@ -311,30 +329,66 @@ class _AuthBottomSheetState extends State<AuthBottomSheet> {
     );
   }
 
-  void _submitLogin() {
+  Future<void> _submitLogin() async {
     if (!(_loginFormKey.currentState?.validate() ?? false)) {
       return;
     }
-
-    authNotifier.login(
-      _loginEmailController.text,
-      _loginPasswordController.text,
-    );
-    Navigator.pop(context, true);
+    setState(() => _isSubmitting = true);
+    try {
+      await authNotifier.login(
+        _loginEmailController.text,
+        _loginPasswordController.text,
+      );
+      if (!mounted) return;
+      Navigator.pop(context, true);
+    } catch (error) {
+      if (!mounted) return;
+      _showError(ApiException.from(error).message);
+      setState(() => _isSubmitting = false);
+    }
   }
 
-  void _submitRegister() {
+  Future<void> _submitRegister() async {
     if (!(_registerFormKey.currentState?.validate() ?? false)) {
       return;
     }
+    setState(() => _isSubmitting = true);
+    try {
+      await authNotifier.register(
+        _nameController.text,
+        _registerEmailController.text,
+        _phoneController.text,
+        _registerPasswordController.text,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Pendaftaran berhasil. Silakan cek email untuk verifikasi akun.',
+            ),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      Navigator.pop(context, true);
+    } catch (error) {
+      if (!mounted) return;
+      _showError(ApiException.from(error).message);
+      setState(() => _isSubmitting = false);
+    }
+  }
 
-    authNotifier.register(
-      _nameController.text,
-      _registerEmailController.text,
-      _phoneController.text,
-      _registerPasswordController.text,
-    );
-    Navigator.pop(context, true);
+  void _showError(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: AppColors.error,
+        ),
+      );
   }
 
   String? _validateRequired(String? value, String label) {
@@ -355,13 +409,28 @@ class _AuthBottomSheetState extends State<AuthBottomSheet> {
     return null;
   }
 
+  String? _validatePhone(String? value) {
+    final requiredError = _validateRequired(value, 'Nomor WA');
+    if (requiredError != null) return requiredError;
+    final digits = value!.replaceAll(RegExp(r'\D'), '');
+    if (digits.length < 8 || digits.length > 15) {
+      return 'Nomor WA tidak valid';
+    }
+    return null;
+  }
+
   String? _validatePassword(String? value) {
     final requiredError = _validateRequired(value, 'Password');
     if (requiredError != null) {
       return requiredError;
     }
-    if (value!.length < 6) {
-      return 'Password minimal 6 karakter';
+    if (value!.length < 10) {
+      return 'Password minimal 10 karakter';
+    }
+    if (!RegExp(r'[A-Z]').hasMatch(value) ||
+        !RegExp(r'[a-z]').hasMatch(value) ||
+        !RegExp(r'\d').hasMatch(value)) {
+      return 'Gunakan huruf besar, huruf kecil, dan angka';
     }
     return null;
   }

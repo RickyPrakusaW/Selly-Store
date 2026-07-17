@@ -26,10 +26,19 @@ export class MailService {
   async send(to: string, subject: string, text: string): Promise<void> {
     if (!this.transporter) {
       this.logger.warn(
-        `Email transport is not configured; skipped message to ${to}`,
+        `[DEV MAIL LOG] To: ${to} | Subject: ${subject} | Content: ${text}`,
       );
       return;
     }
-    await this.transporter.sendMail({ from: this.from, to, subject, text });
+    try {
+      await this.transporter.sendMail({ from: this.from, to, subject, text });
+    } catch (error: any) {
+      this.logger.error(
+        `[DEV MAIL ERROR] Failed to send email to ${to}: ${error?.message || error}`,
+      );
+      this.logger.warn(
+        `[DEV MAIL FALLBACK] Content for ${to}: ${text}`,
+      );
+    }
   }
 }

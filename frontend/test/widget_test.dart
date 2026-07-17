@@ -20,28 +20,28 @@ const _testProduct = ProductPreview(
 void main() {
   setUp(() {
     cartNotifier.clearCart();
-    authNotifier.logout();
+    authNotifier.configureForTesting(_FakeAuthGateway());
     orderNotifier.clearOrders();
   });
 
-  test('auth notifier supports mock login, register, and logout', () {
-    final notifier = AuthNotifier();
+  test('auth notifier supports API login, register, and logout', () async {
+    final notifier = AuthNotifier(gateway: _FakeAuthGateway());
 
-    notifier.login('seli@example.com', 'password');
+    await notifier.login('seli@example.com', 'Password123');
     expect(notifier.isLoggedIn, isTrue);
     expect(notifier.userName, 'Seli');
     expect(notifier.userEmail, 'seli@example.com');
 
-    notifier.register(
+    await notifier.register(
       'Seli Florist',
       'owner@seli.test',
       '081234567890',
-      'password',
+      'Password123',
     );
     expect(notifier.userName, 'Seli Florist');
     expect(notifier.userEmail, 'owner@seli.test');
 
-    notifier.logout();
+    await notifier.logout();
     expect(notifier.isLoggedIn, isFalse);
     expect(notifier.userName, isNull);
   });
@@ -188,7 +188,7 @@ void main() {
     );
     await tester.enterText(
       find.byKey(const ValueKey('login-password')),
-      'password',
+      'Password123',
     );
     await tester.tap(find.byKey(const ValueKey('submit-login')));
     await tester.pumpAndSettle();
@@ -297,7 +297,7 @@ void main() {
     );
     await tester.enterText(
       find.byKey(const ValueKey('register-password')),
-      'password',
+      'Password123',
     );
     await tester.ensureVisible(find.byKey(const ValueKey('submit-register')));
     await tester.tap(find.byKey(const ValueKey('submit-register')));
@@ -528,6 +528,48 @@ void main() {
     expect(find.text('Need Help?'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+}
+
+class _FakeAuthGateway implements AuthGateway {
+  String? _registeredName;
+
+  @override
+  Future<AuthSession> login(String email, String password) async {
+    final emailName = email.split('@').first;
+    final fallbackName = emailName.isEmpty
+        ? 'Pelanggan Seli'
+        : '${emailName[0].toUpperCase()}${emailName.substring(1)}';
+    return AuthSession(
+      accessToken: 'test-access-token',
+      user: AuthUser(
+        id: 'test-user-id',
+        email: email,
+        fullName: _registeredName ?? fallbackName,
+        role: 'customer',
+        isVerified: true,
+      ),
+    );
+  }
+
+  @override
+  Future<String> register(
+    String name,
+    String email,
+    String phone,
+    String password,
+  ) async {
+    _registeredName = name;
+    return 'Pendaftaran berhasil';
+  }
+
+  @override
+  Future<void> logout() async {}
+
+  @override
+  Future<AuthUser> me() async => throw UnimplementedError();
+
+  @override
+  Future<String> refresh() async => throw UnimplementedError();
 }
 
 Future<void> _setMobileViewport(WidgetTester tester) async {

@@ -19,7 +19,23 @@ class AccountPage extends StatelessWidget {
         return _LoggedInAccount(
           name: auth.userName ?? 'Pelanggan Seli',
           email: auth.userEmail ?? '-',
-          onLogout: authNotifier.logout,
+          onLogout: () async {
+            try {
+              await authNotifier.logout();
+            } catch (error) {
+              if (!context.mounted) return;
+              ScaffoldMessenger.of(context)
+                ..hideCurrentSnackBar()
+                ..showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Sesi lokal sudah ditutup, tetapi server tidak dapat dihubungi.',
+                    ),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+            }
+          },
           onOpenAdmin: () {
             Navigator.push(
               context,

@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:florist_frontend/core/auth_state.dart';
 import 'package:florist_frontend/core/theme.dart';
 import 'package:florist_frontend/features/cart/presentation/cart_page.dart';
 import 'package:florist_frontend/features/checkout/presentation/checkout_page.dart';
@@ -6,6 +9,8 @@ import 'package:florist_frontend/features/home/presentation/home_page.dart';
 import 'package:florist_frontend/features/splash/presentation/splash_page.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  unawaited(authNotifier.restoreSession());
   runApp(const FloristApp());
 }
 

@@ -29,7 +29,13 @@ async function bootstrap() {
       origin: string | undefined,
       callback: (error: Error | null, allow?: boolean) => void,
     ) {
-      if (!origin || allowedOrigins.has(origin)) return callback(null, true);
+      if (
+        !origin ||
+        allowedOrigins.has(origin) ||
+        /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)
+      ) {
+        return callback(null, true);
+      }
       return callback(new Error('Origin is not allowed by CORS'), false);
     },
   });
