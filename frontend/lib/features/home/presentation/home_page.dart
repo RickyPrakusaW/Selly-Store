@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:florist_frontend/core/auth_state.dart';
 import 'package:florist_frontend/features/account/presentation/account_page.dart';
 import 'package:florist_frontend/core/theme.dart';
 import 'package:florist_frontend/features/catalog/presentation/product_detail_page.dart';
@@ -102,47 +103,68 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.sizeOf(context).width < 600;
+
     return Scaffold(
-      appBar: _currentIndex == 0
-          ? PreferredSize(
-              preferredSize: const Size.fromHeight(64),
-              child: FloristAppBar(
-                onSearchPressed: _openSearch,
-                onCartPressed: () => Navigator.pushNamed(context, '/cart'),
-              ),
-            )
-          : AppBar(
-              title: Text(_currentIndex == 1 ? 'Pesanan Saya' : 'Akun & Admin'),
-            ),
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(76),
+        child: FloristAppBar(
+          categories: _categories,
+          selectedCategory: _selectedCategory,
+          onCategorySelected: (category) {
+            setState(() {
+              _selectedCategory = category;
+              _currentIndex = 0;
+            });
+          },
+          onSearchPressed: _openSearch,
+          onProfilePressed: () => setState(() => _currentIndex = 2),
+          onWishlistPressed: _showWishlistComingSoon,
+          onCartPressed: () => Navigator.pushNamed(context, '/cart'),
+        ),
+      ),
       body: _currentIndex == 0
           ? _buildCatalogBody()
           : _currentIndex == 1
           ? const OrderHistoryPage()
           : const AccountPage(),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (index) => setState(() => _currentIndex = index),
-        selectedItemColor: AppColors.deepRose,
-        unselectedItemColor: AppColors.mediumGray,
-        backgroundColor: AppColors.pureWhite,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(LucideIcons.house),
-            activeIcon: Icon(LucideIcons.house),
-            label: 'Beranda',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(LucideIcons.package),
-            activeIcon: Icon(LucideIcons.packageCheck),
-            label: 'Pesanan Saya',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(LucideIcons.userRound),
-            activeIcon: Icon(LucideIcons.userRound),
-            label: 'Akun & Admin',
-          ),
-        ],
+      endDrawer: _HomeEndDrawer(
+        onAccountPressed: () => setState(() => _currentIndex = 2),
+        onWishlistPressed: _showWishlistComingSoon,
+        onSettingsPressed: () =>
+            _showTemporaryMessage('Pengaturan aplikasi sedang disiapkan.'),
+        onWhatsAppPressed: () => _showTemporaryMessage(
+          'Hubungi WhatsApp Admin Seli Florist: +62 812-3456-7890',
+        ),
       ),
+      bottomNavigationBar: isMobile ? _buildBottomNavigationBar() : null,
+    );
+  }
+
+  Widget _buildBottomNavigationBar() {
+    return BottomNavigationBar(
+      currentIndex: _currentIndex,
+      onTap: (index) => setState(() => _currentIndex = index),
+      selectedItemColor: AppColors.deepRose,
+      unselectedItemColor: AppColors.mediumGray,
+      backgroundColor: AppColors.pureWhite,
+      items: const [
+        BottomNavigationBarItem(
+          icon: Icon(LucideIcons.house),
+          activeIcon: Icon(LucideIcons.house),
+          label: 'Beranda',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(LucideIcons.package),
+          activeIcon: Icon(LucideIcons.packageCheck),
+          label: 'Pesanan Saya',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(LucideIcons.userRound),
+          activeIcon: Icon(LucideIcons.userRound),
+          label: 'Akun & Admin',
+        ),
+      ],
     );
   }
 
@@ -213,6 +235,22 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  void _showWishlistComingSoon() {
+    _showTemporaryMessage('Fitur Wishlist sedang disiapkan 🌸');
+  }
+
+  void _showTemporaryMessage(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+  }
+
   Future<void> _openSearch() async {
     final product = await showSearch<ProductPreview?>(
       context: context,
@@ -253,6 +291,220 @@ class _HomePageState extends State<HomePage> {
           ),
         );
     }
+  }
+}
+
+class _HomeEndDrawer extends StatelessWidget {
+  const _HomeEndDrawer({
+    required this.onAccountPressed,
+    required this.onWishlistPressed,
+    required this.onSettingsPressed,
+    required this.onWhatsAppPressed,
+  });
+
+  final VoidCallback onAccountPressed;
+  final VoidCallback onWishlistPressed;
+  final VoidCallback onSettingsPressed;
+  final VoidCallback onWhatsAppPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final drawerWidth = MediaQuery.sizeOf(context).width * 0.88;
+
+    return Drawer(
+      width: drawerWidth > 360 ? 360 : drawerWidth,
+      backgroundColor: AppColors.offWhite,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.horizontal(left: Radius.circular(28)),
+      ),
+      child: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            ValueListenableBuilder<AuthState>(
+              valueListenable: authNotifier,
+              builder: (context, authState, _) {
+                return _DrawerProfileHeader(
+                  authState: authState,
+                  onLoginPressed: () => _closeThen(context, onAccountPressed),
+                );
+              },
+            ),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
+                children: [
+                  _DrawerMenuTile(
+                    icon: LucideIcons.userRound,
+                    label: 'Akun Saya',
+                    onTap: () => _closeThen(context, onAccountPressed),
+                  ),
+                  _DrawerMenuTile(
+                    icon: LucideIcons.heart,
+                    label: 'Wishlist Saya',
+                    onTap: () => _closeThen(context, onWishlistPressed),
+                  ),
+                  _DrawerMenuTile(
+                    icon: LucideIcons.settings,
+                    label: 'Pengaturan Aplikasi',
+                    onTap: () => _closeThen(context, onSettingsPressed),
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 10),
+                    child: Divider(color: AppColors.blushRose),
+                  ),
+                  _DrawerMenuTile(
+                    icon: LucideIcons.messageCircle,
+                    label: 'Hubungi WhatsApp Admin Seli Florist',
+                    iconColor: AppColors.success,
+                    onTap: () => _closeThen(context, onWhatsAppPressed),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _closeThen(BuildContext context, VoidCallback callback) {
+    Navigator.of(context).pop();
+    callback();
+  }
+}
+
+class _DrawerProfileHeader extends StatelessWidget {
+  const _DrawerProfileHeader({
+    required this.authState,
+    required this.onLoginPressed,
+  });
+
+  final AuthState authState;
+  final VoidCallback onLoginPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [AppColors.blushRose, Color(0xFFFFEEF3)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(22),
+      ),
+      child: authState.isLoggedIn
+          ? Row(
+              children: [
+                const CircleAvatar(
+                  radius: 24,
+                  backgroundColor: AppColors.pureWhite,
+                  child: Icon(LucideIcons.user, color: AppColors.deepRose),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        authState.userName ?? 'Pelanggan Seli',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      if (authState.userEmail != null) ...[
+                        const SizedBox(height: 3),
+                        Text(
+                          authState.userEmail!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(
+                  LucideIcons.flower2,
+                  size: 28,
+                  color: AppColors.deepRose,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Selamat datang di Seli Florist',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Masuk untuk pengalaman belanja yang lebih personal.',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const SizedBox(height: 16),
+                FilledButton.icon(
+                  onPressed: onLoginPressed,
+                  icon: const Icon(LucideIcons.logIn, size: 18),
+                  label: const Text('Masuk / Daftar'),
+                ),
+              ],
+            ),
+    );
+  }
+}
+
+class _DrawerMenuTile extends StatelessWidget {
+  const _DrawerMenuTile({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.iconColor = AppColors.deepRose,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final Color iconColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: ListTile(
+        onTap: onTap,
+        minTileHeight: 54,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        hoverColor: AppColors.blushRose,
+        leading: Container(
+          width: 38,
+          height: 38,
+          decoration: const BoxDecoration(
+            color: AppColors.pureWhite,
+            shape: BoxShape.circle,
+          ),
+          alignment: Alignment.center,
+          child: Icon(icon, size: 19, color: iconColor),
+        ),
+        title: Text(
+          label,
+          style: Theme.of(
+            context,
+          ).textTheme.labelLarge?.copyWith(color: AppColors.charcoal),
+        ),
+        trailing: const Icon(
+          LucideIcons.chevronRight,
+          size: 17,
+          color: AppColors.mediumGray,
+        ),
+      ),
+    );
   }
 }
 

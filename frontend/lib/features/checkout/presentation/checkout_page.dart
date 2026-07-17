@@ -77,7 +77,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
             return _EmptyCheckout(
               onBackHome: () => Navigator.pushNamedAndRemoveUntil(
                 context,
-                '/',
+                '/home',
                 (route) => false,
               ),
             );
@@ -448,7 +448,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
           const SizedBox(height: 28),
           FilledButton.icon(
             onPressed: () {
-              Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
+              Navigator.pushNamedAndRemoveUntil(
+                context,
+                '/home',
+                (route) => false,
+              );
             },
             icon: const Icon(LucideIcons.house, size: 19),
             label: const Text('Kembali ke Beranda'),

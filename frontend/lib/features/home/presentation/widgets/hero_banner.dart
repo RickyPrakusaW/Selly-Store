@@ -34,6 +34,7 @@ class HeroBanner extends StatelessWidget {
               constraints: const BoxConstraints(maxWidth: 1280),
               child: SizedBox(
                 width: double.infinity,
+                height: isMobile ? 336 : 320,
                 child: Stack(
                   children: [
                     Positioned(
@@ -46,7 +47,7 @@ class HeroBanner extends StatelessWidget {
                     Padding(
                       padding: EdgeInsets.symmetric(
                         horizontal: horizontalPadding,
-                        vertical: isMobile ? 24 : 40,
+                        vertical: isMobile ? 24 : 32,
                       ),
                       child: FractionallySizedBox(
                         alignment: Alignment.centerLeft,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:florist_frontend/core/auth_state.dart';
 import 'package:florist_frontend/core/cart_state.dart';
+import 'package:florist_frontend/core/order_state.dart';
 import 'package:florist_frontend/features/home/domain/product_preview.dart';
 import 'package:florist_frontend/main.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
@@ -18,6 +19,7 @@ void main() {
   setUp(() {
     cartNotifier.clearCart();
     authNotifier.logout();
+    orderNotifier.clearOrders();
   });
 
   test('auth notifier supports mock login, register, and logout', () {
@@ -105,7 +107,7 @@ void main() {
   ) async {
     await _setMobileViewport(tester);
     await tester.pumpWidget(const FloristApp());
-    await tester.pump();
+    await _finishSplash(tester);
 
     expect(find.byKey(const ValueKey('cart-badge-count')), findsNothing);
 
@@ -143,7 +145,7 @@ void main() {
     );
 
     await tester.pumpWidget(const FloristApp());
-    await tester.pump();
+    await _finishSplash(tester);
     await tester.tap(find.byIcon(LucideIcons.shoppingCart));
     await tester.pumpAndSettle();
 
@@ -220,6 +222,40 @@ void main() {
     expect(find.text('Seli Florist'), findsOneWidget);
   });
 
+  testWidgets('mobile header keeps full logo and opens the end drawer', (
+    tester,
+  ) async {
+    await _setMobileViewport(tester);
+    await tester.pumpWidget(const FloristApp());
+    await _finishSplash(tester);
+
+    expect(find.text('Seli Florist'), findsOneWidget);
+    expect(find.byTooltip('Keranjang belanja'), findsOneWidget);
+    expect(find.byTooltip('Buka menu'), findsOneWidget);
+    expect(find.byTooltip('Profil'), findsNothing);
+    expect(find.byTooltip('Wishlist'), findsNothing);
+    expect(find.byTooltip('Cari produk'), findsNothing);
+
+    await tester.tap(find.byTooltip('Buka menu'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Masuk / Daftar'), findsOneWidget);
+    expect(find.text('Akun Saya'), findsOneWidget);
+    expect(find.text('Wishlist Saya'), findsOneWidget);
+    expect(find.text('Pengaturan Aplikasi'), findsOneWidget);
+    expect(find.text('Hubungi WhatsApp Admin Seli Florist'), findsOneWidget);
+
+    await tester.tap(find.text('Wishlist Saya'));
+    await tester.pumpAndSettle();
+    expect(find.text('Fitur Wishlist sedang disiapkan 🌸'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Buka menu'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Akun Saya'));
+    await tester.pumpAndSettle();
+    expect(find.text('Masuk / Daftar Akun'), findsOneWidget);
+  });
+
   testWidgets('registration tab creates account and continues checkout', (
     tester,
   ) async {
@@ -235,7 +271,7 @@ void main() {
     );
 
     await tester.pumpWidget(const FloristApp());
-    await tester.pump();
+    await _finishSplash(tester);
     await tester.tap(find.byIcon(LucideIcons.shoppingCart));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('continue-to-checkout')));
@@ -279,7 +315,7 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     await tester.pumpWidget(const FloristApp());
-    await tester.pump();
+    await _finishSplash(tester);
 
     await tester.scrollUntilVisible(
       find.text('Tambah').first,
@@ -292,6 +328,32 @@ void main() {
     expect(find.text('Pre-Order'), findsWidgets);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('desktop header shows category menu and pill search', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1024, 768);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const FloristApp());
+    await _finishSplash(tester);
+
+    expect(find.byType(BottomNavigationBar), findsNothing);
+    expect(find.text('Seli Florist'), findsOneWidget);
+    expect(find.text('Kategori'), findsOneWidget);
+    expect(find.text('Search flowers, gifts, boards...'), findsOneWidget);
+    expect(find.byKey(const ValueKey('header-search')), findsOneWidget);
+    expect(find.byTooltip('Profil'), findsOneWidget);
+    expect(find.byTooltip('Wishlist'), findsOneWidget);
+    expect(find.byTooltip('Keranjang belanja'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('header-search')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Cari bunga, kado, atau papan'), findsOneWidget);
+  });
 }
 
 Future<void> _setMobileViewport(WidgetTester tester) async {
@@ -299,4 +361,9 @@ Future<void> _setMobileViewport(WidgetTester tester) async {
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
+}
+
+Future<void> _finishSplash(WidgetTester tester) async {
+  await tester.pump(const Duration(milliseconds: 2500));
+  await tester.pumpAndSettle();
 }

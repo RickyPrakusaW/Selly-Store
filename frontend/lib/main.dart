@@ -3,6 +3,7 @@ import 'package:florist_frontend/core/theme.dart';
 import 'package:florist_frontend/features/cart/presentation/cart_page.dart';
 import 'package:florist_frontend/features/checkout/presentation/checkout_page.dart';
 import 'package:florist_frontend/features/home/presentation/home_page.dart';
+import 'package:florist_frontend/features/splash/presentation/splash_page.dart';
 
 void main() {
   runApp(const FloristApp());
@@ -19,7 +20,8 @@ class FloristApp extends StatelessWidget {
       theme: AppTheme.light,
       initialRoute: '/',
       routes: {
-        '/': (_) => const HomePage(),
+        '/': (_) => const SplashPage(),
+        '/home': (_) => const HomePage(),
         '/cart': (_) => const CartPage(),
         '/checkout': (_) => const CheckoutPage(),
       },
