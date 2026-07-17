@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:florist_frontend/core/auth_state.dart';
 import 'package:florist_frontend/core/cart_state.dart';
 import 'package:florist_frontend/core/order_state.dart';
+import 'package:florist_frontend/core/theme.dart';
+import 'package:florist_frontend/features/account/presentation/admin_panel_page.dart';
 import 'package:florist_frontend/features/home/domain/product_preview.dart';
 import 'package:florist_frontend/main.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
@@ -353,6 +355,133 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Cari bunga, kado, atau papan'), findsOneWidget);
+  });
+
+  testWidgets('admin manager renders the desktop dashboard sections', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1440, 1100);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MaterialApp(theme: AppTheme.light, home: const AdminPanelPage()),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Seli Admin'), findsOneWidget);
+    expect(find.text('Dashboard Overview'), findsOneWidget);
+    expect(find.text('Rp 45.2M'), findsOneWidget);
+    expect(find.text('Omzet 7 Hari Terakhir'), findsOneWidget);
+    expect(find.text('Antrian Verifikasi'), findsOneWidget);
+    expect(find.text('Laporan Keuangan'), findsOneWidget);
+    expect(find.text('Export XLSX'), findsOneWidget);
+
+    await tester.tap(find.text('Orders'));
+    await tester.pumpAndSettle();
+    expect(find.text('Order Management'), findsOneWidget);
+    expect(find.text('Search Order ID, Customer, or Phone...'), findsOneWidget);
+    expect(find.text('#ORD-0982'), findsOneWidget);
+
+    await tester.tap(find.text('Inventory'));
+    await tester.pumpAndSettle();
+    expect(find.text('Inventory & Catalog'), findsOneWidget);
+    expect(find.text('Manajemen Papan Ucapan (Sewa)'), findsOneWidget);
+    expect(find.text('Sweet Romance Bouquet'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('add-inventory-product')));
+    await tester.pumpAndSettle();
+    expect(find.text('Tambah Produk Baru'), findsOneWidget);
+    expect(find.byKey(const ValueKey('admin-product-name')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('admin-product-photo-upload')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byTooltip('Kembali'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Edit produk').first);
+    await tester.pumpAndSettle();
+    expect(find.text('Edit Produk'), findsOneWidget);
+    expect(
+      tester
+          .widget<TextFormField>(
+            find.byKey(const ValueKey('admin-product-name')),
+          )
+          .controller
+          ?.text,
+      'Sweet Romance Bouquet',
+    );
+
+    await tester.tap(find.byTooltip('Kembali'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Customers'));
+    await tester.pumpAndSettle();
+    expect(find.text('Customer Database'), findsOneWidget);
+    expect(find.text('Sarah Wijaya'), findsOneWidget);
+    expect(find.text('Rp 4.500.000'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('admin mobile uses 2x2 KPI grid and order cards', (tester) async {
+    await _setMobileViewport(tester);
+    await tester.pumpWidget(
+      MaterialApp(theme: AppTheme.light, home: const AdminPanelPage()),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+
+    final revenue = tester.getTopLeft(find.text('Total Revenue'));
+    final orders = tester.getTopLeft(find.text('New Orders'));
+    final rentals = tester.getTopLeft(find.text('Active Papan Sewa'));
+    final stock = tester.getTopLeft(find.text('Low Stock Items'));
+
+    expect((revenue.dy - orders.dy).abs(), lessThan(2));
+    expect((rentals.dy - stock.dy).abs(), lessThan(2));
+    expect(orders.dx, greaterThan(revenue.dx));
+    expect(stock.dx, greaterThan(rentals.dx));
+    expect(rentals.dy, greaterThan(revenue.dy));
+
+    await tester.tap(find.byTooltip('Buka navigasi admin'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.text('Orders'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+
+    expect(find.text('Order Management'), findsOneWidget);
+    expect(find.byType(DataTable), findsNothing);
+    expect(find.text('Verify'), findsNWidgets(2));
+
+    await tester.tap(find.byTooltip('Buka navigasi admin'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Inventory'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Inventory & Catalog'), findsOneWidget);
+    expect(find.text('Tambah Produk Baru'), findsOneWidget);
+    expect(find.text('Katalog Produk'), findsOneWidget);
+    expect(find.byType(DataTable), findsNothing);
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.byKey(const ValueKey('add-inventory-product')));
+    await tester.pumpAndSettle();
+    expect(find.text('Tambah Produk Baru'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.byTooltip('Kembali'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Buka navigasi admin'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Customers'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Customer Database'), findsOneWidget);
+    expect(find.byType(DataTable), findsNothing);
+    expect(find.text('Sarah Wijaya'), findsOneWidget);
+    expect(find.text('Active'), findsWidgets);
+    expect(tester.takeException(), isNull);
   });
 }
 

@@ -169,7 +169,7 @@ class _LoggedInAccount extends StatelessWidget {
         FilledButton.icon(
           onPressed: onOpenAdmin,
           icon: const Icon(LucideIcons.shieldCheck, size: 19),
-          label: const Text('Buka Panel Admin (Simulator)'),
+          label: const Text('Buka Seli Florist Manager'),
           style: FilledButton.styleFrom(
             backgroundColor: AppColors.deepRose,
             minimumSize: const Size.fromHeight(52),
