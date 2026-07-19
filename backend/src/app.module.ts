@@ -9,6 +9,8 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { VerifiedGuard } from './common/guards/verified.guard';
 import { MailModule } from './common/mail/mail.module';
+import { WaModule } from './common/wa/wa.module';
+import { NotificationQueueModule } from './common/notification-queue/notification-queue.module';
 import { RedisModule } from './common/redis/redis.module';
 import { StorageModule } from './common/storage/storage.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -58,6 +60,8 @@ function validateConfig(config: Record<string, unknown>) {
     PrismaModule,
     RedisModule,
     MailModule,
+    WaModule,
+    NotificationQueueModule,
     StorageModule,
     AuthModule,
     CatalogModule,

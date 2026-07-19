@@ -14,6 +14,7 @@ import {
   StockType,
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { NotificationQueueService } from '../../common/notification-queue/notification-queue.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import {
   CheckoutDto,
@@ -28,6 +29,7 @@ type ResolvedItem = {
   qty: number;
   customNote?: string;
   bookingDate: Date | null;
+  bookingEndDate: Date | null;
 };
 
 @Injectable()
@@ -36,6 +38,7 @@ export class CheckoutService {
     private readonly prisma: PrismaService,
     private readonly shipping: ShippingService,
     private readonly notifications: NotificationsService,
+    private readonly notificationQueue: NotificationQueueService,
   ) {}
 
   estimate(dto: EstimateShippingDto) {
@@ -80,6 +83,21 @@ export class CheckoutService {
           status: result.status,
           total: result.total.toString(),
         });
+        await Promise.all([
+          this.notificationQueue.enqueue({
+            kind: 'mail',
+            to: user.email,
+            subject: 'Pesanan Seli Florist berhasil dibuat',
+            text: `Pesanan ${result.id} berhasil dibuat. DP ${result.dpAmount.toString()} harus dibayar sebelum ${result.dpDeadline.toISOString()}.`,
+            idempotencyKey: `order-created:mail:${result.id}`,
+          }),
+          this.notificationQueue.enqueue({
+            kind: 'whatsapp',
+            target: dto.waNumber,
+            message: `Pesanan Seli Florist ${result.id} berhasil dibuat. DP Rp${result.dpAmount.toString()} jatuh tempo ${result.dpDeadline.toISOString()}.`,
+            idempotencyKey: `order-created:wa:${result.id}`,
+          }),
+        ]);
         return {
           orderId: result.id,
           dpAmount: result.dpAmount,
@@ -90,7 +108,7 @@ export class CheckoutService {
         lastError = error;
         if (
           !(error instanceof Prisma.PrismaClientKnownRequestError) ||
-          !['P2002', 'P2034'].includes(error.code)
+          !['P2002', 'P2004', 'P2034'].includes(error.code)
         )
           throw error;
       }
@@ -152,7 +170,10 @@ export class CheckoutService {
       }
       if (product.category.slug === 'papan_ucapan' && !item.bookingDate)
         throw new BadRequestException('Board products require a booking date');
-      if (product.category.slug !== 'papan_ucapan' && item.bookingDate)
+      if (
+        product.category.slug !== 'papan_ucapan' &&
+        (item.bookingDate || item.bookingEndDate)
+      )
         throw new BadRequestException(
           'Only board products accept a booking date',
         );
@@ -227,6 +248,7 @@ export class CheckoutService {
           priceSnapshot: snapshot.unitPrice,
           costPriceSnapshot: snapshot.costPrice,
           bookingDate: snapshot.item.bookingDate,
+          bookingEndDate: snapshot.item.bookingEndDate,
           estimatedReadyDate: snapshot.product.poDays
             ? new Date(
                 Date.UTC(
@@ -255,7 +277,8 @@ export class CheckoutService {
               deletedAt: null,
               bookings: {
                 none: {
-                  bookingDate: snapshot.item.bookingDate,
+                  bookingStart: { lt: snapshot.item.bookingEndDate! },
+                  bookingEnd: { gt: snapshot.item.bookingDate },
                   status: {
                     in: [BookingStatus.SOFT_LOCKED, BookingStatus.CONFIRMED],
                   },
@@ -266,12 +289,13 @@ export class CheckoutService {
           });
           if (!board)
             throw new ConflictException(
-              `No board is available on ${snapshot.item.bookingDate.toISOString().slice(0, 10)}`,
+              `No board is available for ${snapshot.item.bookingDate.toISOString().slice(0, 10)}–${snapshot.item.bookingEndDate!.toISOString().slice(0, 10)}`,
             );
           await tx.boardBooking.create({
             data: {
               boardId: board.id,
-              bookingDate: snapshot.item.bookingDate,
+              bookingStart: snapshot.item.bookingDate,
+              bookingEnd: snapshot.item.bookingEndDate!,
               status: BookingStatus.SOFT_LOCKED,
               userId,
               orderId: order.id,
@@ -291,12 +315,21 @@ export class CheckoutService {
       const bookingDate = item.bookingDate
         ? new Date(`${item.bookingDate.slice(0, 10)}T00:00:00.000Z`)
         : null;
+      const bookingEndDate = bookingDate
+        ? item.bookingEndDate
+          ? new Date(`${item.bookingEndDate.slice(0, 10)}T00:00:00.000Z`)
+          : new Date(bookingDate.getTime() + 24 * 60 * 60 * 1000)
+        : null;
       if (
         bookingDate &&
         bookingDate < new Date(new Date().toISOString().slice(0, 10))
       )
         throw new BadRequestException('Booking date cannot be in the past');
-      const key = `${item.productId}:${item.variantId ?? ''}:${bookingDate?.toISOString() ?? ''}`;
+      if (bookingDate && bookingEndDate && bookingEndDate <= bookingDate)
+        throw new BadRequestException(
+          'bookingEndDate must be after bookingDate',
+        );
+      const key = `${item.productId}:${item.variantId ?? ''}:${bookingDate?.toISOString() ?? ''}:${bookingEndDate?.toISOString() ?? ''}`;
       if (keys.has(key))
         throw new BadRequestException('Checkout contains duplicate items');
       keys.add(key);
@@ -306,6 +339,7 @@ export class CheckoutService {
         qty: item.qty,
         customNote: item.customNote,
         bookingDate,
+        bookingEndDate,
       };
     });
   }
@@ -318,6 +352,7 @@ export class CheckoutService {
       qty: item.qty,
       customNote: item.customNote ?? undefined,
       bookingDate: item.bookingDate?.toISOString().slice(0, 10),
+      bookingEndDate: item.bookingEndDate?.toISOString().slice(0, 10),
     }));
   }
 }

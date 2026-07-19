@@ -13,7 +13,7 @@ import * as bcrypt from 'bcrypt';
 import { createHash, randomBytes, randomUUID } from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RedisService } from '../../common/redis/redis.service';
-import { MailService } from '../../common/mail/mail.service';
+import { NotificationQueueService } from '../../common/notification-queue/notification-queue.service';
 import { JwtPayload } from '../../common/guards/jwt-user.interface';
 import {
   EmailDto,
@@ -23,7 +23,7 @@ import {
   UpdateProfileDto,
 } from './dto/auth.dto';
 
-const ACCESS_SECONDS = 60 * 60;
+const ACCESS_SECONDS = 15 * 60;
 const REFRESH_SECONDS = 30 * 24 * 60 * 60;
 const DUMMY_PASSWORD_HASH = bcrypt.hashSync(
   randomBytes(32).toString('hex'),
@@ -37,7 +37,7 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
     private readonly redis: RedisService,
-    private readonly mail: MailService,
+    private readonly notificationQueue: NotificationQueueService,
   ) {}
 
   private hashToken(token: string): string {
@@ -95,15 +95,31 @@ export class AuthService {
   }
 
   async verifyEmail(token: string) {
+    if (!token) {
+      throw new BadRequestException('Token verifikasi tidak boleh kosong');
+    }
+    const tokenHash = this.hashToken(token);
     const user = await this.prisma.user.findFirst({
       where: {
-        verificationTokenHash: this.hashToken(token),
-        tokenExpiresAt: { gt: new Date() },
+        verificationTokenHash: tokenHash,
         deletedAt: null,
       },
     });
-    if (!user)
-      throw new BadRequestException('Verification token is invalid or expired');
+
+    if (!user) {
+      throw new BadRequestException(
+        'Akun Anda sudah terverifikasi sebelumnya atau token tidak valid.',
+      );
+    }
+
+    if (user.isVerified) {
+      return { message: 'Akun Anda sudah aktif dan terverifikasi. Silakan masuk (login).', data: null };
+    }
+
+    if (user.tokenExpiresAt && user.tokenExpiresAt < new Date()) {
+      throw new BadRequestException('Tautan verifikasi sudah kadaluarsa. Silakan minta kirim ulang email verifikasi.');
+    }
+
     await this.prisma.user.update({
       where: { id: user.id },
       data: {
@@ -112,16 +128,18 @@ export class AuthService {
         tokenExpiresAt: null,
       },
     });
-    return { message: 'Email verified successfully', data: null };
+
+    return { message: 'Email berhasil diverifikasi! Akun Anda kini sudah aktif dan siap digunakan.', data: null };
   }
 
   async resendVerification(dto: EmailDto) {
     const user = await this.prisma.user.findFirst({
       where: { email: dto.email, deletedAt: null, isActive: true },
     });
-    if (!user || user.isVerified)
+    if (!user) throw new NotFoundException('Account not found');
+    if (user.isVerified)
       return {
-        message: 'If eligible, a verification email has been sent',
+        message: 'Account is already verified',
         data: null,
       };
     const token = randomBytes(32).toString('hex');
@@ -134,7 +152,7 @@ export class AuthService {
     });
     await this.sendVerification(user.email, token);
     return {
-      message: 'If eligible, a verification email has been sent',
+      message: 'Verification email has been sent',
       data: null,
     };
   }
@@ -156,6 +174,7 @@ export class AuthService {
       where: { type_value: { type: BlacklistType.EMAIL, value: user.email } },
     });
     if (blocked) throw new ForbiddenException('Account access is blocked');
+    if (!user.isVerified) throw new ForbiddenException('Email is not verified');
     return { user: this.publicUser(user), ...(await this.issueTokens(user)) };
   }
 
@@ -172,7 +191,8 @@ export class AuthService {
     }
     if (
       payload.tokenType !== 'refresh' ||
-      (await this.redis.exists(`revoked:refresh:${payload.jti}`))
+      (await this.redis.exists(`revoked:refresh:${payload.jti}`)) ||
+      !(await this.redis.exists(`session:refresh:${payload.jti}`))
     ) {
       throw new UnauthorizedException('Refresh token has been revoked');
     }
@@ -254,11 +274,13 @@ export class AuthService {
         'FRONTEND_URL',
         this.config.get<string>('BASE_URL', ''),
       );
-      await this.mail.send(
-        user.email,
-        'Seli Florist password reset',
-        `Reset your password: ${base}/reset-password?token=${encodeURIComponent(token)}`,
-      );
+      await this.notificationQueue.enqueue({
+        kind: 'mail',
+        to: user.email,
+        subject: 'Seli Florist password reset',
+        text: `Reset your password: ${base}/reset-password?token=${encodeURIComponent(token)}`,
+        idempotencyKey: `password-reset:${user.id}:${this.hashToken(token)}`,
+      });
     }
     return {
       message:
@@ -307,12 +329,18 @@ export class AuthService {
         expiresIn: ACCESS_SECONDS,
       },
     );
+    const refreshJti = randomUUID();
     const refreshToken = await this.jwt.signAsync(
-      { ...base, tokenType: 'refresh', jti: randomUUID() },
+      { ...base, tokenType: 'refresh', jti: refreshJti },
       {
         secret: this.config.getOrThrow<string>('JWT_REFRESH_SECRET'),
         expiresIn: REFRESH_SECONDS,
       },
+    );
+    await this.redis.setWithTtl(
+      `session:refresh:${refreshJti}`,
+      user.id,
+      REFRESH_SECONDS,
     );
     return { accessToken, refreshToken, expiresIn: ACCESS_SECONDS };
   }
@@ -322,14 +350,15 @@ export class AuthService {
       ? payload.exp - Math.floor(Date.now() / 1000)
       : REFRESH_SECONDS;
     await this.redis.setWithTtl(`revoked:refresh:${payload.jti}`, '1', ttl);
+    await this.redis.delete(`session:refresh:${payload.jti}`);
   }
 
   private async sendVerification(email: string, token: string): Promise<void> {
-    const base = this.config.get<string>('BASE_URL', 'http://localhost:3000');
-    await this.mail.send(
-      email,
-      'Verify your Seli Florist account',
-      `Verify your email: ${base}/api/auth/verify?token=${encodeURIComponent(token)}`,
-    );
+    await this.notificationQueue.enqueue({
+      kind: 'verification_email',
+      to: email,
+      token,
+      idempotencyKey: `verify:${email}:${this.hashToken(token)}`,
+    });
   }
 }

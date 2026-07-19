@@ -39,6 +39,7 @@ export class CartService {
           productId: dto.productId,
           variantId: dto.variantId ?? null,
           bookingDate: normalized.bookingDate,
+          bookingEndDate: normalized.bookingEndDate,
         },
       });
       if (existing) {
@@ -73,14 +74,28 @@ export class CartService {
     });
     if (!item) throw new NotFoundException('Cart item not found');
     let bookingDate = item.bookingDate;
+    let bookingEndDate = item.bookingEndDate;
     if (dto.bookingDate) bookingDate = this.parseFutureDate(dto.bookingDate);
+    if (dto.bookingEndDate)
+      bookingEndDate = this.parseFutureDate(dto.bookingEndDate);
+    if (bookingDate && !bookingEndDate)
+      bookingEndDate = this.nextDate(bookingDate);
+    if (bookingDate && bookingEndDate && bookingEndDate <= bookingDate)
+      throw new BadRequestException(
+        'bookingEndDate must be after bookingDate',
+      );
     if (item.product.category.slug === BOARD_CATEGORY && !bookingDate)
       throw new BadRequestException(
         'bookingDate is required for board products',
       );
     await this.prisma.cartItem.update({
       where: { id: itemId },
-      data: { qty: dto.qty, customNote: dto.customNote, bookingDate },
+      data: {
+        qty: dto.qty,
+        customNote: dto.customNote,
+        bookingDate,
+        bookingEndDate,
+      },
     });
     return this.get(userId);
   }
@@ -104,7 +119,7 @@ export class CartService {
     );
     const keys = new Set<string>();
     for (const item of normalized) {
-      const key = `${item.productId}:${item.variantId ?? ''}:${item.bookingDate?.toISOString() ?? ''}`;
+      const key = `${item.productId}:${item.variantId ?? ''}:${item.bookingDate?.toISOString() ?? ''}:${item.bookingEndDate?.toISOString() ?? ''}`;
       if (keys.has(key))
         throw new BadRequestException(
           'Sync payload contains duplicate cart items',
@@ -143,18 +158,32 @@ export class CartService {
       throw new BadRequestException(
         'bookingDate is required for board products',
       );
-    if (product.category.slug !== BOARD_CATEGORY && dto.bookingDate)
+    if (
+      product.category.slug !== BOARD_CATEGORY &&
+      (dto.bookingDate || dto.bookingEndDate)
+    )
       throw new BadRequestException(
         'bookingDate is only valid for board products',
+      );
+    const bookingDate = dto.bookingDate
+      ? this.parseFutureDate(dto.bookingDate)
+      : null;
+    const bookingEndDate = bookingDate
+      ? dto.bookingEndDate
+        ? this.parseFutureDate(dto.bookingEndDate)
+        : this.nextDate(bookingDate)
+      : null;
+    if (bookingDate && bookingEndDate && bookingEndDate <= bookingDate)
+      throw new BadRequestException(
+        'bookingEndDate must be after bookingDate',
       );
     return {
       productId: dto.productId,
       variantId: dto.variantId ?? null,
       qty: dto.qty,
       customNote: dto.customNote,
-      bookingDate: dto.bookingDate
-        ? this.parseFutureDate(dto.bookingDate)
-        : null,
+      bookingDate,
+      bookingEndDate,
     };
   }
 
@@ -167,5 +196,11 @@ export class CartService {
     if (Number.isNaN(date.valueOf()) || date < todayUtc)
       throw new BadRequestException('bookingDate cannot be in the past');
     return date;
+  }
+
+  private nextDate(value: Date): Date {
+    const result = new Date(value);
+    result.setUTCDate(result.getUTCDate() + 1);
+    return result;
   }
 }

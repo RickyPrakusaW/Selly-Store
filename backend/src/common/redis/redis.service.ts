@@ -22,14 +22,13 @@ export class RedisService implements OnModuleDestroy {
     this.client.on('error', () => undefined);
   }
 
-  private async ready(): Promise<void> {
+  private async isConnected(): Promise<boolean> {
     try {
       if (this.client.status === 'wait') await this.client.connect();
       if (this.client.status !== 'ready') await this.client.ping();
+      return true;
     } catch {
-      throw new ServiceUnavailableException(
-        'Token revocation service is unavailable',
-      );
+      return false;
     }
   }
 
@@ -38,13 +37,38 @@ export class RedisService implements OnModuleDestroy {
     value: string,
     ttlSeconds: number,
   ): Promise<void> {
-    await this.ready();
+    if (!(await this.isConnected())) {
+      return;
+    }
     await this.client.set(key, value, 'EX', Math.max(1, ttlSeconds));
   }
 
   async exists(key: string): Promise<boolean> {
-    await this.ready();
+    if (!(await this.isConnected())) {
+      return false;
+    }
     return (await this.client.exists(key)) === 1;
+  }
+
+  async delete(key: string): Promise<void> {
+    if (!(await this.isConnected())) return;
+    await this.client.del(key);
+  }
+
+  async enqueue(key: string, value: string): Promise<boolean> {
+    if (!(await this.isConnected())) return false;
+    await this.client.lpush(key, value);
+    return true;
+  }
+
+  async claim(queue: string, processing: string): Promise<string | null> {
+    if (!(await this.isConnected())) return null;
+    return this.client.rpoplpush(queue, processing);
+  }
+
+  async acknowledge(processing: string, value: string): Promise<void> {
+    if (!(await this.isConnected())) return;
+    await this.client.lrem(processing, 1, value);
   }
 
   onModuleDestroy(): void {

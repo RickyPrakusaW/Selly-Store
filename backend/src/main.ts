@@ -15,7 +15,7 @@ async function bootstrap() {
   app.use(cookieParser());
 
   const allowedOrigins = new Set(
-    (process.env.ALLOWED_ORIGINS ?? 'http://localhost:5173')
+    (process.env.ALLOWED_ORIGINS ?? 'http://localhost:3001')
       .split(',')
       .map((origin) => origin.trim())
       .filter(Boolean),
@@ -23,7 +23,12 @@ async function bootstrap() {
   app.enableCors({
     credentials: true,
     methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Authorization', 'Content-Type', 'Accept'],
+    allowedHeaders: [
+      'Authorization',
+      'Content-Type',
+      'Accept',
+      'X-CSRF-Token',
+    ],
     maxAge: 600,
     origin(
       origin: string | undefined,

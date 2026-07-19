@@ -30,6 +30,7 @@ export class CheckoutItemDto {
   @Type(() => Number) @IsInt() @Min(1) qty!: number;
   @IsOptional() @IsString() @MaxLength(1000) customNote?: string;
   @IsOptional() @IsDateString({ strict: true }) bookingDate?: string;
+  @IsOptional() @IsDateString({ strict: true }) bookingEndDate?: string;
 }
 
 export class EstimateShippingDto {

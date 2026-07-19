@@ -1,899 +1,2068 @@
-# CLAUDE.md — Florist, Papan Ucapan Rental & Kado E-Commerce API
+# CLAUDE.md — Florist, Kado & Papan Ucapan Rental E-Commerce Platform
 
-> Important Note: This `CLAUDE.md` is written to guide Claude Code in building a Node.js + NestJS REST API project untuk platform e-commerce florist mobile-first (Flutter Web frontend). Always prioritize security, transaction-safety (anti race-condition), ORM best practices, dan semua kriteria wajib yang sudah didefinisikan.
+> Dokumen ini menjadi instruksi utama bagi Claude Code untuk membangun platform e-commerce florist berbasis **Next.js + NestJS + PostgreSQL**. Seluruh implementasi wajib mengutamakan keamanan, konsistensi transaksi, pencegahan race condition, auditability, pengalaman mobile-first, serta maintainability jangka panjang.
+>
+> **Baseline teknis dokumen:** 20 Juli 2026. Gunakan versi patch stabil terbaru dalam major version yang ditentukan, lalu kunci versi melalui lockfile. Jangan melakukan upgrade major tanpa migration plan dan regression test.
 
 ---
 
 ## 1. Project Overview
 
-- **Name** : Florist & Papan Ucapan Rental E-Commerce API
-- **Description** : REST API untuk platform jual buket bunga, barang kado, dan sewa papan ucapan harian. Pengunjung bisa melihat katalog secara publik, namun wajib register/login dan verifikasi email saat checkout atau booking. Mendukung keranjang offline-resilient, pembayaran dua tahap (DP 50% + Pelunasan), soft-booking anti double-booking, kalkulasi ongkir otomatis, pengiriman atau pickup, real-time notifikasi admin, dan panel keuangan.
-- **Goal** : Backend production-ready yang aman, scalable, dan memberikan pengalaman belanja yang nyaman termasuk saat koneksi tidak stabil.
-- **Target Users** : Admin/Owner, Staff Verifikasi Pembayaran, Customer (wajib register + verifikasi email untuk transaksi).
-- **Version** : v1.0.0
-- **Status** : Active development
+- **Nama proyek**: Florist, Kado & Papan Ucapan Rental E-Commerce Platform
+- **Arsitektur**: Modular monolith dalam monorepo
+- **Frontend utama**: Next.js web, mobile-first
+- **Backend utama**: NestJS REST API
+- **Database utama**: PostgreSQL
+- **Deskripsi**: Platform untuk menjual buket bunga dan kado, serta menyewakan unit papan ucapan. Pengunjung dapat melihat katalog tanpa login, tetapi wajib register, login, dan memverifikasi email sebelum checkout, booking, atau mengunggah bukti pembayaran.
+- **Fitur utama**:
+  - Katalog produk publik dan SEO-friendly
+  - Keranjang persistent dan offline-resilient
+  - Penjualan barang ready stock dan pre-order
+  - Penyewaan unit papan ucapan dengan pencegahan double booking
+  - Pembayaran manual dua tahap: DP 50% dan pelunasan
+  - Upload, retract, dan verifikasi bukti pembayaran
+  - Delivery atau pickup
+  - Kalkulasi ongkir server-side
+  - Notifikasi email, WhatsApp, dan WebSocket
+  - Dashboard admin, keuangan, audit log, dan laporan
+- **Target pengguna**:
+  - Customer
+  - Staff verifikasi
+  - Finance
+  - Owner
+- **Versi produk**: `v1.0.0`
+- **Status**: Active development
 
 ---
 
-### Keputusan Arsitektur Kunci (Wajib Dipahami Sebelum Coding)
+## 2. Keputusan Bisnis dan Arsitektur yang Tidak Boleh Diubah Sembarangan
 
-> Keputusan ini telah difinalisasi. Jangan mengubah logika ini tanpa konfirmasi dari owner proyek.
+> Keputusan di bawah dianggap final. Perubahan hanya boleh dilakukan setelah mendapat persetujuan owner dan dicatat dalam Architecture Decision Record atau ADR.
 
-| # | Keputusan | Pilihan yang Diambil | Alasan |
+| # | Keputusan | Pilihan final | Catatan implementasi |
 |---|---|---|---|
-| 1 | Mix kategori dalam 1 order? | **Boleh.** 1 order bisa berisi bunga + kado + papan ucapan. | Lebih praktis untuk customer. |
-| 2 | Kapan soft-lock dipicu? | **Saat `POST /api/checkout` dikonfirmasi**, bukan saat tambah keranjang. | Mencegah lock dini hanya karena browsing. |
-| 3 | Pelunasan sisa 50%? | **Ada.** Setelah DP diverifikasi admin, customer upload bukti pelunasan dalam batas waktu. | Kepastian pembayaran penuh sebelum produksi. |
-| 4 | Batas waktu bayar DP? | **2 jam** via `DP_DEADLINE_HOURS=2`. | 15 menit terlalu singkat untuk transfer antarbank. |
-| 5 | Refresh Token? | **Ada.** Access token 1 jam, refresh token 30 hari via `httpOnly cookie`. | Mencegah user ter-logout saat mengisi form checkout. |
-| 6 | Notifikasi admin? | **WebSocket** (Socket.IO). | Admin tidak perlu polling manual ke dashboard. |
-| 7 | Pemilihan board papan ucapan? | **Otomatis oleh sistem** (first available board). Admin bisa reassign manual jika perlu. | Menghindari error saat checkout jika admin tidak online. |
-| 8 | Delivery type? | **Antar (`delivery`) atau Ambil Sendiri (`pickup`).** Jika pickup, ongkir = 0 dan Distance Matrix tidak dipanggil. | Fleksibilitas untuk customer yang mau hemat ongkir. |
-| 9 | Kebijakan refund DP (jika customer cancel)? | **DP dikembalikan dengan potongan bertingkat** berdasarkan seberapa lama setelah order dibuat: ① Cancel < 12 jam → **full refund** (100% DP kembali). ② Cancel antara 12–24 jam → **refund 75%** (potongan 25%). ③ Cancel > 24 jam → **refund 50%** (potongan 50%). Refund dilakukan **manual oleh admin** (transfer balik) karena tidak ada payment gateway. Sistem hanya mencatat nominal refund & status-nya. Jika admin/sistem yang cancel (force majeure), customer mendapat **full refund**. | Adil untuk customer sekaligus melindungi bisnis dari kerugian bahan baku yang sudah disiapkan. |
-| 10 | User kirim foto bukti bayar salah? | **Bisa cancel & kirim ulang**, selama bukti belum diverifikasi admin (`verification_status = pending`). | UX yang baik; user tidak perlu menghubungi admin hanya karena salah foto. |
+| 1 | Campuran kategori dalam satu order | **Boleh** | Satu order dapat berisi bunga, kado, dan papan ucapan. |
+| 2 | Pemicu reservation/soft-lock | **Saat `POST /api/checkout` berhasil** | Tidak ada lock ketika item baru dimasukkan ke keranjang. |
+| 3 | Pembayaran | **DP 50% + pelunasan 50%** | Nominal dihitung server-side dari snapshot harga. |
+| 4 | Deadline DP | **2 jam** | `DP_DEADLINE_HOURS=2`. |
+| 5 | Durasi soft-lock papan | **Sama dengan deadline DP** | `hold_expires_at = dp_deadline`, bukan 15 menit. |
+| 6 | Setelah DP disetujui | Booking berubah menjadi **`reserved`** | Booking tidak boleh kedaluwarsa saat customer menunggu pelunasan. |
+| 7 | Setelah pelunasan disetujui | Booking berubah menjadi **`confirmed`** | Dipertahankan sampai order selesai atau dibatalkan. |
+| 8 | Pemilihan unit papan | **Otomatis oleh sistem** | Pilih unit aktif dan tersedia; admin boleh reassign dengan audit log. |
+| 9 | Pengiriman | **`delivery` atau `pickup`** | Pickup tidak memanggil API rute dan ongkir bernilai 0. |
+| 10 | Refund pembatalan customer | **Bertingkat** | <12 jam: 100%; 12–24 jam: 75%; >24 jam: 50% dari DP. |
+| 11 | Refund pembatalan toko | **100%** | Berlaku untuk force majeure atau kesalahan toko. |
+| 12 | Proses refund | **Manual oleh admin** | Sistem mencatat nominal, status, bukti, dan audit trail. |
+| 13 | Bukti bayar salah | **Boleh retract dan upload ulang** | Hanya selama bukti masih `pending`. |
+| 14 | Payment gateway | **Belum digunakan pada v1** | Pembayaran diverifikasi manual oleh staff. |
+| 15 | Arsitektur layanan | **Modular monolith** | Jangan membuat microservices pada fase awal. |
+| 16 | Frontend | **Next.js web mobile-first** | Flutter Web tidak digunakan dalam baseline ini. |
+| 17 | API style | **REST + OpenAPI** | GraphQL tidak diperlukan untuk v1. |
 
 ---
 
-## 2. Tech Stack
+## 3. Prinsip Arsitektur
 
-- **Runtime** : Node.js
-- **Framework** : NestJS (modular, TypeScript)
-- **Database** : PostgreSQL
-- **ORM** : Prisma (Prisma CLI & Prisma Migrate)
-- **Lock/TTL Layer** : Redis (booking lock, rate-limiting, refresh token revocation)
-- **Authentication** : JWT Access Token (1 jam) + Refresh Token (30 hari, httpOnly cookie) — `@nestjs/jwt` & bcrypt
-- **Email Service** : `@nestjs-modules/mailer` + Nodemailer (verifikasi email, notifikasi order, warning pelunasan)
-- **WebSocket** : `@nestjs/websockets` + Socket.IO (notifikasi real-time ke panel admin)
-- **Validation** : `class-validator` + `class-transformer` (DTO-based)
-- **File Upload** : Multer (`@nestjs/platform-express`) — validasi mimetype & magic bytes (max 2MB)
-- **3rd Party API** : Google Distance Matrix API (hanya dipanggil jika `delivery_type = delivery`)
-- **Export Laporan** : ExcelJS (generate `.xlsx` di backend)
-- **Extra Libs** : cors, helmet, morgan, `@nestjs/schedule` (cron), `bullmq` (job queue)
-- **Package Manager** : npm
+1. **PostgreSQL adalah source of truth** untuk order, pembayaran, stok, booking, refund, dan laporan.
+2. **Redis bukan penyimpanan permanen**. Redis hanya untuk cache, rate limit, session metadata, idempotency, queue, dan distributed coordination.
+3. **Semua harga, stok, ongkir, DP, refund, HPP, dan laba dihitung di backend**.
+4. **Frontend tidak boleh dipercaya** untuk nominal, role, status transaksi, ketersediaan stok, atau ketersediaan rental.
+5. **Business logic berada di Service atau domain layer**, bukan di Controller.
+6. **Semua perubahan state penting harus transactional dan auditable**.
+7. **Notifikasi tidak boleh menghambat transaksi utama**. Email dan WhatsApp dikirim melalui queue/worker setelah transaction commit.
+8. **Concurrency control wajib berada di database**, bukan hanya pada pemeriksaan aplikasi.
+9. **Endpoint mutasi kritis wajib mendukung idempotency**.
+10. **Jangan melakukan premature microservices atau premature infrastructure complexity**.
 
 ---
 
-## 3. Commands
+## 4. Final Technical Stack
 
-```bash
-# Development
-npm run start:dev        # Dev server (watch mode)
-npm run build            # Build production
-npm run start:prod       # Jalankan production build
+### 4.1 Languages, Runtime, and Standards
 
-# Database & ORM
-npx prisma migrate dev --name [nama_migrasi]
-npx prisma migrate deploy
-npx prisma generate
-npx prisma studio
-npx prisma db seed
-```
+- **Node.js**: `24 LTS`
+- **TypeScript**: `5.x`, strict mode
+- **SQL**: PostgreSQL dialect
+- **HTML5**: Semantic markup
+- **CSS**: Tailwind CSS
+- **Package manager**: npm
+- **Workspace**: npm workspaces
+- **Optional build orchestration**: Turborepo
 
-> Selalu gunakan `npm`/`npx`. Setiap ubah `schema.prisma`, WAJIB jalankan `prisma migrate dev`.
+### 4.2 Frontend Web
+
+- **Framework**: Next.js `16.x`
+- **UI runtime**: React `19.x`
+- **Routing**: App Router
+- **Rendering strategy**:
+  - Static rendering/ISR untuk homepage, kategori, artikel, dan detail produk
+  - Dynamic rendering untuk checkout, customer dashboard, dan admin dashboard
+  - Client rendering hanya untuk interaksi yang memang membutuhkan browser state
+- **Styling**: Tailwind CSS
+- **Icons**: Lucide React
+- **Server data**: Native `fetch` pada Server Components
+- **Client server-state**: TanStack Query
+- **UI/global client-state**: Zustand
+- **Forms**: React Hook Form
+- **Validation schema frontend**: Zod untuk UX; backend tetap menjadi validator final
+- **Offline storage**: IndexedDB
+- **SEO**:
+  - Metadata API
+  - Open Graph
+  - Sitemap
+  - Canonical URL
+  - `Product`, `LocalBusiness`, dan `BreadcrumbList` JSON-LD
+
+> SSR atau ISR membantu crawlability dan indexability, tetapi tidak menjamin peringkat pertama di Google.
+
+### 4.3 Backend API
+
+- **Framework**: NestJS stable release yang kompatibel dengan Node.js 24
+- **HTTP adapter**: Express
+- **API prefix**: `/api`
+- **API versioning**: URI versioning ketika dibutuhkan, misalnya `/api/v1`
+- **API documentation**: Swagger/OpenAPI
+- **Validation**: `class-validator` + `class-transformer`
+- **Configuration**: `@nestjs/config` + environment schema validation
+- **Security headers**: Helmet
+- **Rate limiting**: `@nestjs/throttler`, dengan Redis-backed storage di production
+- **Logging**: Pino melalui `nestjs-pino`
+- **WebSocket**: Socket.IO melalui `@nestjs/websockets`
+- **Scheduled jobs**: `@nestjs/schedule`
+- **Queue and workers**: BullMQ
+- **File upload**: Multer + magic-byte validation
+- **Export XLSX**: ExcelJS
+
+### 4.4 Database, ORM, and Cache
+
+- **Database**: PostgreSQL `16+`
+- **Production database**: Managed PostgreSQL pada region yang sama dengan API
+- **ORM**: Prisma ORM
+- **Migration**: Prisma Migrate
+- **Database GUI**: Prisma Studio dan pgAdmin untuk development
+- **Cache/session/queue**: Redis managed di production
+- **Money representation**: PostgreSQL `NUMERIC(18,0)` atau Prisma `Decimal`; dilarang menggunakan floating-point untuk uang
+
+### 4.5 Authentication and Security
+
+- **Access token**: JWT berumur pendek, default 15 menit
+- **Refresh token**: 30 hari, rotating token
+- **Password hashing**: Argon2id
+- **Refresh token storage**:
+  - Web: `HttpOnly`, `Secure`, `SameSite=Lax` cookie
+  - Database/Redis: simpan hash token/session identifier, bukan raw token
+- **CSRF protection**:
+  - Origin/Referer validation
+  - Custom CSRF header atau double-submit token untuk endpoint berbasis cookie
+- **Authorization**: RBAC + permission guard
+- **Admin authentication**: audience/issuer dan session namespace terpisah dari customer
+
+### 4.6 Integrations
+
+- **Email**: Provider abstraction berbasis SMTP/API transactional email
+- **WhatsApp**: Provider abstraction; Fonnte dapat menjadi provider awal
+- **Route calculation**: Google Maps Routes API `Compute Route Matrix`
+- **Storage**: Cloudflare R2, S3-compatible
+- **CDN/WAF**: Cloudflare
+
+### 4.7 Testing and Quality
+
+- **Backend unit/integration**: Jest
+- **Backend HTTP E2E**: Supertest
+- **Frontend component**: React Testing Library
+- **Frontend E2E**: Playwright
+- **Load and stress testing**: Grafana k6
+- **Manual API exploration**: Postman
+- **Static quality**: ESLint, Prettier, TypeScript type-check
+
+### 4.8 Observability
+
+#### MVP
+
+- Pino structured JSON logs
+- Correlation/request ID
+- Health checks
+- Uptime monitor
+- Error tracking
+- Database and Redis health monitoring
+
+#### Scale-up phase
+
+- OpenTelemetry
+- Grafana Alloy
+- Loki
+- Tempo
+- Prometheus atau Grafana Cloud Metrics
+- Grafana dashboards and alerts
+
+### 4.9 Infrastructure and Deployment
+
+- **Frontend**: Vercel atau compatible Next.js Node deployment
+- **Backend API**: Managed container, Railway, Render, Fly.io, atau VPS
+- **Worker**: Process/container terpisah dari API
+- **Database**: Managed PostgreSQL
+- **Redis**: Managed Redis
+- **Object storage**: Cloudflare R2
+- **Containerization**: Docker dan Docker Compose
+- **CI/CD**: GitHub Actions
+- **DNS/CDN/WAF**: Cloudflare
 
 ---
 
-## 4. Project Structure
+## 5. Monorepo Structure
 
 ```text
 [root]/
-  src/
-    modules/
-      auth/               # Register, login, verif email, refresh token, logout
-      catalog/            # CRUD produk, kategori, varian, foto, stok
-      cart/               # Persistent cart + offline sync
-      booking/            # Kalender & ketersediaan papan ucapan (read), auto-assign board
-      checkout/           # Checkout, kalkulasi DP & ongkir, snapshot harga
-      orders/             # Riwayat order customer, detail, cancel order, mark complete
-      payment-proof/      # Upload/retract bukti DP & pelunasan, verifikasi admin
-      notifications/      # WebSocket gateway notifikasi real-time admin
-      blacklist/          # Kelola blacklist Email/WA
-      whatsapp/           # Token terenkripsi & deep-link WA
-      finance/            # Modal, pengeluaran, HPP produk
-      reports/            # Agregasi dashboard & export XLSX
-      admin/              # Dashboard, manajemen staff
-    common/
-      guards/             # AuthGuard, RolesGuard, VerifiedGuard
-      interceptors/       # Response formatter, logging
-      filters/            # Global exception filter
-      decorators/         # @Roles(), @CurrentUser(), @VerifiedOnly()
-      pipes/              # Custom validation pipes
-    jobs/
-      release-expired-lock.job.ts       # Cron: expire soft-lock booking
-      release-expired-dp.job.ts         # Cron: cancel order lewat dp_deadline
-      release-expired-pelunasan.job.ts  # Cron: warning + cancel lewat pelunasan_deadline
-    prisma/
-      prisma.service.ts
-      schema.prisma
-    main.ts               # Bootstrap (helmet, cors, WebSocket)
-    app.module.ts
-  prisma/
-    migrations/
-    seed.ts
+├── apps/
+│   ├── web/                         # Next.js 16 storefront + customer/admin dashboard
+│   │   ├── src/app/
+│   │   ├── src/components/
+│   │   ├── src/features/
+│   │   ├── src/lib/
+│   │   ├── src/stores/
+│   │   └── src/types/
+│   ├── api/                         # NestJS REST API
+│   │   ├── src/modules/
+│   │   │   ├── auth/
+│   │   │   ├── users/
+│   │   │   ├── catalog/
+│   │   │   ├── inventory/
+│   │   │   ├── cart/
+│   │   │   ├── rental/
+│   │   │   ├── checkout/
+│   │   │   ├── orders/
+│   │   │   ├── payments/
+│   │   │   ├── refunds/
+│   │   │   ├── deliveries/
+│   │   │   ├── notifications/
+│   │   │   ├── finance/
+│   │   │   ├── reports/
+│   │   │   ├── blacklist/
+│   │   │   └── admin/
+│   │   ├── src/common/
+│   │   │   ├── decorators/
+│   │   │   ├── filters/
+│   │   │   ├── guards/
+│   │   │   ├── interceptors/
+│   │   │   ├── middleware/
+│   │   │   └── pipes/
+│   │   ├── src/infrastructure/
+│   │   │   ├── database/
+│   │   │   ├── redis/
+│   │   │   ├── storage/
+│   │   │   ├── email/
+│   │   │   ├── whatsapp/
+│   │   │   └── maps/
+│   │   ├── src/main.ts
+│   │   └── src/app.module.ts
+│   └── worker/                      # BullMQ processors and scheduled safety jobs
+│       └── src/
+├── packages/
+│   ├── contracts/                   # Shared API contract types; no Prisma entities
+│   ├── validation/                  # Shared safe validation helpers
+│   ├── config/                      # Shared lint/build/TS config
+│   ├── logger/                      # Pino configuration
+│   └── observability/               # OpenTelemetry setup when enabled
+├── prisma/
+│   ├── schema.prisma
+│   ├── migrations/
+│   └── seed.ts
+├── docker/
+├── .github/workflows/
+├── package.json
+├── package-lock.json
+├── turbo.json
+└── CLAUDE.md
 ```
 
-**Aturan:**
-- Setiap fitur = module terpisah.
-- Business logic di **Service**, Controller hanya terima request & panggil service.
-- Schema tabel lewat `prisma migrate`, tidak pernah manual.
-
----
-
-## 5. Naming Conventions
+### Struktur module NestJS
 
 ```text
-Controllers   : kebab-case → payment-proof.controller.ts
-Services      : kebab-case → checkout.service.ts
-DTO           : PascalCase → CreateOrderDto, UploadPaymentProofDto
-Models Prisma : PascalCase → User, Order, BoardBooking
-Tabel DB      : snake_case plural → orders, cart_items, board_bookings
-Variabel      : camelCase → dpDeadline, waNumber
-Konstanta     : UPPER_SNAKE → DP_DEADLINE_HOURS
-Git branch    : feat/[nama] | fix/[nama]
+modules/orders/
+├── dto/
+├── entities/                        # Domain-facing types, not Prisma re-exports
+├── orders.controller.ts
+├── orders.service.ts
+├── orders.repository.ts             # Optional abstraction when query complexity grows
+├── orders.policy.ts                 # Authorization/business policy
+├── orders.events.ts
+├── orders.module.ts
+└── __tests__/
 ```
+
+### Aturan struktur
+
+- Controller hanya menangani transport concern.
+- Service menangani use case dan business rules.
+- Prisma query tidak boleh tersebar acak di Controller.
+- Shared API types tidak boleh langsung mengekspor Prisma model ke frontend.
+- Worker tidak boleh menerima HTTP traffic publik.
+- Satu codebase boleh memiliki API dan worker sebagai proses deployment terpisah.
 
 ---
 
-## 6. Code Conventions
+## 6. Required Scripts and Commands
 
-- Selalu gunakan try-catch atau global exception filter.
-- Validasi input via DTO + `class-validator`, tidak pernah manual di Controller.
-- Semua kalkulasi (ongkir, DP, pelunasan, laba, HPP) **wajib di Service backend**.
-- Terapkan **soft delete** (`deleted_at`) di `products`, `users`, `expenses` — query default filter `WHERE deleted_at IS NULL`.
-- **Pagination wajib** (`?page=1&limit=20`) di semua endpoint yang mengembalikan array.
-- Ongkir hanya dikalkulasi via Google Distance Matrix jika `delivery_type = 'delivery'`. Jika `pickup`, ongkir langsung 0.
+```bash
+# Install
+npm ci
 
-**HTTP Status Code Standar:**
+# Development
+npm run dev
+npm run dev:web
+npm run dev:api
+npm run dev:worker
 
-| Kode | Kondisi |
+# Quality
+npm run lint
+npm run format:check
+npm run typecheck
+npm run test
+npm run test:integration
+npm run test:e2e
+npm run test:load
+
+# Build
+npm run build
+npm run build:web
+npm run build:api
+npm run build:worker
+
+# Prisma
+npx prisma format
+npx prisma validate
+npx prisma generate
+npx prisma migrate dev --name <migration_name>
+npx prisma migrate deploy
+npx prisma studio
+npx prisma db seed
+
+# Docker local infrastructure
+docker compose up -d postgres redis
+
+docker compose down
+```
+
+### Migration rules
+
+- Development: `prisma migrate dev`
+- Production: `prisma migrate deploy`
+- Jangan menjalankan `migrate dev` di production.
+- Jangan menjalankan destructive migration tanpa backup dan migration plan.
+- Raw SQL migration diperbolehkan hanya untuk kemampuan PostgreSQL yang belum diekspresikan Prisma, seperti partial index, exclusion constraint, extension, atau trigger yang benar-benar diperlukan.
+
+---
+
+## 7. TypeScript and Code Standards
+
+### 7.1 Required `tsconfig` principles
+
+```json
+{
+  "compilerOptions": {
+    "strict": true,
+    "strictNullChecks": true,
+    "noImplicitAny": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noFallthroughCasesInSwitch": true,
+    "useUnknownInCatchVariables": true
+  }
+}
+```
+
+### 7.2 Naming conventions
+
+```text
+Controllers        kebab-case       payment-proof.controller.ts
+Services           kebab-case       checkout.service.ts
+DTO classes        PascalCase       CreateOrderDto
+Prisma models      PascalCase       RentalBooking
+Database tables    snake_case       rental_bookings
+Variables          camelCase        dpDeadline
+Constants          UPPER_SNAKE      DP_DEADLINE_HOURS
+Branches           feat/* fix/* chore/* refactor/*
+Events             dot notation     payment.proof.submitted
+Queue jobs         dot notation     notification.email.send
+```
+
+### 7.3 General coding rules
+
+- Jangan menggunakan `any` tanpa alasan tertulis.
+- Gunakan `unknown` untuk error atau payload eksternal, lalu validasi.
+- Jangan menggunakan non-null assertion `!` kecuali invariant sudah dibuktikan.
+- Jangan membuat utility generik berlebihan sebelum ada minimal dua use case nyata.
+- Jangan menelan exception.
+- Gunakan global exception filter untuk response konsisten.
+- Gunakan domain-specific exceptions untuk conflict, stock shortage, dan booking conflict.
+- Semua waktu disimpan dalam UTC menggunakan `timestamptz`.
+- Tanggal rental yang bersifat kalender bisnis harus dinormalisasi terhadap timezone toko.
+- Semua nominal uang harus menggunakan Decimal/integer representation, bukan `number` floating-point untuk kalkulasi.
+- Semua endpoint list wajib paginated.
+- Gunakan cursor pagination untuk dataset besar; page/limit boleh untuk dashboard kecil.
+
+---
+
+## 8. HTTP and API Contract
+
+### 8.1 Standard response
+
+```json
+{
+  "success": true,
+  "message": "Operation completed",
+  "data": {}
+}
+```
+
+```json
+{
+  "success": true,
+  "data": [],
+  "meta": {
+    "page": 1,
+    "limit": 20,
+    "total": 100,
+    "totalPages": 5
+  }
+}
+```
+
+```json
+{
+  "success": false,
+  "message": "Validation failed",
+  "code": "VALIDATION_ERROR",
+  "errors": [
+    {
+      "field": "email",
+      "message": "Email is invalid"
+    }
+  ],
+  "requestId": "req_xxx"
+}
+```
+
+### 8.2 HTTP status
+
+| Status | Penggunaan |
 |---|---|
-| 200 | Berhasil ambil/update |
-| 201 | Berhasil buat data baru |
-| 400 | Validasi gagal / stok kurang |
-| 401 | Token tidak ada, expired, email belum verif |
-| 403 | Role salah / Email/WA di-blacklist |
-| 404 | Data tidak ditemukan |
-| 409 | Tanggal booking di-lock / order pending sudah ada |
-| 500 | Server error |
+| 200 | Read/update berhasil |
+| 201 | Resource berhasil dibuat |
+| 202 | Job asynchronous diterima |
+| 204 | Delete/retract berhasil tanpa body |
+| 400 | Payload/format tidak valid |
+| 401 | Tidak terautentikasi atau token invalid/expired |
+| 403 | Terautentikasi tetapi tidak memiliki izin, belum verifikasi, atau diblokir |
+| 404 | Resource tidak ditemukan |
+| 409 | Conflict: stok, booking, state transition, idempotency mismatch |
+| 413 | File terlalu besar |
+| 415 | Tipe file tidak didukung |
+| 422 | Business validation tidak dapat diproses bila kebijakan API memilih status ini |
+| 429 | Rate limit |
+| 500 | Unexpected server error |
+| 503 | Dependency penting tidak tersedia |
+
+### 8.3 API rules
+
+- Semua mutasi checkout dan pembayaran wajib menerima `Idempotency-Key`.
+- Jangan menerima `userId`, `role`, `price`, `cost`, `subtotal`, `dpAmount`, atau `refundAmount` sebagai sumber kebenaran dari client.
+- Gunakan OpenAPI schema dan generated/typed client bila praktis.
+- Jangan expose internal Prisma errors ke client.
+- Semua response error menyertakan `requestId`, tetapi tidak menyertakan stack trace di production.
 
 ---
 
-## 7. API Response Format
+## 9. Authentication and Session Design
 
-```javascript
-// Sukses (single)
-{ success: true, message: "...", data: { ... } }
+### 9.1 Customer login flow
 
-// Sukses (list/paginated)
-{ success: true, data: [...], meta: { page, limit, total, totalPages } }
+1. Customer mengirim email dan password.
+2. Backend memverifikasi hash Argon2id.
+3. Backend membuat access token berumur 15 menit.
+4. Backend membuat refresh session dengan random opaque identifier atau JWT ber-`jti` unik.
+5. Raw refresh token hanya dikirim melalui cookie; database/Redis hanya menyimpan hash atau session identifier.
+6. Frontend menyimpan access token di memory, bukan `localStorage`.
+7. Saat halaman reload, frontend memanggil `/api/auth/refresh` untuk memperoleh access token baru.
+8. Setiap refresh melakukan token rotation dan mencabut token lama.
+9. Reuse token lama setelah rotation dianggap indikasi pencurian session dan seluruh token family dicabut.
 
-// Error
-{ success: false, message: "...", errors: [...] }
+### 9.2 Cookie policy
+
+```text
+HttpOnly: true
+Secure: true in production
+SameSite: Lax
+Path: /api/auth/refresh
+MaxAge: 30 days
+```
+
+- Jangan menggunakan `SameSite=Strict` sebagai default karena dapat mengganggu alur dari email atau WhatsApp.
+- Endpoint refresh wajib melakukan Origin/Referer validation dan CSRF protection.
+- Cookie domain hanya diperluas ke parent domain jika benar-benar diperlukan.
+
+### 9.3 Access token claims
+
+```json
+{
+  "sub": "user_uuid",
+  "sid": "session_uuid",
+  "role": "customer",
+  "iss": "florist-api",
+  "aud": "florist-web",
+  "iat": 0,
+  "exp": 0
+}
+```
+
+### 9.4 Admin authentication
+
+- Admin menggunakan endpoint dan audience berbeda.
+- Admin session tidak boleh dipakai untuk customer endpoints dan sebaliknya.
+- Role:
+  - `owner`
+  - `finance`
+  - `staff_verification`
+- Permission examples:
+  - `products.read`
+  - `products.write`
+  - `orders.read`
+  - `orders.verify_payment`
+  - `orders.cancel`
+  - `refunds.process`
+  - `finance.read`
+  - `finance.write`
+  - `reports.export`
+  - `staff.manage`
+- Owner account wajib mendukung MFA pada fase production hardening.
+
+### 9.5 Password and verification security
+
+- Gunakan Argon2id.
+- Jangan menerapkan aturan password berbasis kombinasi karakter yang berlebihan.
+- Minimum panjang password disesuaikan threat model; utamakan passphrase dan breached-password checking.
+- Verification token, reset token, OTP, dan refresh token wajib disimpan dalam bentuk hash.
+- OTP memiliki TTL dan attempt limit.
+- Password, token, OTP, dan cookie tidak pernah dicatat di log.
+
+---
+
+## 10. Security Requirements
+
+### 10.1 Global controls
+
+- Helmet dengan Content Security Policy yang diuji.
+- CORS allowlist; tidak pernah `origin: *` bersama credentials.
+- HSTS di production.
+- Rate limit per IP, endpoint, dan account identifier.
+- Request body size limit.
+- URL and redirect allowlist.
+- Dependency scanning dan lockfile review.
+- Secret scanning pada CI.
+- No secrets in source control.
+- Database user menggunakan least privilege.
+- Object storage bucket private; gunakan signed URL bila perlu.
+- Admin endpoints tidak boleh terindeks mesin pencari.
+
+### 10.2 Authorization
+
+- Semua admin endpoint memiliki authentication guard dan permission guard.
+- Ownership check wajib untuk customer order, payment proof, address, dan refund.
+- Menyembunyikan tombol frontend bukan authorization.
+- Setiap perubahan status harus melewati state transition policy.
+
+### 10.3 File upload
+
+- Validasi extension, MIME type, dan magic bytes.
+- Decode image untuk memastikan file valid.
+- Reject polyglot atau malformed image jika terdeteksi.
+- Maximum default 2 MB, dapat dikonfigurasi.
+- Nama object menggunakan UUID/random key.
+- Jangan gunakan original filename sebagai object key.
+- Jangan izinkan SVG untuk bukti pembayaran.
+- Metadata sensitif seperti EXIF sebaiknya dihapus.
+- Signed access URL memiliki expiry pendek.
+- File lama yang diretract dihapus secara asynchronous setelah metadata audit tersimpan.
+
+### 10.4 WebSocket
+
+- Socket wajib diautentikasi.
+- Admin bergabung ke room berdasarkan role/permission.
+- Jangan menerima perubahan order melalui event socket tanpa authorization yang sama dengan REST.
+- Event hanya membawa data minimal; client fetch detail melalui API.
+
+---
+
+## 11. Frontend Architecture
+
+### 11.1 Rendering strategy
+
+| Halaman | Strategi |
+|---|---|
+| Homepage | Static/ISR |
+| Category | Static/ISR |
+| Product detail | Static/ISR |
+| Search | Dynamic |
+| Cart | Client-enhanced |
+| Checkout | Dynamic/private |
+| Customer dashboard | Dynamic/private |
+| Admin dashboard | Dynamic/private |
+| Blog/article | Static/ISR |
+
+### 11.2 State ownership
+
+- **Server Components/native fetch**:
+  - public catalog
+  - categories
+  - product detail
+  - SEO metadata
+- **TanStack Query**:
+  - cart synchronization
+  - rental availability
+  - order status
+  - payment proof state
+  - dashboard data
+- **Zustand**:
+  - modal/drawer state
+  - checkout wizard state
+  - local optimistic cart view
+  - filters not suitable for URL state
+- **URL search params**:
+  - search
+  - category
+  - sort
+  - pagination
+- **IndexedDB**:
+  - pending offline cart commands
+  - non-sensitive cached cart view
+- **Never store in localStorage/IndexedDB**:
+  - access token
+  - refresh token
+  - password
+  - OTP
+
+### 11.3 Visual baseline
+
+```text
+Primary Pink : #A94065
+Deep Rose    : #880E4F
+Soft Blush   : #FFF0F4
+Off White    : #FFF7F9
+```
+
+- Mobile-first
+- Accessible color contrast
+- Keyboard navigation
+- Semantic forms
+- Visible focus state
+- Rounded cards boleh digunakan, tetapi glassmorphism tidak boleh mengorbankan readability
+- Mobile bottom navigation hanya untuk item utama
+- Desktop sticky header dengan cart counter
+
+---
+
+## 12. Backend Modules and Responsibilities
+
+```text
+auth             register, verify email, login, refresh, logout, sessions, password reset
+users            customer profile and address book
+catalog          products, categories, variants, public catalog
+inventory        stock, reservations, adjustments, rental units
+cart             persistent cart and offline sync
+rental           availability, unit assignment, holds, booking lifecycle
+checkout         price snapshot, stock reservation, delivery quote, order creation
+orders           history, detail, status transitions, timeline, cancellation
+payments         proof upload/retract/review and payment state
+refunds          refund calculation, manual processing, evidence, audit
+notifications    email, WhatsApp, WebSocket and delivery log
+deliveries       addresses, route quote, pickup/delivery rules
+blacklist        email/phone abuse blocking
+finance          capital, expenses, product costs
+reports          dashboard aggregate and XLSX export
+admin            staff, permissions, admin profile
+health           liveness and readiness
+```
+
+### Business logic placement
+
+- Controller: request parsing and response mapping
+- DTO/Pipe: structural validation
+- Policy/Guard: authorization
+- Service: business use case
+- Repository/Prisma service: persistence
+- Domain policy: state transition and calculation rules
+- Queue producer: create async jobs after transaction commit
+- Worker processor: email, WhatsApp, cleanup, export, reconciliation
+
+---
+
+## 13. Database Design Principles
+
+1. Semua primary key menggunakan UUID.
+2. Semua timestamp menggunakan `timestamptz`.
+3. Semua uang menggunakan `NUMERIC(18,0)`/Prisma Decimal.
+4. Semua quantity memiliki `CHECK >= 0`.
+5. Semua state penting menggunakan enum atau constrained text.
+6. Product definition dipisahkan dari physical rental unit.
+7. Order item menyimpan snapshot nama, harga, HPP, varian, dan request penting.
+8. Data lama tidak boleh berubah hanya karena produk di katalog di-edit.
+9. Audit log append-only.
+10. Payment proof tidak hard-delete dari database; gunakan `retracted_at`.
+11. Soft delete hanya untuk entitas yang memang perlu dipulihkan atau dipertahankan historinya.
+12. Query katalog secara default memfilter `deleted_at IS NULL` dan `is_active = true`.
+13. Database constraint adalah safety net terakhir untuk race condition.
+
+---
+
+## 14. Core Database Schema
+
+> Tabel berikut adalah logical schema. Implementasi final berada di `schema.prisma`, dengan raw SQL migration hanya untuk constraint PostgreSQL khusus.
+
+### 14.1 Users and Sessions
+
+#### `users`
+
+| Kolom | Tipe | Catatan |
+|---|---|---|
+| id | uuid | PK |
+| email | citext/text | unique, normalized |
+| password_hash | text | Argon2id |
+| full_name | text | |
+| phone_number | text | normalized E.164 |
+| is_verified | boolean | default false |
+| is_active | boolean | default true |
+| deleted_at | timestamptz | nullable |
+| created_at | timestamptz | |
+| updated_at | timestamptz | |
+
+#### `admin_users`
+
+| Kolom | Tipe | Catatan |
+|---|---|---|
+| id | uuid | PK |
+| email | citext/text | unique |
+| password_hash | text | Argon2id |
+| role | enum | owner, finance, staff_verification |
+| full_name | text | |
+| is_active | boolean | default true |
+| mfa_enabled | boolean | default false |
+| created_at | timestamptz | |
+| updated_at | timestamptz | |
+
+#### `auth_sessions`
+
+| Kolom | Tipe | Catatan |
+|---|---|---|
+| id | uuid | PK, menjadi `sid` |
+| principal_type | enum | customer/admin |
+| principal_id | uuid | user/admin id |
+| token_family_id | uuid | rotation family |
+| refresh_token_hash | text | tidak menyimpan raw token |
+| user_agent_hash | text | nullable |
+| ip_hash | text | nullable |
+| expires_at | timestamptz | |
+| revoked_at | timestamptz | nullable |
+| last_used_at | timestamptz | |
+| created_at | timestamptz | |
+
+#### `email_verification_tokens`
+
+| Kolom | Tipe | Catatan |
+|---|---|---|
+| id | uuid | PK |
+| user_id | uuid | FK |
+| token_hash | text | unique |
+| expires_at | timestamptz | |
+| consumed_at | timestamptz | nullable |
+| created_at | timestamptz | |
+
+### 14.2 Catalog and Inventory
+
+#### `categories`
+
+| Kolom | Tipe | Catatan |
+|---|---|---|
+| id | uuid | PK |
+| slug | text | unique |
+| name | text | |
+| type | enum | flower, gift, greeting_board |
+| is_active | boolean | |
+| created_at | timestamptz | |
+| updated_at | timestamptz | |
+
+#### `products`
+
+| Kolom | Tipe | Catatan |
+|---|---|---|
+| id | uuid | PK |
+| category_id | uuid | FK |
+| slug | text | unique |
+| name | text | |
+| description | text | |
+| product_mode | enum | sale, rental |
+| stock_type | enum | ready_stock, pre_order, rental_unit |
+| base_price | numeric(18,0) | |
+| stock_qty | int | hanya barang jual |
+| reserved_qty | int | hanya barang jual |
+| po_days | int | nullable |
+| is_active | boolean | |
+| deleted_at | timestamptz | nullable |
+| created_at | timestamptz | |
+| updated_at | timestamptz | |
+
+#### `product_variants`
+
+| Kolom | Tipe | Catatan |
+|---|---|---|
+| id | uuid | PK |
+| product_id | uuid | FK |
+| name | text | |
+| sku | text | unique nullable |
+| price_delta | numeric(18,0) | |
+| is_active | boolean | |
+
+#### `product_images`
+
+| Kolom | Tipe | Catatan |
+|---|---|---|
+| id | uuid | PK |
+| product_id | uuid | FK |
+| storage_key | text | object key, bukan public URL permanen |
+| alt_text | text | |
+| is_primary | boolean | satu primary aktif per produk |
+| sort_order | int | |
+| created_at | timestamptz | |
+
+#### `rental_units`
+
+| Kolom | Tipe | Catatan |
+|---|---|---|
+| id | uuid | PK |
+| product_id | uuid | FK ke produk rental |
+| unit_code | text | unique, contoh PB-001 |
+| display_name | text | |
+| status | enum | available, reserved, rented, cleaning, maintenance, damaged, lost, retired |
+| condition_note | text | nullable |
+| is_active | boolean | |
+| created_at | timestamptz | |
+| updated_at | timestamptz | |
+
+#### `inventory_adjustments`
+
+| Kolom | Tipe | Catatan |
+|---|---|---|
+| id | uuid | PK |
+| product_id | uuid | FK |
+| quantity_delta | int | bisa positif/negatif |
+| reason | enum | purchase, correction, damaged, completed_sale, cancellation_release |
+| reference_type | text | nullable |
+| reference_id | uuid | nullable |
+| performed_by_admin_id | uuid | nullable |
+| created_at | timestamptz | |
+
+### 14.3 Cart
+
+#### `cart_items`
+
+| Kolom | Tipe | Catatan |
+|---|---|---|
+| id | uuid | PK |
+| user_id | uuid | FK |
+| product_id | uuid | FK |
+| variant_id | uuid | nullable |
+| quantity | int | > 0 |
+| custom_note | text | nullable |
+| rental_start_at | timestamptz | wajib untuk rental |
+| rental_end_at | timestamptz | wajib untuk rental |
+| client_mutation_id | uuid | nullable, idempotency offline sync |
+| created_at | timestamptz | |
+| updated_at | timestamptz | |
+
+> Cart tidak menjamin stok atau unit rental. Validasi final dilakukan saat checkout.
+
+### 14.4 Orders and Booking
+
+#### `orders`
+
+| Kolom | Tipe | Catatan |
+|---|---|---|
+| id | uuid | PK |
+| order_number | text | unique, human-readable |
+| user_id | uuid | FK |
+| status | enum | lihat state machine |
+| customer_name | text | snapshot |
+| customer_phone | text | snapshot |
+| recipient_name | text | nullable |
+| recipient_phone | text | nullable |
+| delivery_type | enum | delivery, pickup |
+| subtotal | numeric(18,0) | |
+| delivery_fee | numeric(18,0) | default 0 |
+| total | numeric(18,0) | |
+| dp_amount | numeric(18,0) | |
+| remaining_amount | numeric(18,0) | |
+| dp_deadline | timestamptz | |
+| dp_verified_at | timestamptz | nullable |
+| final_payment_deadline | timestamptz | nullable |
+| fully_paid_at | timestamptz | nullable |
+| estimated_ready_at | timestamptz | nullable |
+| cancelled_at | timestamptz | nullable |
+| cancelled_by | enum | customer, admin, system |
+| cancel_reason | text | nullable |
+| refund_status | enum | none, pending, processing, refunded, failed |
+| policy_version | text | refund/terms snapshot version |
+| created_at | timestamptz | |
+| updated_at | timestamptz | |
+
+#### Recommended order statuses
+
+```text
+pending_dp
+pending_dp_review
+pending_final_payment
+pending_final_review
+fully_paid
+processing
+ready
+out_for_delivery
+completed
+cancelled
+rejected
+```
+
+#### `order_items`
+
+| Kolom | Tipe | Catatan |
+|---|---|---|
+| id | uuid | PK |
+| order_id | uuid | FK |
+| product_id | uuid | FK |
+| variant_id | uuid | nullable |
+| product_name_snapshot | text | |
+| variant_name_snapshot | text | nullable |
+| quantity | int | |
+| unit_price_snapshot | numeric(18,0) | |
+| cost_price_snapshot | numeric(18,0) | |
+| custom_note_snapshot | text | nullable |
+| rental_start_at | timestamptz | nullable |
+| rental_end_at | timestamptz | nullable |
+| estimated_ready_at | timestamptz | nullable |
+
+#### `rental_bookings`
+
+| Kolom | Tipe | Catatan |
+|---|---|---|
+| id | uuid | PK |
+| rental_unit_id | uuid | FK |
+| order_id | uuid | FK |
+| order_item_id | uuid | FK |
+| user_id | uuid | FK |
+| rental_start_at | timestamptz | |
+| rental_end_at | timestamptz | |
+| status | enum | soft_locked, reserved, confirmed, active, returned, cancelled |
+| hold_expires_at | timestamptz | nullable; sama dengan dp_deadline saat soft lock |
+| assigned_at | timestamptz | |
+| cancelled_at | timestamptz | nullable |
+| created_at | timestamptz | |
+| updated_at | timestamptz | |
+
+#### `delivery_addresses`
+
+| Kolom | Tipe | Catatan |
+|---|---|---|
+| id | uuid | PK |
+| order_id | uuid | unique FK |
+| full_address | text | |
+| district | text | nullable |
+| city | text | |
+| postal_code | text | nullable |
+| latitude | decimal | |
+| longitude | decimal | |
+| distance_meters | int | |
+| route_duration_seconds | int | nullable |
+| delivery_fee_snapshot | numeric(18,0) | |
+| route_provider | text | |
+| route_quote_raw | jsonb | sanitized subset only |
+
+> Baris delivery address tidak dibuat untuk pickup.
+
+#### `order_status_history`
+
+| Kolom | Tipe | Catatan |
+|---|---|---|
+| id | uuid | PK |
+| order_id | uuid | FK |
+| from_status | text | nullable |
+| to_status | text | |
+| actor_type | enum | customer, admin, system |
+| actor_id | uuid | nullable |
+| reason | text | nullable |
+| metadata | jsonb | sanitized |
+| created_at | timestamptz | |
+
+### 14.5 Payments and Refunds
+
+#### `payment_proofs`
+
+| Kolom | Tipe | Catatan |
+|---|---|---|
+| id | uuid | PK |
+| order_id | uuid | FK |
+| proof_type | enum | dp, final |
+| storage_key | text | private object key |
+| original_filename | text | admin-only |
+| file_size | int | |
+| mime_type | text | |
+| verification_status | enum | pending, approved, rejected |
+| rejected_reason | text | nullable |
+| verified_by_admin_id | uuid | nullable |
+| verified_at | timestamptz | nullable |
+| retracted_at | timestamptz | nullable |
+| created_at | timestamptz | |
+
+#### `refunds`
+
+| Kolom | Tipe | Catatan |
+|---|---|---|
+| id | uuid | PK |
+| order_id | uuid | FK |
+| amount | numeric(18,0) | |
+| deduction_percent | int | 0, 25, 50 |
+| reason | text | |
+| status | enum | pending, processing, refunded, failed |
+| processed_by_admin_id | uuid | nullable |
+| destination_account_masked | text | nullable |
+| transfer_proof_storage_key | text | nullable |
+| processed_at | timestamptz | nullable |
+| note | text | nullable |
+| created_at | timestamptz | |
+| updated_at | timestamptz | |
+
+### 14.6 Abuse Prevention and Audit
+
+#### `blacklist_entries`
+
+| Kolom | Tipe | Catatan |
+|---|---|---|
+| id | uuid | PK |
+| type | enum | email, phone |
+| normalized_value_hash | text | indexed; pertimbangkan enkripsi untuk raw value |
+| encrypted_value | text | bila perlu ditampilkan admin |
+| reason | text | |
+| created_by_admin_id | uuid | FK |
+| created_at | timestamptz | |
+| revoked_at | timestamptz | nullable |
+
+#### `audit_logs`
+
+| Kolom | Tipe | Catatan |
+|---|---|---|
+| id | uuid | PK |
+| action | text | contoh order.payment.approved |
+| entity_type | text | |
+| entity_id | uuid | nullable |
+| actor_type | enum | customer, admin, system |
+| actor_id | uuid | nullable |
+| request_id | text | |
+| metadata | jsonb | redacted/sanitized |
+| created_at | timestamptz | append-only |
+
+#### `idempotency_keys`
+
+| Kolom | Tipe | Catatan |
+|---|---|---|
+| id | uuid | PK |
+| principal_id | uuid | |
+| key | text | unique per principal + operation |
+| operation | text | checkout, upload proof, refund |
+| request_hash | text | detect mismatched reuse |
+| response_status | int | |
+| response_body | jsonb | sanitized |
+| expires_at | timestamptz | |
+| created_at | timestamptz | |
+
+#### `outbox_events`
+
+| Kolom | Tipe | Catatan |
+|---|---|---|
+| id | uuid | PK |
+| topic | text | |
+| aggregate_type | text | |
+| aggregate_id | uuid | |
+| payload | jsonb | no secrets |
+| available_at | timestamptz | |
+| processed_at | timestamptz | nullable |
+| attempts | int | |
+| last_error | text | nullable, sanitized |
+| created_at | timestamptz | |
+
+### 14.7 Finance
+
+#### `product_costs`
+
+| Kolom | Tipe | Catatan |
+|---|---|---|
+| id | uuid | PK |
+| product_id | uuid | FK |
+| variant_id | uuid | nullable |
+| cost_price | numeric(18,0) | |
+| effective_at | timestamptz | |
+| created_by_admin_id | uuid | |
+
+#### `capital_injections`
+
+| Kolom | Tipe | Catatan |
+|---|---|---|
+| id | uuid | PK |
+| amount | numeric(18,0) | |
+| source | text | |
+| note | text | nullable |
+| injected_at | timestamptz | |
+| created_by_admin_id | uuid | |
+| created_at | timestamptz | |
+
+#### `expenses`
+
+| Kolom | Tipe | Catatan |
+|---|---|---|
+| id | uuid | PK |
+| category | enum | raw_material, operational, salary, transport, marketing, other |
+| amount | numeric(18,0) | |
+| description | text | |
+| expense_date | date | |
+| attachment_storage_key | text | nullable |
+| created_by_admin_id | uuid | |
+| deleted_at | timestamptz | nullable |
+| created_at | timestamptz | |
+| updated_at | timestamptz | |
+
+---
+
+## 15. Critical PostgreSQL Constraints
+
+> SQL berikut adalah contoh intent. Sesuaikan nama enum dan kolom dengan migration final.
+
+### 15.1 One pending DP order per user
+
+```sql
+CREATE UNIQUE INDEX one_pending_dp_order_per_user
+ON orders (user_id)
+WHERE status IN ('pending_dp', 'pending_dp_review');
+```
+
+### 15.2 One active payment proof per type
+
+```sql
+CREATE UNIQUE INDEX one_active_payment_proof_per_type
+ON payment_proofs (order_id, proof_type)
+WHERE retracted_at IS NULL
+  AND verification_status IN ('pending', 'approved');
+```
+
+> Kondisi `retracted_at IS NULL` wajib ada. Tanpa kondisi tersebut, bukti yang sudah diretract tetapi masih memiliki status `pending` dapat memblokir upload baru.
+
+### 15.3 One primary image per product
+
+```sql
+CREATE UNIQUE INDEX one_primary_image_per_product
+ON product_images (product_id)
+WHERE is_primary = true;
+```
+
+### 15.4 Non-negative inventory
+
+```sql
+ALTER TABLE products
+ADD CONSTRAINT stock_non_negative CHECK (stock_qty >= 0),
+ADD CONSTRAINT reserved_non_negative CHECK (reserved_qty >= 0),
+ADD CONSTRAINT reserved_not_above_stock CHECK (
+  stock_type <> 'ready_stock' OR reserved_qty <= stock_qty
+);
+```
+
+### 15.5 Prevent overlapping rental bookings
+
+```sql
+CREATE EXTENSION IF NOT EXISTS btree_gist;
+
+ALTER TABLE rental_bookings
+ADD CONSTRAINT rental_unit_no_overlap
+EXCLUDE USING gist (
+  rental_unit_id WITH =,
+  tstzrange(rental_start_at, rental_end_at, '[)') WITH &&
+)
+WHERE (status IN ('soft_locked', 'reserved', 'confirmed', 'active'));
+```
+
+- Gunakan interval `[start, end)` agar booking yang selesai tepat saat booking lain dimulai tidak dianggap overlap.
+- Prisma belum tentu dapat mengekspresikan exclusion constraint secara langsung; gunakan raw SQL migration yang terdokumentasi.
+
+### 15.6 Cart uniqueness
+
+```sql
+CREATE UNIQUE INDEX unique_cart_item_signature
+ON cart_items (
+  user_id,
+  product_id,
+  COALESCE(variant_id, '00000000-0000-0000-0000-000000000000'::uuid),
+  COALESCE(rental_start_at, '1970-01-01 00:00:00+00'::timestamptz),
+  COALESCE(rental_end_at, '1970-01-01 00:00:00+00'::timestamptz)
+);
 ```
 
 ---
 
-## 8. Database & ORM Rules
+## 16. Transaction and Concurrency Rules
 
-1. **Wajib ORM** — raw SQL hanya untuk agregasi berat (`$queryRaw`) dan harus dikomentari alasannya.
-2. **Migration** — setiap ubah schema, jalankan `prisma migrate dev`.
-3. **Transaksi Booking** — saat checkout yang berisi papan ucapan: `prisma.$transaction()` + unique constraint `(board_id, booking_date)` di DB.
-4. **Reservasi Stok** — checkout → `reserved_qty += qty`. Order `completed` → `stock_qty -= qty`, `reserved_qty -= qty`. Order `cancelled`/`rejected` → `reserved_qty -= qty` (dikembalikan).
-5. **Validasi Stok** — cek `stock_qty - reserved_qty >= qty` sebelum insert order untuk `ready_stock`.
-6. **Snapshot Harga** — setiap `order_item` wajib simpan `price_snapshot` & `cost_price_snapshot` saat order dibuat.
-7. **Soft Delete** — kolom `deleted_at` nullable di entitas utama.
-8. **Refresh Token Revocation** — token yang di-logout disimpan di Redis (TTL 30 hari) agar tidak bisa dipakai ulang.
-9. **Auto-assign Board** — saat checkout dengan papan ucapan, backend otomatis pilih `board_id` dari `board_inventory` yang `is_active = true` dan tidak ada booking aktif di tanggal tersebut (first available).
+### 16.1 Stock reservation
 
----
+Jangan gunakan pola check-then-update biasa tanpa isolation/atomic guard.
 
-## 9. Security & Validation Rules
+Gunakan salah satu pendekatan berikut:
 
-### Autentikasi Customer
-- Register → kirim email verifikasi → `is_verified = false` sampai link diklik.
-- Checkout, booking, upload bukti bayar: wajib **JWT Guard + Verified Guard** (`is_verified == true`).
-- **Access Token**: 1 jam, simpan di memori Flutter (bukan localStorage — hindari XSS).
-- **Refresh Token**: 30 hari, via `httpOnly cookie` (`Secure`, `SameSite=Strict`).
-- `Dio auth_interceptor.dart` menangkap `401` → otomatis panggil refresh → retry request.
-- Rate limit ketat di `/auth/register` & `/auth/resend-verification` (1x/2 menit/IP).
+1. Serializable transaction dengan retry pada serialization conflict.
+2. Conditional atomic update:
 
-### Autentikasi Admin
-- JWT terpisah untuk semua `/admin/*` routes.
-- Guard `@Roles('owner', 'finance', 'staff_verifikasi')` per endpoint.
-- `/admin/finance/*` & `/admin/reports/*` hanya untuk role `owner`/`finance`.
+```sql
+UPDATE products
+SET reserved_qty = reserved_qty + :quantity
+WHERE id = :product_id
+  AND stock_type = 'ready_stock'
+  AND stock_qty - reserved_qty >= :quantity;
+```
 
-### Validasi Upload Bukti Bayar
-1. Cek **magic bytes** buffer — pastikan file benar-benar JPG/PNG asli.
-2. Tolak jika > 2MB.
-3. Simpan dengan nama **UUID random** ke object storage.
-4. Hanya boleh upload jika belum ada bukti yang statusnya `pending` atau `approved` untuk tipe yang sama (DP/final).
-5. **Retract diperbolehkan** selama `verification_status = 'pending'` (admin belum verifikasi).
+Jika affected row = 0, return stock conflict.
 
-### Validasi Keranjang
-- Jika `product.category == 'papan_ucapan'`, maka `booking_date` di `cart_items` **wajib diisi** — validasi di level DTO & Service.
-- `booking_date` tidak boleh di masa lalu.
+### 16.2 Checkout transaction
 
----
+Semua operasi berikut harus terjadi dalam satu transaction:
 
-## 10. Features & Task Breakdown (Checklist)
+1. Validasi idempotency key.
+2. Lock/read product rows yang relevan.
+3. Recompute price dari database.
+4. Reserve ready-stock secara atomic.
+5. Pilih rental unit yang tersedia.
+6. Insert order.
+7. Insert order items dan price/cost snapshots.
+8. Insert delivery snapshot bila delivery.
+9. Insert rental booking dengan status `soft_locked`.
+10. Set `hold_expires_at = order.dp_deadline`.
+11. Insert order status history.
+12. Insert outbox events.
+13. Clear cart setelah transaction berhasil.
 
-### Modul 1: Auth & User Management
-- [ ] `POST /api/auth/register` — register, kirim token verif email
-- [ ] `GET /api/auth/verify?token=` — konfirmasi email → `is_verified = true`
-- [ ] `POST /api/auth/resend-verification` — kirim ulang, rate limit 1x/2mnt/IP
-- [ ] `POST /api/auth/login` — return access token + set refresh token cookie
-- [ ] `POST /api/auth/refresh-token` — tukar cookie → access token baru
-- [ ] `POST /api/auth/logout` — revoke refresh token di Redis, hapus cookie
-- [ ] `GET /api/auth/me` — profil customer aktif
-- [ ] `PUT /api/auth/me` — update nama, telepon, password
-- [ ] `POST /api/admin/auth/login` — return JWT + role
-- [ ] `GET, PUT /api/admin/profile`
-- [ ] `CRUD /api/admin/staff` — khusus owner
-- [ ] `CRUD /api/categories`
+Jika rental constraint conflict atau stok gagal, rollback seluruh transaction.
 
-### Modul 2: Katalog Produk & Stok
-- [ ] `GET /api/products?page=&limit=&category=&search=` — public, pagination
-- [ ] `GET /api/products/:id` — public, detail + foto + varian + stok available
-- [ ] `POST, PUT, DELETE /api/admin/products` — CRUD produk (soft delete)
-- [ ] `POST /api/admin/products/:id/images` — upload foto, simpan ke `product_images`
-- [ ] `DELETE /api/admin/products/:id/images/:imageId`
-- [ ] `PUT /api/admin/products/:id/stock` — set `stock_qty`, `stock_type`, `po_days`
+### 16.3 Prisma transaction policy
 
-### Modul 3: Keranjang Belanja (Persistent — Offline Resilient) ⭐
-- [ ] `GET /api/cart` — ambil keranjang dari server
-- [ ] `POST /api/cart/items` — tambah item; validasi `booking_date` wajib untuk papan ucapan, tidak boleh tanggal lalu
-- [ ] `PUT /api/cart/items/:itemId` — ubah qty / note
-- [ ] `DELETE /api/cart/items/:itemId` — hapus 1 item
-- [ ] `DELETE /api/cart` — kosongkan keranjang
-- [ ] `POST /api/cart/sync` — batch sync saat kembali online
-
-### Modul 4: Kalender Ketersediaan Papan Ucapan
-- [ ] `GET /api/booking/calendar?month=` — public, tampil tanggal available/booked per board
-- [ ] `GET /api/booking/check-availability?date=` — auth customer, cek apakah tanggal masih aman sebelum checkout
-- [ ] Cron: auto-release lock expired (tiap 1 menit)
-
-### Modul 5: Checkout & Pembayaran DP
-- [ ] `POST /api/checkout/estimate-ongkir` — auth customer, kalkulasi ongkir (hanya jika `delivery_type=delivery`)
-- [ ] `POST /api/checkout` — auth+verified: blacklist check → pending order check → stok check → ketersediaan tanggal → reserve stok → buat order & lock board (dalam 1 transaction) → return `order_id`, `dp_amount`, `dp_deadline`
-- [ ] `POST /api/orders/:orderId/payment-proof/dp` — upload bukti DP (validasi magic bytes, size, UUID rename)
-- [ ] `DELETE /api/orders/:orderId/payment-proof/dp` — **retract bukti DP** jika salah kirim foto (hanya jika status `pending`)
-- [ ] Cron: auto-cancel order lewat `dp_deadline` → release lock → kembalikan `reserved_qty`
-
-### Modul 6: Pelunasan Sisa Pembayaran ⭐
-- [ ] `GET /api/orders/:orderId/remaining-amount` — cek sisa tagihan
-- [ ] `POST /api/orders/:orderId/payment-proof/final` — upload bukti pelunasan
-- [ ] `DELETE /api/orders/:orderId/payment-proof/final` — **retract bukti pelunasan** jika salah (hanya jika status `pending`)
-- [ ] Cron: kirim **warning email** ke customer H-1 sebelum `pelunasan_deadline`
-- [ ] Cron: auto-cancel jika masih tidak bayar setelah `pelunasan_deadline`
-
-### Modul 7: Riwayat & Detail Order Customer ⭐
-- [ ] `GET /api/orders/my?page=&limit=&status=` — semua order milik sendiri
-- [ ] `GET /api/orders/my/:orderId` — detail order: items, status, bukti bayar, timeline
-- [ ] `POST /api/orders/my/:orderId/cancel` — **cancel order** oleh customer; jika DP belum dibayar → langsung cancel gratis; jika DP sudah diverifikasi → hitung refund bertingkat (< 12 jam = 100%, 12-24 jam = 75%, > 24 jam = 50%) → set `refund_status = pending_refund`
-
-### Modul 8: Verifikasi Admin & Notifikasi Real-time
-- [ ] `GET /api/admin/orders?status=&page=&limit=` — antrian verifikasi dengan filter & pagination
-- [ ] `GET /api/admin/orders/:id` — detail order lengkap
-- [ ] `POST /api/admin/orders/:id/verify-dp` → order jadi `dp_verified` → kirim email + WA ke customer (nominal sisa + deadline)
-- [ ] `POST /api/admin/orders/:id/verify-final` → order jadi `fully_paid` → lock board jadi `confirmed` permanen → generate WA deep-link
-- [ ] `POST /api/admin/orders/:id/reject` → blacklist Email+WA, release lock, kembalikan `reserved_qty`, catat alasan
-- [ ] `POST /api/admin/orders/:id/complete` → tandai order selesai diantar/diterima → status `completed`, `stock_qty -= qty`, `reserved_qty -= qty`
-- [ ] `POST /api/admin/orders/:id/force-cancel { admin_cancel_note }` → force-cancel (force majeure) → full refund (`refund_deduction_pct = 0`) → `refund_status = pending_refund` → email ke customer
-- [ ] `PUT /api/admin/orders/:id/refund-done { refund_note }` → tandai refund sudah ditransfer manual → `refund_status = refunded` → email konfirmasi ke customer
-- [ ] `GET /api/admin/orders?refund_status=pending_refund` → filter antrian order yang butuh proses refund manual
-- [ ] WebSocket: emit `payment_proof_submitted` ke room admin saat customer upload bukti (DP/final)
-- [ ] WebSocket: emit `proof_retracted` ke room admin saat customer tarik ulang bukti bayar
-- [ ] `GET /api/admin/boards` — lihat semua unit papan ucapan
-- [ ] `PUT /api/admin/orders/:id/reassign-board` — reassign board secara manual jika diperlukan
-- [ ] `CRUD /api/admin/blacklist`
-
-### Modul 9: Web-to-WhatsApp Integration
-- [ ] Generate token terenkripsi berisi ringkasan order
-- [ ] `GET /o/:token` — halaman ringkasan order (wajib cek JWT admin)
-- [ ] Endpoint generate `wa.me` deep-link + draft pesan + link `/o/:token`
-
-### Modul 10: Keuangan & Laporan (Owner/Finance Only)
-- [ ] `CRUD /api/admin/finance/capital`
-- [ ] `CRUD /api/admin/finance/expenses` (soft delete)
-- [ ] `CRUD /api/admin/finance/product-costs` (histori `effective_date`)
-- [ ] `GET /api/admin/reports/summary?from=&to=`
-- [ ] `GET /api/admin/reports/chart-data?type=&from=&to=`
-- [ ] `GET /api/admin/reports/export?type=profit_loss&from=&to=`
+- Untuk transaksi checkout, gunakan isolation level `Serializable` jika provider dan Prisma version mendukung.
+- Retry conflict terbatas, misalnya maksimum 3 kali dengan jitter.
+- Jangan retry validation error atau deterministic business conflict.
+- Jangan menjalankan external HTTP call di dalam database transaction.
+- Quote ongkir diperoleh sebelum transaction, lalu divalidasi freshness-nya saat membuat order.
 
 ---
 
-## 11. Do Not (SANGAT PENTING)
+## 17. Order and Booking State Machines
 
-- **JANGAN** buat tabel manual tanpa `prisma migrate`.
-- **JANGAN** tulis connection string di service/controller — gunakan `.env` + `ConfigModule`.
-- **JANGAN** kembalikan `password_hash`, `refresh_token`, atau `verification_token` di response.
-- **JANGAN** bypass validasi DTO/class-validator.
-- **JANGAN** hitung ongkir, DP, pelunasan, atau laba di Flutter client.
-- **JANGAN** panggil Google Maps API jika `delivery_type = 'pickup'`.
-- **JANGAN** hapus unique constraint `(board_id, booking_date)` atau partial unique index `one_pending_order_per_user`.
-- **JANGAN** beri akses `/admin/finance/*` dan `/admin/reports/*` selain role `owner`/`finance`.
-- **JANGAN** simpan keranjang hanya di state Flutter — wajib sync ke server.
-- **JANGAN** simpan access token di `localStorage` — simpan di memori aplikasi.
-- **JANGAN** hard delete `products`, `users`, `expenses` — gunakan soft delete.
-- **JANGAN** trigger soft-lock papan ucapan saat tambah ke keranjang.
-- **JANGAN** izinkan upload bukti baru jika sudah ada bukti `approved` untuk tipe yang sama.
-- **JANGAN** izinkan retract bukti jika `verification_status` sudah bukan `pending`.
+### 17.1 Order transitions
+
+```text
+pending_dp
+  ├── customer uploads DP proof ──> pending_dp_review
+  ├── deadline passes, no active proof ──> cancelled
+  └── customer cancel ──> cancelled
+
+pending_dp_review
+  ├── admin approves ──> pending_final_payment
+  ├── admin rejects ──> pending_dp with new resubmit deadline
+  └── admin rejects order ──> rejected
+
+pending_final_payment
+  ├── customer uploads final proof ──> pending_final_review
+  ├── deadline passes, no active proof ──> cancelled + refund calculation
+  └── customer cancel ──> cancelled + refund calculation
+
+pending_final_review
+  ├── admin approves ──> fully_paid
+  ├── admin rejects proof ──> pending_final_payment with new deadline
+  └── admin rejects order ──> rejected
+
+fully_paid ──> processing ──> ready ──> out_for_delivery/completed
+```
+
+### 17.2 Rental booking transitions
+
+```text
+soft_locked
+  ├── DP approved ──> reserved
+  ├── DP deadline expires without active proof ──> cancelled
+  └── order cancelled/rejected ──> cancelled
+
+reserved
+  ├── final payment approved ──> confirmed
+  └── order cancelled/rejected ──> cancelled
+
+confirmed
+  ├── rental starts ──> active
+  ├── order cancelled ──> cancelled
+  └── rental completed/returned ──> returned
+```
+
+### 17.3 Deadline safety rule
+
+- Cron/worker tidak boleh membatalkan order bila customer telah mengunggah bukti valid sebelum deadline dan bukti masih menunggu review.
+- Jika bukti ditolak, backend menetapkan resubmission deadline baru.
+- Semua job expiration harus idempotent dan memeriksa state terbaru sebelum melakukan perubahan.
 
 ---
 
-## 12. Environment Variables (.env)
+## 18. Checkout Flow
+
+```text
+POST /api/checkout
+Headers:
+  Authorization: Bearer <access-token>
+  Idempotency-Key: <uuid>
+
+Body:
+  deliveryType
+  addressId or address payload
+  recipient
+  customer notes
+
+Server:
+  1. Authenticate customer
+  2. Require verified email
+  3. Check blacklist/abuse restrictions
+  4. Validate idempotency key
+  5. Load server cart; ignore client price
+  6. Revalidate product/variant availability
+  7. Validate rental periods
+  8. Calculate subtotal and snapshots
+  9. If delivery, obtain route quote through Routes API
+  10. Execute serializable database transaction
+  11. Reserve sale stock atomically
+  12. Auto-assign physical rental unit
+  13. Create order and bookings
+  14. Set DP deadline +2 hours
+  15. Create outbox notification event
+  16. Clear server cart
+
+Return:
+  orderId
+  orderNumber
+  dpAmount
+  remainingAmount
+  dpDeadline
+```
+
+### Important rules
+
+- Client tidak mengirim daftar harga final.
+- Backend boleh menerima cart item references, tetapi server cart/database tetap authoritative.
+- Ongkir di-snapshot pada order.
+- Jika Routes API gagal, jangan diam-diam menggunakan angka acak. Return dependency error atau gunakan fallback tariff yang telah disetujui owner.
+- Untuk pickup, jangan memanggil Routes API.
+
+---
+
+## 19. Payment Proof Flow
+
+### 19.1 Upload
+
+```text
+POST /api/orders/:orderId/payment-proofs/dp
+POST /api/orders/:orderId/payment-proofs/final
+```
+
+Rules:
+
+- Customer harus memiliki order tersebut.
+- State order harus sesuai.
+- File harus lolos size, MIME, magic-byte, and decode validation.
+- Upload object terlebih dahulu ke temporary key.
+- Buat DB record dalam transaction.
+- Setelah commit, promote/move object ke final key bila storage strategy mendukung.
+- Emit outbox event `payment.proof.submitted`.
+- Worker mengirim WebSocket event dan notifikasi admin.
+- Order berpindah ke review status.
+
+### 19.2 Retract
+
+```text
+DELETE /api/orders/:orderId/payment-proofs/:proofType
+```
+
+Rules:
+
+- Hanya proof `pending` dan `retracted_at IS NULL`.
+- Update `retracted_at` secara transactional.
+- Emit `payment.proof.retracted`.
+- Delete object melalui cleanup job setelah commit.
+- Customer dapat upload ulang setelah retract.
+- Proof approved tidak boleh diretract.
+- Proof rejected tidak aktif dan boleh diganti tanpa retract.
+
+### 19.3 Admin verification
+
+```text
+POST /api/admin/orders/:orderId/payments/dp/approve
+POST /api/admin/orders/:orderId/payments/dp/reject
+POST /api/admin/orders/:orderId/payments/final/approve
+POST /api/admin/orders/:orderId/payments/final/reject
+```
+
+- State transition, proof update, booking update, status history, audit log, dan outbox event dilakukan dalam satu transaction.
+- Notifikasi dilakukan setelah commit.
+
+---
+
+## 20. Refund Rules
+
+### 20.1 Customer cancellation
+
+```text
+Age since order.created_at:
+< 12 hours       deduction 0%    refund 100% of verified DP
+12–24 hours      deduction 25%   refund 75% of verified DP
+> 24 hours       deduction 50%   refund 50% of verified DP
+```
+
+### 20.2 Admin/system cancellation
+
+- Admin force-cancel karena kesalahan toko/force majeure: refund 100%.
+- System cancel karena DP tidak pernah dibayar: tidak ada refund.
+- System cancel karena pelunasan tidak dibayar: gunakan kebijakan yang telah disetujui owner dan snapshot policy order.
+
+### 20.3 Refund implementation
+
+- Policy version disimpan pada order.
+- Nominal dihitung backend.
+- Buat record `refunds`.
+- Admin memproses transfer manual.
+- Simpan bukti transfer ke private storage.
+- Customer hanya melihat rekening tujuan yang dimasking dan status refund.
+- Semua perubahan refund memiliki audit log.
+
+---
+
+## 21. Offline-Resilient Cart
+
+### 21.1 Source of truth
+
+- Online authenticated state: PostgreSQL server cart.
+- Offline buffer: IndexedDB.
+- Zustand hanya menyimpan in-memory UI state.
+
+### 21.2 Offline command format
+
+```json
+{
+  "clientMutationId": "uuid",
+  "operation": "upsert|remove",
+  "productId": "uuid",
+  "variantId": null,
+  "quantity": 1,
+  "rentalStartAt": null,
+  "rentalEndAt": null,
+  "customNote": null,
+  "clientCreatedAt": "ISO-8601"
+}
+```
+
+### 21.3 Sync rules
+
+- Jangan menghapus seluruh cart server dan menggantinya buta dengan cart client.
+- Kirim batch commands dengan `clientMutationId`.
+- Backend memproses setiap command secara idempotent.
+- Backend memvalidasi ulang product, variant, quantity, rental period, dan active status.
+- Backend tidak menerima price dari client.
+- Response selalu mengembalikan canonical server cart.
+- Conflict ditampilkan jelas pada frontend, misalnya produk nonaktif atau jumlah melebihi stok.
+- Saat logout, hapus local token dan local sensitive cache; server cart tetap tersimpan.
+- Setelah login kembali, fetch server cart dan merge hanya pending commands yang valid.
+
+---
+
+## 22. Notification, Queue, and Outbox
+
+### 22.1 Do not send notifications inside request transaction
+
+```text
+DB transaction commits
+  -> outbox event saved
+  -> dispatcher enqueues BullMQ job
+  -> worker sends email/WhatsApp/WebSocket
+  -> delivery result recorded
+```
+
+### 22.2 Queue examples
+
+```text
+notification.email.send
+notification.whatsapp.send
+notification.websocket.emit
+order.dp.expire
+order.final-payment.warn
+order.final-payment.expire
+storage.object.delete
+report.xlsx.generate
+outbox.dispatch
+```
+
+### 22.3 Worker rules
+
+- Job harus idempotent.
+- Retry dengan exponential backoff.
+- Set timeout.
+- Simpan attempt count dan final failure.
+- Gunakan dead-letter handling atau failed-job dashboard.
+- Jangan log email body penuh, token, atau data sensitif.
+- Provider-specific code berada di adapter, bukan service domain.
+
+### 22.4 Email and WhatsApp configuration
+
+- Jangan hardcode email pribadi, nomor pribadi, token, atau credential dalam source code.
+- Gunakan verified domain email untuk production.
+- WhatsApp provider harus dapat diganti melalui interface.
+- Deep-link `wa.me` boleh digunakan sebagai fallback manual admin.
+
+---
+
+## 23. Delivery and Route Calculation
+
+- Gunakan Google Maps Routes API `Compute Route Matrix`.
+- API hanya dipanggil dari backend.
+- API key dibatasi berdasarkan API, environment, dan server identity bila provider mendukung.
+- Simpan distance dan fee snapshot, bukan seluruh response provider tanpa kebutuhan.
+- Cache quote pendek bila origin/destination dan parameter identik.
+- Tetapkan quote expiry.
+- Pickup selalu memiliki delivery fee 0.
+- Delivery fee formula berada dalam versioned service/config.
+
+Example formula:
+
+```text
+if distanceKm <= baseKm:
+  fee = baseFee
+else:
+  fee = baseFee + ceil(distanceKm - baseKm) * perKmFee
+```
+
+---
+
+## 24. Key API Endpoints
+
+### 24.1 Customer auth
+
+```text
+POST   /api/auth/register
+GET    /api/auth/verify-email
+POST   /api/auth/resend-verification
+POST   /api/auth/login
+POST   /api/auth/refresh
+POST   /api/auth/logout
+POST   /api/auth/forgot-password
+POST   /api/auth/reset-password
+GET    /api/auth/me
+PATCH  /api/auth/me
+```
+
+### 24.2 Catalog
+
+```text
+GET    /api/categories
+GET    /api/products
+GET    /api/products/:slug
+POST   /api/admin/products
+PATCH  /api/admin/products/:id
+DELETE /api/admin/products/:id
+POST   /api/admin/products/:id/images
+DELETE /api/admin/products/:id/images/:imageId
+PATCH  /api/admin/products/:id/inventory
+```
+
+### 24.3 Rental
+
+```text
+GET    /api/rentals/availability
+GET    /api/rentals/calendar
+GET    /api/admin/rental-units
+POST   /api/admin/rental-units
+PATCH  /api/admin/rental-units/:id
+PATCH  /api/admin/orders/:orderId/reassign-rental-unit
+```
+
+### 24.4 Cart
+
+```text
+GET    /api/cart
+POST   /api/cart/items
+PATCH  /api/cart/items/:id
+DELETE /api/cart/items/:id
+DELETE /api/cart
+POST   /api/cart/sync
+```
+
+### 24.5 Checkout and orders
+
+```text
+POST   /api/checkout/delivery-quote
+POST   /api/checkout
+GET    /api/orders/my
+GET    /api/orders/my/:orderId
+POST   /api/orders/my/:orderId/cancel
+```
+
+### 24.6 Payment proofs
+
+```text
+POST   /api/orders/:orderId/payment-proofs/dp
+DELETE /api/orders/:orderId/payment-proofs/dp
+POST   /api/orders/:orderId/payment-proofs/final
+DELETE /api/orders/:orderId/payment-proofs/final
+```
+
+### 24.7 Admin order management
+
+```text
+GET    /api/admin/orders
+GET    /api/admin/orders/:id
+POST   /api/admin/orders/:id/payments/dp/approve
+POST   /api/admin/orders/:id/payments/dp/reject
+POST   /api/admin/orders/:id/payments/final/approve
+POST   /api/admin/orders/:id/payments/final/reject
+POST   /api/admin/orders/:id/process
+POST   /api/admin/orders/:id/ready
+POST   /api/admin/orders/:id/complete
+POST   /api/admin/orders/:id/force-cancel
+PATCH  /api/admin/refunds/:refundId/process
+PATCH  /api/admin/refunds/:refundId/complete
+```
+
+### 24.8 Finance and reports
+
+```text
+CRUD   /api/admin/finance/capital
+CRUD   /api/admin/finance/expenses
+CRUD   /api/admin/finance/product-costs
+GET    /api/admin/reports/summary
+GET    /api/admin/reports/chart-data
+POST   /api/admin/reports/exports
+GET    /api/admin/reports/exports/:jobId
+```
+
+---
+
+## 25. Financial Calculation Rules
+
+```text
+Product Revenue = SUM(order_items.quantity × unit_price_snapshot)
+Delivery Revenue = SUM(orders.delivery_fee)
+Gross Revenue = Product Revenue + Delivery Revenue
+Total HPP = SUM(order_items.quantity × cost_price_snapshot)
+Gross Product Profit = Product Revenue − Total HPP
+Total Expenses = SUM(active expenses in period)
+Net Profit = Gross Product Profit + Delivery Revenue − Total Expenses
+```
+
+- Jangan menghitung revenue dari order yang belum fully paid.
+- Tentukan accounting recognition rule secara eksplisit: saat fully paid atau completed.
+- Refund mengurangi recognized revenue sesuai tanggal dan kebijakan akuntansi yang dipilih.
+- Ongkir dipisahkan agar surplus/defisit delivery dapat dianalisis.
+- Materialized view boleh digunakan untuk laporan berat, tetapi transactional tables tetap source of truth.
+
+---
+
+## 26. Testing Requirements
+
+### 26.1 Unit tests
+
+- Refund tiers
+- DP and remaining amount calculation
+- Delivery fee formula
+- Order state transition
+- Rental overlap logic
+- Permission policy
+- Token rotation and reuse detection
+- File validation helper
+
+### 26.2 Integration tests
+
+- Prisma repositories against test PostgreSQL
+- Redis session/revocation behavior
+- Checkout transaction rollback
+- Atomic stock reservation
+- Rental exclusion constraint
+- Idempotency replay
+- Outbox creation
+
+### 26.3 API E2E tests
+
+- Register, verify, login, refresh, logout
+- Unverified user cannot checkout
+- Blacklisted user cannot checkout
+- Mixed category checkout
+- Ready stock conflict under concurrent checkout
+- Rental unit conflict under concurrent checkout
+- Upload/retract/re-upload proof
+- Admin approve/reject DP
+- Admin approve/reject final payment
+- Deadline job does not cancel a proof awaiting review
+- Refund tier calculation
+- Admin force-cancel full refund
+
+### 26.4 Frontend Playwright flows
+
+- Public browsing and product SEO rendering
+- Login and session restoration after page reload
+- Offline cart queue and reconnect sync
+- Delivery/pickup checkout
+- Rental date selection
+- Payment proof upload and retract
+- Customer order timeline
+- Admin payment verification
+
+### 26.5 k6 scenarios
+
+- Catalog read baseline
+- Login rate-limit behavior
+- Concurrent checkout on last stock item
+- Concurrent rental booking for one unit/time range
+- Admin dashboard read load
+- Spike test on promotional campaign
+
+---
+
+## 27. Logging and Observability
+
+### 27.1 Required log fields
+
+```json
+{
+  "level": "info",
+  "service": "api",
+  "environment": "production",
+  "requestId": "req_xxx",
+  "traceId": "trace_xxx",
+  "module": "checkout",
+  "action": "order.created",
+  "orderId": "ord_xxx",
+  "userIdHash": "hash_xxx",
+  "statusCode": 201,
+  "durationMs": 120
+}
+```
+
+### 27.2 Never log
+
+- Password
+- Password hash
+- Access token
+- Refresh token
+- OTP
+- Verification/reset token
+- Full payment proof URL
+- API key
+- SMTP password
+- Full address unless strictly required and protected
+- Full phone number/email in general application logs
+
+### 27.3 Health endpoints
+
+```text
+GET /health/live
+GET /health/ready
+```
+
+Readiness checks:
+
+- PostgreSQL
+- Redis
+- Worker/queue availability where relevant
+- Object storage connectivity optionally as degraded dependency
+
+---
+
+## 28. Deployment Architecture
+
+```text
+Browser
+  |
+  v
+Cloudflare DNS/CDN/WAF
+  |
+  +--> www.example.com  -> Next.js/Vercel
+  |
+  +--> api.example.com  -> NestJS API containers
+                             |
+                             +--> Managed PostgreSQL
+                             +--> Managed Redis
+                             +--> Cloudflare R2
+                             +--> Routes API
+                             +--> Email/WhatsApp providers
+                             |
+                             +--> BullMQ Worker containers
+```
+
+### Production requirements
+
+- Frontend, API, PostgreSQL, and Redis berada di region yang berdekatan.
+- TLS wajib.
+- Database tidak diekspos publik tanpa IP/network restriction.
+- Automated backup dan point-in-time recovery bila tersedia.
+- Separate environment untuk development, staging, dan production.
+- Separate database credentials per environment.
+- Deploy worker terpisah dari API.
+- Cloudflare rate limiting/WAF menjadi lapisan tambahan, bukan pengganti backend control.
+
+### Domain and CORS example
+
+```text
+Web: https://www.example.com
+API: https://api.example.com
+CDN: https://cdn.example.com
+```
+
+```text
+Allowed origin: https://www.example.com
+Credentials: true
+Allowed headers: Content-Type, Authorization, Idempotency-Key, X-CSRF-Token
+```
+
+---
+
+## 29. CI/CD Pipeline
+
+### Pull request
+
+```text
+npm ci
+  -> prisma format/validate
+  -> lint
+  -> typecheck
+  -> unit tests
+  -> integration tests
+  -> Next.js typegen/typecheck
+  -> build web/api/worker
+  -> dependency and secret scan
+```
+
+### Merge to main
+
+```text
+Build immutable artifacts/images
+  -> deploy staging
+  -> run prisma migrate deploy
+  -> smoke tests
+  -> Playwright critical path
+  -> manual/automatic approval
+  -> deploy production
+  -> health check
+  -> post-deploy smoke tests
+```
+
+### Migration safety
+
+- Backup before high-risk migration.
+- Prefer expand-and-contract migration.
+- Do not remove columns in the same deployment that stops writing them.
+- Rollback plan wajib untuk production migration berisiko.
+
+---
+
+## 30. Environment Variables
 
 ```env
-# Server
-PORT=3000
+# Runtime
 NODE_ENV=development
-BASE_URL=http://localhost:3000
-ALLOWED_ORIGINS=http://localhost:5173,https://yourapp.com
+PORT=3001
+PUBLIC_WEB_URL=http://localhost:3000
+API_BASE_URL=http://localhost:3001
+CORS_ALLOWED_ORIGINS=http://localhost:3000
 
 # Database
 DATABASE_URL=postgresql://user:password@localhost:5432/florist_db
+DIRECT_DATABASE_URL=postgresql://user:password@localhost:5432/florist_db
 
 # Redis
-REDIS_HOST=127.0.0.1
-REDIS_PORT=6379
+REDIS_URL=redis://localhost:6379
 
-# JWT — Access Token
-JWT_SECRET=supersecretkey_access
-JWT_EXPIRES_IN=1h
+# JWT / Session
+JWT_ACCESS_SECRET=replace_with_long_random_secret
+JWT_ACCESS_EXPIRES_IN=15m
+REFRESH_TOKEN_TTL_DAYS=30
+SESSION_HASH_SECRET=replace_with_long_random_secret
+COOKIE_SECURE=false
+COOKIE_SAME_SITE=lax
+COOKIE_DOMAIN=
+CSRF_SECRET=replace_with_long_random_secret
 
-# JWT — Refresh Token
-JWT_REFRESH_SECRET=supersecretkey_refresh
-JWT_REFRESH_EXPIRES_IN=30d
+# Argon2id
+ARGON2_MEMORY_COST_KIB=19456
+ARGON2_TIME_COST=2
+ARGON2_PARALLELISM=1
 
-# Google Maps (Ongkir — hanya untuk delivery)
-GOOGLE_MAPS_API_KEY=your_google_maps_key
-TOKO_ORIGIN_LAT=-7.257472
-TOKO_ORIGIN_LNG=112.752088
-
-# Ongkir Formula
-ONGKIR_BASE_KM=4
-ONGKIR_BASE_FEE=10000
-ONGKIR_PER_KM_FEE=2500
-
-# WhatsApp
-WA_ADMIN_NUMBER=6281234567890
-WA_ENCRYPTION_SECRET=your_aes_secret_key
-
-# Email
-EMAIL_HOST=smtp.gmail.com
+# Email provider
+EMAIL_PROVIDER=smtp
+EMAIL_HOST=smtp.example.com
 EMAIL_PORT=587
-EMAIL_USER=your_email@gmail.com
-EMAIL_PASS=your_app_password
-EMAIL_FROM=no-reply@yourdomain.com
+EMAIL_USER=replace_me
+EMAIL_PASSWORD=replace_me
+EMAIL_FROM=no-reply@example.com
 
-# Object Storage (Cloudflare R2)
-STORAGE_PROVIDER=cloudflare_r2
-R2_ACCESS_KEY_ID=your_key
-R2_SECRET_ACCESS_KEY=your_secret
-R2_BUCKET_NAME=florist-uploads
-R2_ENDPOINT=https://xxxx.r2.cloudflarestorage.com
+# WhatsApp provider
+WHATSAPP_PROVIDER=fonnte
+WHATSAPP_API_TOKEN=replace_me
+WHATSAPP_SENDER_ID=replace_me
+WHATSAPP_ADMIN_NUMBER=replace_me
+
+# Google Maps Routes API
+GOOGLE_MAPS_ROUTES_API_KEY=replace_me
+STORE_ORIGIN_LAT=0
+STORE_ORIGIN_LNG=0
+ROUTE_QUOTE_TTL_MINUTES=10
+
+# Delivery pricing
+DELIVERY_BASE_KM=4
+DELIVERY_BASE_FEE=10000
+DELIVERY_PER_KM_FEE=2500
+
+# Cloudflare R2
+R2_ACCESS_KEY_ID=replace_me
+R2_SECRET_ACCESS_KEY=replace_me
+R2_BUCKET_NAME=florist-private
+R2_ENDPOINT=https://account-id.r2.cloudflarestorage.com
+R2_PUBLIC_BASE_URL=
 
 # Upload
 MAX_UPLOAD_SIZE_MB=2
-ALLOWED_UPLOAD_EXT=.jpg,.jpeg,.png
+ALLOWED_UPLOAD_MIME_TYPES=image/jpeg,image/png
+SIGNED_URL_TTL_SECONDS=300
 
-# Batas Waktu Pembayaran
+# Payment deadlines
 DP_DEADLINE_HOURS=2
-PELUNASAN_DEADLINE_DAYS=3
+PAYMENT_RESUBMIT_HOURS=2
+FINAL_PAYMENT_DEADLINE_DAYS=3
+FINAL_PAYMENT_WARNING_HOURS=24
 
-# Kebijakan Refund DP (cancel oleh customer, potongan bertingkat)
-# Jika cancel dalam X jam pertama: potongan sekian persen dari dp_amount
-REFUND_TIER1_HOURS=12       # Cancel < 12 jam → potongan 0%
-REFUND_TIER1_DEDUCTION=0
-REFUND_TIER2_HOURS=24       # Cancel 12–24 jam → potongan 25%
-REFUND_TIER2_DEDUCTION=25
-REFUND_TIER3_DEDUCTION=50   # Cancel > 24 jam → potongan 50%
+# Refund policy
+REFUND_POLICY_VERSION=2026-01
+REFUND_TIER1_MAX_HOURS=12
+REFUND_TIER1_DEDUCTION_PERCENT=0
+REFUND_TIER2_MAX_HOURS=24
+REFUND_TIER2_DEDUCTION_PERCENT=25
+REFUND_TIER3_DEDUCTION_PERCENT=50
+
+# Idempotency
+IDEMPOTENCY_TTL_HOURS=24
+
+# Observability
+LOG_LEVEL=debug
+OTEL_ENABLED=false
+OTEL_EXPORTER_OTLP_ENDPOINT=
 ```
+
+### Environment rules
+
+- Validate all variables at startup.
+- Application harus gagal start jika secret atau connection string penting tidak tersedia.
+- Jangan commit `.env`.
+- Sediakan `.env.example` tanpa credential nyata.
+- Production secret disimpan di provider secret manager/environment manager.
 
 ---
 
-# Arsitektur Sistem
+## 31. Implementation Order
 
-## 1. Diagram High-Level
-
-```
-┌───────────────────────────────────────────────────────────────┐
-│  FLUTTER WEB (Mobile-First)                                    │
-│  - Bloc/Cubit per feature                                      │
-│  - Cart: localStorage buffer + auto-sync (ConnectivityService) │
-│  - Auth: access token di memori, refresh via httpOnly cookie   │
-│  - Dio interceptor: auto-refresh saat 401                      │
-└───────────────────────┬───────────────────────────────────────┘
-                        │ HTTPS + WebSocket
-┌───────────────────────▼───────────────────────────────────────┐
-│  BACKEND (NestJS)                                              │
-│  Auth · Cart · Checkout · Orders · PaymentProof               │
-│  Notification (WebSocket) · Ongkir · Blacklist · WA           │
-│  Finance · Reports · Admin                                     │
-└─────┬──────────────┬──────────────┬────────────────────────────┘
-      │              │              │
-┌─────▼──────┐  ┌────▼──────┐  ┌───▼─────────────┐
-│ PostgreSQL  │  │  Redis    │  │  Object Storage  │
-│ users       │  │ TTL lock  │  │  bukti bayar     │
-│ orders      │  │ rate-limit│  │  foto produk     │
-│ cart_items  │  │ token rev.│  └─────────────────┘
-│ board_book. │  └───────────┘
-│ product_img │        │
-└─────────────┘  ┌─────▼──────────┐
-                 │  Cron Workers   │
-                 │ - release lock  │
-                 │ - expire DP     │
-                 │ - warn pelunasan│
-                 │ - expire pelun. │
-                 └────────────────┘
-```
+| Fase | Modul | Hasil utama |
+|---|---|---|
+| 1 | Monorepo, config, Docker local | Web/API/worker dapat berjalan lokal |
+| 2 | Prisma schema, migrations, critical constraints | Database aman terhadap conflict dasar |
+| 3 | Auth, sessions, email verification, RBAC | Customer/admin auth lengkap |
+| 4 | Catalog, variants, images, inventory | Katalog publik dan admin CRUD |
+| 5 | Next.js public storefront and SEO | Homepage/category/product pages |
+| 6 | Persistent/offline cart | Cart server + IndexedDB command queue |
+| 7 | Rental availability and physical units | Kalender dan anti-overlap |
+| 8 | Delivery quote | Routes API + fee snapshot |
+| 9 | Checkout transaction | Stock/rental reservation + idempotency |
+| 10 | Payment proof and DP verification | Upload/retract/review DP |
+| 11 | Final payment flow | Pelunasan dan booking confirmation |
+| 12 | Customer order history and cancellation | Timeline + refund creation |
+| 13 | Admin dashboard and WebSocket | Review queue dan live notification |
+| 14 | Queue, worker, outbox hardening | Reliable async notifications |
+| 15 | Finance and reports | HPP, expenses, XLSX |
+| 16 | Observability and security hardening | Monitoring, alerts, MFA, load tests |
+| 17 | Staging and production deployment | CI/CD and backup readiness |
 
 ---
 
-## 2. Schema Database Lengkap
+## 32. Definition of Done
 
-### A. Autentikasi & Pengguna
+Sebuah fitur dianggap selesai jika:
 
-**`users`**
-| kolom | tipe | keterangan |
-|---|---|---|
-| id | uuid | PK |
-| email | text | unique |
-| password_hash | text | bcrypt |
-| full_name | text | |
-| phone_number | text | |
-| is_verified | bool | default: false |
-| verification_token | text | nullable |
-| token_expires_at | timestamp | nullable |
-| deleted_at | timestamp | nullable — soft delete |
-| created_at | timestamp | |
-
-**`admin_users`**
-| kolom | tipe | keterangan |
-|---|---|---|
-| id | uuid | PK |
-| email | text | unique |
-| password_hash | text | bcrypt |
-| role | enum | `owner`, `finance`, `staff_verifikasi` |
-| full_name | text | |
-| is_active | bool | default: true |
-| created_at | timestamp | |
-
-### B. Produk & Inventaris
-
-**`products`**
-| kolom | tipe | keterangan |
-|---|---|---|
-| id | uuid | PK |
-| category | enum | `bunga`, `kado`, `papan_ucapan` |
-| name | text | |
-| description | text | |
-| base_price | numeric | |
-| stock_type | enum | `ready_stock`, `pre_order` |
-| stock_qty | int | stok fisik |
-| reserved_qty | int | default: 0 — dikurangi saat checkout, dikembalikan saat cancel |
-| po_days | int | nullable — estimasi hari jika pre_order |
-| is_active | bool | |
-| deleted_at | timestamp | nullable — soft delete |
-
-**`product_images`**
-| kolom | tipe | keterangan |
-|---|---|---|
-| id | uuid | PK |
-| product_id | uuid | FK → `products` |
-| image_url | text | URL object storage |
-| is_primary | bool | satu produk hanya boleh 1 primary |
-| sort_order | int | urutan tampil |
-| uploaded_at | timestamp | |
-
-**`product_variants`**
-| id | variant_name | price_delta | product_id (FK) |
-
-**`board_inventory`** (unit papan ucapan fisik)
-| kolom | tipe | keterangan |
-|---|---|---|
-| id | uuid | PK |
-| board_name | text | misal "Papan A", "Papan B" |
-| board_type | text | nullable — jenis papan (misal standing, wall) |
-| is_active | bool | |
-
-### C. Keranjang & Transaksi
-
-**`cart_items`** ⭐
-| kolom | tipe | keterangan |
-|---|---|---|
-| id | uuid | PK |
-| user_id | uuid | FK → `users` |
-| product_id | uuid | FK → `products` |
-| variant_id | uuid | nullable — FK → `product_variants` |
-| qty | int | |
-| custom_note | text | nullable — warna, ucapan, request khusus |
-| booking_date | date | nullable — WAJIB jika papan_ucapan; tidak boleh tanggal lalu |
-| added_at | timestamp | |
-| updated_at | timestamp | |
-
-**`board_bookings`** ⭐ (anti-double-booking)
-| kolom | tipe | keterangan |
-|---|---|---|
-| id | uuid | PK |
-| board_id | uuid | FK → `board_inventory` (auto-assign saat checkout) |
-| booking_date | date | |
-| status | enum | `soft_locked`, `confirmed`, `cancelled` |
-| user_id | uuid | FK → `users` |
-| order_id | uuid | nullable — FK → `orders` |
-| locked_at | timestamp | |
-| expires_at | timestamp | locked_at + 15 menit (dilepas cron jika order tidak selesai DP) |
-| **UNIQUE (board_id, booking_date) WHERE status IN ('soft_locked','confirmed')** | | race condition prevention |
-
-**`orders`**
-| kolom | tipe | keterangan |
-|---|---|---|
-| id | uuid | PK |
-| user_id | uuid | FK → `users` |
-| wa_number | text | nomor WA pemesan (untuk notifikasi admin via WA) |
-| customer_name | text | nama pemesan |
-| recipient_name | text | nama penerima (bisa beda dengan pemesan) |
-| recipient_phone | text | nomor telepon penerima |
-| delivery_type | enum | `delivery`, `pickup` |
-| status | enum | `pending_payment`, `dp_verified`, `pending_final_payment`, `fully_paid`, `processing`, `completed`, `cancelled`, `rejected` |
-| subtotal | numeric | |
-| ongkir_fee | numeric | 0 jika pickup |
-| dp_amount | numeric | 50% dari (subtotal + ongkir_fee) |
-| remaining_amount | numeric | sisa 50% |
-| total | numeric | subtotal + ongkir_fee |
-| custom_text_request | text | ucapan papan / request khusus |
-| estimated_ready_date | date | nullable — diisi jika ada item pre_order (created_at + max po_days) |
-| dp_deadline | timestamp | created_at + DP_DEADLINE_HOURS |
-| dp_verified_at | timestamp | nullable — diisi saat admin verif DP |
-| pelunasan_deadline | timestamp | dp_verified_at + PELUNASAN_DEADLINE_DAYS |
-| cancelled_at | timestamp | nullable — waktu pembatalan |
-| cancelled_by | enum | nullable — `customer`, `admin`, `system` |
-| cancel_reason | text | nullable — alasan pembatalan (diisi admin atau sistem) |
-| refund_amount | numeric | nullable — nominal DP yang dikembalikan ke customer (hasil hitung potongan bertingkat) |
-| refund_deduction_pct | int | nullable — persen potongan yang dikenakan (0, 25, atau 50) |
-| refund_status | enum | nullable — `pending_refund`, `refunded` — diupdate admin setelah transfer balik selesai |
-| refund_note | text | nullable — catatan rekam jejak refund manual oleh admin (no. rekening, tanggal transfer, dll) |
-| admin_cancel_note | text | nullable — catatan force-cancel oleh admin (force majeure, dll) |
-| created_at | timestamp | |
-
-**`order_items`**
-| kolom | tipe | keterangan |
-|---|---|---|
-| id | uuid | PK |
-| order_id | uuid | FK → `orders` |
-| product_id | uuid | FK → `products` |
-| variant_id | uuid | nullable |
-| qty | int | |
-| price_snapshot | numeric | harga jual saat transaksi |
-| cost_price_snapshot | numeric | HPP saat transaksi (untuk kalkulasi laba historis) |
-| estimated_ready_date | date | nullable — created_at + po_days jika pre_order |
-
-**`delivery_addresses`**
-| id | order_id (FK) | full_address | lat | lng | distance_km | ongkir_calculated |
-
-> Jika `delivery_type = 'pickup'`, baris ini tidak dibuat dan ongkir_fee di `orders` = 0.
-
-**`payment_proofs`** ⭐
-| kolom | tipe | keterangan |
-|---|---|---|
-| id | uuid | PK |
-| order_id | uuid | FK → `orders` |
-| proof_type | enum | `dp`, `final` |
-| file_url | text | URL object storage (UUID filename) |
-| original_filename | text | nama asli untuk referensi admin (tidak diekspos publik) |
-| uploaded_at | timestamp | |
-| file_size | int | bytes |
-| mime_type | text | |
-| verification_status | enum | `pending`, `approved`, `rejected` |
-| rejected_reason | text | nullable |
-| verified_by_admin_id | uuid | nullable |
-| verified_at | timestamp | nullable |
-| retracted_at | timestamp | nullable — diisi saat user tarik ulang bukti salah |
-
-**`blacklist`**
-| id | type (`email`/`wa_number`) | value | reason | blacklisted_at | blacklisted_by_admin_id |
-
-**`audit_logs`**
-| id | action | entity_type | entity_id | performed_by | performed_by_role | details (jsonb) | created_at |
-
-### D. Keuangan
-
-**`product_costs`** (HPP historis)
-| id | product_id (FK) | cost_price | effective_date |
-
-**`capital_injections`** (modal masuk)
-| id | amount | source | note | injected_at | created_by_admin_id (FK) |
-
-**`expenses`** (pengeluaran operasional)
-| kolom | tipe | keterangan |
-|---|---|---|
-| id | uuid | PK |
-| category | enum | `bahan_baku`, `operasional`, `gaji`, `transport`, `marketing`, `lainnya` |
-| amount | numeric | |
-| description | text | |
-| expense_date | date | |
-| attachment_url | text | nullable |
-| created_by_admin_id | uuid | FK |
-| deleted_at | timestamp | nullable — soft delete |
-
-**`revenue_ledger`** (ringkasan harian — materialized view atau tabel)
-| date (PK) | gross_revenue | total_hpp | total_ongkir_collected | gross_profit |
-
-### E. Constraint SQL Kritis
-
-```sql
--- Max 1 order pending per user
-CREATE UNIQUE INDEX one_pending_order_per_user
-  ON orders (user_id)
-  WHERE status = 'pending_payment';
-
--- Cegah duplikasi item di keranjang
-CREATE UNIQUE INDEX unique_cart_item
-  ON cart_items (
-    user_id,
-    product_id,
-    COALESCE(variant_id, '00000000-0000-0000-0000-000000000000'::uuid),
-    COALESCE(booking_date, '1970-01-01'::date)
-  );
-
--- Cegah upload 2 bukti aktif untuk tipe yang sama
-CREATE UNIQUE INDEX one_active_proof_per_type
-  ON payment_proofs (order_id, proof_type)
-  WHERE verification_status IN ('pending', 'approved');
-```
+- DTO dan backend validation tersedia.
+- Authorization dan ownership check tersedia.
+- Business rules berada di service/policy.
+- Transaction/concurrency behavior sudah diuji.
+- Audit log dibuat untuk perubahan sensitif.
+- Unit/integration/E2E tests yang relevan lulus.
+- API documentation diperbarui.
+- Error response mengikuti contract.
+- Log tidak membocorkan data sensitif.
+- Migration tersedia dan dapat dijalankan di database kosong.
+- Feature bekerja pada mobile viewport.
+- Accessibility dasar telah diuji.
+- Failure dependency eksternal memiliki handling yang jelas.
 
 ---
 
-## 3. Rekomendasi Stack & Integrasi
+## 33. Do Not — Mandatory Prohibitions
 
-| Layer | Pilihan | Alasan |
-|---|---|---|
-| Backend | **NestJS + TypeScript** | Modular, WebSocket bawaan, BullMQ, Cron native |
-| Database | **PostgreSQL** (Supabase/Neon/RDS) | Partial index, transaction, constraint ketat |
-| Cache/Lock | **Redis** | TTL native, token revocation |
-| Object Storage | **Cloudflare R2** | S3-compatible, tanpa egress fee |
-| Deploy | Railway / Fly.io / VPS | |
-
-### Frontend Flutter Web — Struktur Folder
-
-```
-lib/
- ├── features/
- │    ├── auth/
- │    │    ├── auth_bloc.dart
- │    │    └── token_manager.dart        # Access token di memori
- │    ├── catalog/
- │    ├── cart/
- │    │    ├── cart_bloc.dart            # Optimistic update + pending queue
- │    │    └── cart_local_storage.dart   # Buffer offline (IndexedDB)
- │    ├── booking/                        # Tampil kalender, cek ketersediaan
- │    ├── checkout/                       # Ongkir, delivery type, submit checkout
- │    ├── orders/
- │    │    ├── order_history_bloc.dart
- │    │    ├── order_detail_bloc.dart
- │    │    └── cancel_order_bloc.dart
- │    ├── payment_proof/
- │    │    ├── upload_proof_bloc.dart     # Upload DP & final
- │    │    └── retract_proof_bloc.dart    # Tarik ulang bukti salah
- │    └── admin/
- │         ├── dashboard/
- │         ├── order_verification/        # + WebSocket listener notifikasi
- │         ├── finance/
- │         ├── export/
- │         ├── blacklist/
- │         └── product_stock/
- ├── repositories/
- ├── services/
- │    └── connectivity_service.dart      # Monitor koneksi, trigger cart sync
- └── core/
-      ├── network/
-      │    ├── dio_client.dart
-      │    └── auth_interceptor.dart     # Auto-refresh token saat 401
-      └── theme/
-```
+- **JANGAN** menggunakan Node.js 18 atau 20 untuk proyek baru ini.
+- **JANGAN** menggunakan Flutter Web dalam baseline arsitektur ini.
+- **JANGAN** menggunakan `localStorage` untuk access/refresh token.
+- **JANGAN** menyimpan raw refresh token di database atau Redis.
+- **JANGAN** menggunakan bcrypt untuk implementasi baru kecuali Argon2id benar-benar tidak tersedia.
+- **JANGAN** hardcode email, nomor telepon, API key, atau credential.
+- **JANGAN** menggunakan `SameSite=Strict` secara default tanpa pengujian alur email/WhatsApp.
+- **JANGAN** menganggap Helmet sendirian menyelesaikan XSS/CSRF.
+- **JANGAN** melakukan authorization hanya di frontend.
+- **JANGAN** menghitung harga, DP, ongkir, refund, HPP, atau laba di client.
+- **JANGAN** menerima price atau role dari client sebagai sumber kebenaran.
+- **JANGAN** memanggil Routes API untuk pickup.
+- **JANGAN** melakukan external HTTP call di dalam database transaction.
+- **JANGAN** menggunakan check-then-update stok tanpa atomic guard atau serializable transaction.
+- **JANGAN** mengandalkan Redis lock sebagai satu-satunya pencegah double booking.
+- **JANGAN** menghapus rental exclusion constraint atau stock constraints.
+- **JANGAN** membuat soft-lock 15 menit ketika deadline DP adalah 2 jam.
+- **JANGAN** membatalkan order yang memiliki bukti pembayaran `pending` dan diunggah sebelum deadline.
+- **JANGAN** mengirim email/WhatsApp secara synchronous di dalam checkout request.
+- **JANGAN** hard-delete order, payment proof, refund, atau audit log.
+- **JANGAN** expose private storage URL permanen.
+- **JANGAN** expose Prisma model langsung ke frontend.
+- **JANGAN** menjalankan `prisma migrate dev` di production.
+- **JANGAN** membuat tabel manual di production di luar migration.
+- **JANGAN** menggunakan raw SQL tanpa alasan dan test.
+- **JANGAN** menyimpan seluruh cart hanya di Zustand atau browser storage.
+- **JANGAN** mengganti seluruh server cart secara buta saat offline sync.
+- **JANGAN** memproses checkout tanpa idempotency key.
+- **JANGAN** mengklaim SSR menjamin ranking nomor satu di Google.
+- **JANGAN** membangun microservices sebelum modular monolith terbukti menjadi bottleneck.
 
 ---
 
-## 4. Keranjang Offline-Resilient ⭐
+## 34. Final Instruction to Claude Code
 
-**Prinsip: Offline-First, Sync Later**
+Ketika mengimplementasikan fitur:
 
-| Storage | Tujuan |
-|---|---|
-| `localStorage`/`IndexedDB` (browser) | Buffer sementara saat offline |
-| Tabel `cart_items` di PostgreSQL | Single source of truth |
-
-**Alur Normal (online):**
-```
-User tambah item → POST /api/cart/items
-  → Backend insert cart_items → return state terbaru
-  → CartBloc update state + perbarui cache lokal
-```
-
-**Saat offline:**
-```
-API call gagal → simpan aksi ke "pending queue" di localStorage
-  → UI update optimistik (item tampil)
-  → Tampilkan badge kecil "Menyimpan..." di ikon keranjang
-```
-
-**Saat kembali online:**
-```
-ConnectivityService deteksi → CartBloc.syncPendingQueue()
-  → POST /api/cart/sync (kirim seluruh state lokal)
-  → Backend: hapus cart_items lama → insert batch baru → return final state
-  → CartBloc update dari server, hapus pending queue lokal
-```
-
-**Aturan Keranjang:**
-- Keranjang **TIDAK dihapus saat logout** — tetap ada saat login kembali.
-- Keranjang dikosongkan backend setelah `POST /api/checkout` berhasil.
-- Item papan ucapan wajib punya `booking_date` yang tidak di masa lalu.
-
----
-
-## 5. Alur Retract & Kirim Ulang Bukti Bayar ⭐
-
-> Fitur ini memungkinkan customer yang salah upload foto (misalnya foto selfie bukan foto bukti transfer) untuk menarik ulang dan mengunggah yang benar, **selama admin belum memverifikasi**.
-
-```
-[Customer upload bukti DP yang salah]
-  → payment_proofs: { proof_type: 'dp', verification_status: 'pending' }
-  → Customer sadar salah foto
-  │
-  ▼
-[Customer klik "Ganti Foto Bukti Bayar"]
-  → DELETE /api/orders/:orderId/payment-proof/dp
-  → Backend: cek bahwa verification_status == 'pending' (bukan approved/rejected)
-  → Jika ya: tandai proof lama dengan retracted_at = now, hapus file dari storage
-  → Response: 200 OK, customer bisa upload ulang
-  │
-  ▼
-[Customer upload ulang foto yang benar]
-  → POST /api/orders/:orderId/payment-proof/dp (file baru)
-  → WebSocket emit 'proof_retracted' + 'payment_proof_submitted' ke admin
-  → Alur verifikasi berjalan normal
-```
-
-**Aturan Retract:**
-- Hanya bisa dilakukan jika `verification_status = 'pending'`.
-- Jika status sudah `approved` → **tidak bisa retract** → hubungi admin.
-- Jika status sudah `rejected` → tidak perlu retract, langsung upload ulang (bukti rejected dianggap tidak aktif).
-- Constraint SQL `one_active_proof_per_type` mencegah ada 2 bukti aktif untuk tipe yang sama.
-- Admin mendapat notifikasi WebSocket (`proof_retracted`) agar tidak memverifikasi bukti yang sudah ditarik.
-
----
-
-## 6. Alur Pembayaran Dua Tahap (DP + Pelunasan) ⭐
-
-```
-[Checkout] → Order: status=pending_payment, dp_deadline=+2jam
-     ↓
-[Customer upload bukti DP]
-     ↓
-[Admin verify-dp]
-  → status: pending_final_payment
-  → dp_verified_at = now
-  → pelunasan_deadline = dp_verified_at + 3 hari
-  → Email + WA ke customer: sisa tagihan + deadline pelunasan
-     ↓
-[H-1 sebelum pelunasan_deadline] → Cron kirim warning email ke customer
-     ↓
-[Customer upload bukti pelunasan]
-     ↓
-[Admin verify-final]
-  → status: fully_paid
-  → booking papan ucapan (jika ada) → confirmed permanen
-  → Generate WA deep-link ringkasan final
-     ↓
-[Admin mark complete] → POST /api/admin/orders/:id/complete
-  → status: completed
-  → stock_qty -= qty (stok fisik resmi dikurangi)
-  → reserved_qty -= qty
-
---- SKENARIO PEMBATALAN ---
-
-[Customer cancel] (hanya saat status: pending_payment atau dp_verified/pending_final_payment)
-  → POST /api/orders/my/:orderId/cancel { reason? }
-  → release booking lock → reserved_qty dikembalikan
-  → Hitung refund_amount berdasarkan usia order (waktu sejak created_at):
-
-       Usia order saat cancel   │ Potongan  │ Refund ke customer
-       ─────────────────────────┼───────────┼───────────────────
-       < 12 jam                 │ 0%        │ 100% dari dp_amount
-       12 jam – 24 jam          │ 25%       │ 75% dari dp_amount
-       > 24 jam                 │ 50%       │ 50% dari dp_amount
-
-  → Jika DP belum dibayar (status masih pending_payment): langsung cancel, tidak ada refund
-  → Jika DP sudah diverifikasi: isi orders.refund_amount, refund_deduction_pct, refund_status='pending_refund'
-  → Email ke customer: konfirmasi cancel + nominal yang akan dikembalikan + instruksi
-  → Email ke admin: ada order dibatalkan customer, perlu proses refund manual
-
-[Admin proses refund manual]
-  → PUT /api/admin/orders/:id/refund-done
-  → Isi refund_note (nomor rekening tujuan, tanggal transfer, bukti transfer)
-  → refund_status → 'refunded'
-  → Email ke customer: konfirmasi refund sudah dikirim
-
-[Admin force-cancel] (force majeure / stok habis mendadak)
-  → POST /api/admin/orders/:id/force-cancel { admin_cancel_note }
-  → cancelled_by = 'admin', full refund (refund_deduction_pct = 0, refund_amount = dp_amount)
-  → release booking lock → reserved_qty dikembalikan
-  → refund_status = 'pending_refund'
-  → Email ke customer: order dibatalkan pihak toko + alasan + instruksi klaim refund penuh
-
-[DP tidak dibayar lewat dp_deadline]
-  → Cron auto-cancel (cancelled_by='system') → release lock → reserved_qty kembali
-  → Tidak ada refund (DP belum terbukti dibayar)
-
-[Pelunasan tidak dibayar lewat pelunasan_deadline]
-  → Cron auto-cancel (cancelled_by='system') → release lock → reserved_qty kembali
-  → Hitung refund DP dengan potongan berdasarkan usia order (sama dengan aturan customer cancel di atas)
-  → Email notifikasi ke customer: order dibatalkan + nominal refund DP
-```
-
----
-
-## 7. Alur Checkout (Semua Validasi Tergabung)
-
-```
-POST /api/checkout { items[], delivery_type, address?, wa_number, custom_text }
-  → [Guard] JWT valid + is_verified = true
-  → [Guard] Cek email & wa_number di blacklist → 403
-  → [Service] Cek pending order user → 409
-  → [Service] Validasi stok: stock_qty - reserved_qty >= qty (ready_stock)
-  → [Service] Jika ada papan_ucapan: cek booking_date tersedia di semua board
-  → [Service] Jika delivery: kalkulasi ongkir via Google Distance Matrix
-  → [DB Transaction prisma.$transaction()]
-      INSERT orders + order_items + delivery_address (jika delivery)
-      UPDATE products: reserved_qty += qty (setiap item)
-      INSERT board_bookings: auto-assign board yang available, soft_locked, expires_at = +15mnt
-      (DB constraint sebagai safety net terakhir jika ada race condition)
-  → Return { orderId, dpAmount, dpDeadline, remainingAmount }
-```
-
----
-
-## 8. Formula Laporan Keuangan
-
-```
-Gross Revenue  = SUM(orders.total) WHERE status IN ('fully_paid','processing','completed')
-Total HPP      = SUM(order_items.qty × order_items.cost_price_snapshot)
-Gross Profit   = Gross Revenue − Total HPP
-Total Expenses = SUM(expenses.amount) WHERE expense_date IN range
-Net Profit     = Gross Profit − Total Expenses
-```
-
-> Ongkir dipisah dari omzet produk. Biaya bensin/kurir dicatat di `expenses` kategori `transport`. Ini memberi insight apakah ongkir yang diterima surplus/defisit vs biaya pengiriman riil.
-
----
-
-## 9. Anti-Spam — Defense in Depth
-
-| Layer | Mekanisme |
-|---|---|
-| 1 | Email Verification Barrier — wajib verif email sebelum transaksi |
-| 2 | Blacklist Check — cek email & WA di middleware sebelum checkout/auth |
-| 3 | Single Pending Constraint — partial unique index di DB |
-| 4 | Rate Limiting — `@nestjs/throttler` per IP di auth & checkout |
-| 5 | DP Deadline — 2 jam; lewat → auto-cancel + release lock |
-
----
-
-## 10. Urutan Implementasi
-
-| # | Modul | Ketergantungan |
-|---|---|---|
-| 1 | Schema DB + semua constraint & index | — |
-| 2 | Auth (register, verif email, login, refresh token) | Schema DB |
-| 3 | Katalog produk (CRUD + foto + stok) | Auth |
-| 4 | Cart (server-side + offline sync) | Auth + Katalog |
-| 5 | Kalender ketersediaan papan (read-only) | Auth + DB |
-| 6 | Checkout + DP flow + auto-assign board | Cart + Kalender |
-| 7 | Upload & retract bukti DP + WebSocket notif admin | Checkout |
-| 8 | Pelunasan + upload & retract bukti final | DP flow |
-| 9 | Riwayat order customer + cancel order | Checkout |
-| 10 | Dashboard admin (verifikasi, blacklist, stok, mark complete) | Semua transaksi |
-| 11 | Force cancel admin + WA deep-link | Dashboard admin |
-| 12 | Modul keuangan (modal, pengeluaran, HPP) | Auth admin |
-| 13 | Laporan, grafik, export XLSX | Modul keuangan + transaksi |
+1. Baca keputusan bisnis dan state machine terlebih dahulu.
+2. Identifikasi data yang berubah dan boundary transaction.
+3. Identifikasi kemungkinan race condition dan duplicate request.
+4. Buat migration dan constraint sebelum mengandalkan service validation.
+5. Buat DTO, authorization policy, service, dan tests.
+6. Gunakan outbox/queue untuk side effect eksternal.
+7. Pastikan error yang dikembalikan aman dan dapat ditindaklanjuti.
+8. Jangan mengubah keputusan final tanpa menjelaskan dampak dan meminta persetujuan owner.
+9. Bila terdapat konflik antara kenyamanan coding dan integritas transaksi, prioritaskan integritas transaksi.
+10. Bila terdapat ketidakjelasan kecil, pilih implementasi paling aman dan dokumentasikan asumsi; jangan membuat perubahan bisnis besar secara diam-diam.

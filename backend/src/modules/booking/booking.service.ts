@@ -21,12 +21,13 @@ export class BookingService {
       include: {
         bookings: {
           where: {
-            bookingDate: { gte: from, lt: to },
+            bookingStart: { lt: to },
+            bookingEnd: { gt: from },
             status: {
               in: [BookingStatus.SOFT_LOCKED, BookingStatus.CONFIRMED],
             },
           },
-          select: { bookingDate: true, status: true },
+          select: { bookingStart: true, bookingEnd: true, status: true },
         },
       },
     });
@@ -35,13 +36,16 @@ export class BookingService {
 
   async availability(dateValue: string) {
     const date = new Date(`${dateValue.slice(0, 10)}T00:00:00.000Z`);
+    const nextDate = new Date(date);
+    nextDate.setUTCDate(nextDate.getUTCDate() + 1);
     const [totalBoards, booked] = await this.prisma.$transaction([
       this.prisma.boardInventory.count({
         where: { isActive: true, deletedAt: null },
       }),
       this.prisma.boardBooking.count({
         where: {
-          bookingDate: date,
+          bookingStart: { lt: nextDate },
+          bookingEnd: { gt: date },
           status: { in: [BookingStatus.SOFT_LOCKED, BookingStatus.CONFIRMED] },
           board: { isActive: true, deletedAt: null },
         },

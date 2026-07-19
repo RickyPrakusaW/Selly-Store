@@ -26,8 +26,8 @@ import {
 const cookieOptions = {
   httpOnly: true,
   secure: true,
-  sameSite: 'strict' as const,
-  path: '/api/auth',
+  sameSite: 'lax' as const,
+  path: '/api/auth/refresh',
   maxAge: 30 * 24 * 60 * 60 * 1000,
 };
 
@@ -43,14 +43,70 @@ export class AuthController {
   }
 
   @Public()
-  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Get('verify')
-  verify(@Query() dto: TokenDto) {
-    return this.auth.verifyEmail(dto.token);
+  async verify(@Query() dto: TokenDto, @Res() res: Response) {
+    try {
+      const result = await this.auth.verifyEmail(dto.token);
+      return res.type('text/html').send(`
+        <!DOCTYPE html>
+        <html lang="id">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Verifikasi Akun - Seli Florist</title>
+          <style>
+            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #fff7f9; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+            .card { background: white; padding: 40px; border-radius: 20px; box-shadow: 0 10px 30px rgba(169,64,101,0.1); text-align: center; max-width: 420px; border: 1px solid #f2d7df; }
+            .icon { font-size: 55px; margin-bottom: 15px; }
+            h1 { color: #880e4f; margin-bottom: 12px; font-size: 24px; font-family: Georgia, serif; }
+            p { color: #555; line-height: 1.6; margin-bottom: 25px; font-size: 15px; }
+            .btn { display: inline-block; background: #a94065; color: white; padding: 14px 32px; border-radius: 30px; text-decoration: none; font-weight: bold; font-size: 15px; box-shadow: 0 6px 16px rgba(169,64,101,0.25); }
+            .btn:hover { background: #880e4f; }
+          </style>
+        </head>
+        <body>
+          <div class="card">
+            <div class="icon">🌸</div>
+            <h1>Status Akun Seli Florist</h1>
+            <p>${result.message}</p>
+            <a href="${process.env.FRONTEND_URL ?? 'http://localhost:3001'}" class="btn">Masuk ke Seli Florist</a>
+          </div>
+        </body>
+        </html>
+      `);
+    } catch (err: any) {
+      return res.type('text/html').send(`
+        <!DOCTYPE html>
+        <html lang="id">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Verifikasi Akun - Seli Florist</title>
+          <style>
+            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #fff7f9; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+            .card { background: white; padding: 40px; border-radius: 20px; box-shadow: 0 10px 30px rgba(169,64,101,0.1); text-align: center; max-width: 420px; border: 1px solid #f2d7df; }
+            .icon { font-size: 55px; margin-bottom: 15px; }
+            h1 { color: #880e4f; margin-bottom: 12px; font-size: 22px; font-family: Georgia, serif; }
+            p { color: #555; line-height: 1.6; margin-bottom: 25px; font-size: 15px; }
+            .btn { display: inline-block; background: #a94065; color: white; padding: 14px 32px; border-radius: 30px; text-decoration: none; font-weight: bold; font-size: 15px; }
+          </style>
+        </head>
+        <body>
+          <div class="card">
+            <div class="icon">✨</div>
+            <h1>Informasi Verifikasi</h1>
+            <p>${err.message || 'Akun Anda sudah aktif atau tautan tidak dapat digunakan lagi.'}</p>
+            <a href="${process.env.FRONTEND_URL ?? 'http://localhost:3001'}" class="btn">Kembali ke Seli Florist</a>
+          </div>
+        </body>
+        </html>
+      `);
+    }
   }
 
   @Public()
-  @Throttle({ default: { limit: 1, ttl: 120_000 } })
+  @Throttle({ default: { limit: 1, ttl: 60_000 } })
   @Post('resend-verification')
   resend(@Body() dto: EmailDto) {
     return this.auth.resendVerification(dto);
@@ -74,7 +130,7 @@ export class AuthController {
 
   @Public()
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
-  @Post('refresh-token')
+  @Post('refresh')
   async refresh(
     @Req() request: Request,
     @Res({ passthrough: true }) response: Response,

@@ -221,18 +221,19 @@ model BoardInventory {
 }
 
 model CartItem {
-  id          String          @id @default(uuid()) @db.Uuid
-  userId      String          @map("user_id") @db.Uuid
-  productId   String          @map("product_id") @db.Uuid
-  variantId   String?         @map("variant_id") @db.Uuid
-  qty         Int
-  customNote  String?         @map("custom_note")
-  bookingDate DateTime?       @map("booking_date") @db.Date
-  addedAt     DateTime        @default(now()) @map("added_at") @db.Timestamptz(3)
-  updatedAt   DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
-  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  product     Product         @relation(fields: [productId], references: [id], onDelete: Restrict)
-  variant     ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Restrict)
+  id             String          @id @default(uuid()) @db.Uuid
+  userId         String          @map("user_id") @db.Uuid
+  productId      String          @map("product_id") @db.Uuid
+  variantId      String?         @map("variant_id") @db.Uuid
+  qty            Int
+  customNote     String?         @map("custom_note")
+  bookingDate    DateTime?       @map("booking_date") @db.Date
+  bookingEndDate DateTime?       @map("booking_end_date") @db.Date
+  addedAt        DateTime        @default(now()) @map("added_at") @db.Timestamptz(3)
+  updatedAt      DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product        Product         @relation(fields: [productId], references: [id], onDelete: Restrict)
+  variant        ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Restrict)
 
   @@index([userId])
   @@map("cart_items")
@@ -293,6 +294,7 @@ model OrderItem {
   priceSnapshot       Decimal         @map("price_snapshot") @db.Decimal(15, 2)
   costPriceSnapshot   Decimal         @map("cost_price_snapshot") @db.Decimal(15, 2)
   bookingDate         DateTime?       @map("booking_date") @db.Date
+  bookingEndDate      DateTime?       @map("booking_end_date") @db.Date
   estimatedReadyDate  DateTime?       @map("estimated_ready_date") @db.Date
   order               Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product             Product         @relation(fields: [productId], references: [id], onDelete: Restrict)
@@ -316,19 +318,20 @@ model DeliveryAddress {
 }
 
 model BoardBooking {
-  id          String         @id @default(uuid()) @db.Uuid
-  boardId     String         @map("board_id") @db.Uuid
-  bookingDate DateTime       @map("booking_date") @db.Date
-  status      BookingStatus  @default(SOFT_LOCKED)
-  userId      String         @map("user_id") @db.Uuid
-  orderId     String?        @map("order_id") @db.Uuid
-  lockedAt    DateTime       @default(now()) @map("locked_at") @db.Timestamptz(3)
-  expiresAt   DateTime?      @map("expires_at") @db.Timestamptz(3)
-  board       BoardInventory @relation(fields: [boardId], references: [id], onDelete: Restrict)
-  user        User           @relation(fields: [userId], references: [id], onDelete: Restrict)
-  order       Order?         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  id           String         @id @default(uuid()) @db.Uuid
+  boardId      String         @map("board_id") @db.Uuid
+  bookingStart DateTime       @map("booking_date") @db.Date
+  bookingEnd   DateTime       @map("booking_end_date") @db.Date
+  status       BookingStatus  @default(SOFT_LOCKED)
+  userId       String         @map("user_id") @db.Uuid
+  orderId      String?        @map("order_id") @db.Uuid
+  lockedAt     DateTime       @default(now()) @map("locked_at") @db.Timestamptz(3)
+  expiresAt    DateTime?      @map("expires_at") @db.Timestamptz(3)
+  board        BoardInventory @relation(fields: [boardId], references: [id], onDelete: Restrict)
+  user         User           @relation(fields: [userId], references: [id], onDelete: Restrict)
+  order        Order?         @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
-  @@index([bookingDate, status])
+  @@index([bookingStart, bookingEnd, status])
   @@index([orderId])
   @@map("board_bookings")
 }
