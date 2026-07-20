@@ -1,4 +1,5 @@
 import { Type } from 'class-transformer';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsArray,
   IsDateString,
@@ -12,11 +13,17 @@ import {
 } from 'class-validator';
 
 export class AddCartItemDto {
+  @ApiProperty({ format: 'uuid' })
   @IsUUID() productId!: string;
+  @ApiPropertyOptional({ format: 'uuid' })
   @IsOptional() @IsUUID() variantId?: string;
+  @ApiProperty({ minimum: 1, example: 1 })
   @Type(() => Number) @IsInt() @Min(1) qty!: number;
+  @ApiPropertyOptional({ maxLength: 1000 })
   @IsOptional() @IsString() @MaxLength(1000) customNote?: string;
+  @ApiPropertyOptional({ format: 'date' })
   @IsOptional() @IsDateString({ strict: true }) bookingDate?: string;
+  @ApiPropertyOptional({ format: 'date' })
   @IsOptional() @IsDateString({ strict: true }) bookingEndDate?: string;
 }
 

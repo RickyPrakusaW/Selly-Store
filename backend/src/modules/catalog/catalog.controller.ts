@@ -13,10 +13,12 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { UserRole } from '@prisma/client';
+import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Public } from '../../common/decorators/public.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { ImageUploadPipe } from '../../common/storage/image-upload.pipe';
 import type { UploadedImage } from '../../common/storage/image-upload.pipe';
+import { StubEntityDto, StubListDto, stubEntity, stubList } from '../../common/dto/api-contract.dto';
 import { CatalogService } from './catalog.service';
 import {
   CatalogQueryDto,
@@ -28,20 +30,33 @@ import {
   UpdateStockDto,
 } from './dto/catalog.dto';
 
+@ApiTags('catalog')
 @Controller()
 export class CatalogController {
   constructor(private readonly catalog: CatalogService) {}
 
-  @Public() @Get('categories') categories() {
-    return this.catalog.listCategories();
+  @Public()
+  @Get('categories')
+  @ApiOperation({ summary: 'List product categories scaffold' })
+  @ApiOkResponse({ type: StubListDto })
+  categories(): StubListDto {
+    return stubList();
   }
-  @Public() @Get('products') products(@Query() query: CatalogQueryDto) {
-    return this.catalog.listProducts(query);
+  @Public()
+  @Get('products')
+  @ApiOperation({ summary: 'List public products scaffold' })
+  @ApiOkResponse({ type: StubListDto })
+  products(@Query() _query: CatalogQueryDto): StubListDto {
+    return stubList();
   }
-  @Public() @Get('products/:id') product(
+  @Public()
+  @Get('products/:id')
+  @ApiOperation({ summary: 'Get product detail scaffold' })
+  @ApiOkResponse({ type: StubEntityDto })
+  product(
     @Param('id', ParseUUIDPipe) id: string,
-  ) {
-    return this.catalog.getProduct(id);
+  ): StubEntityDto {
+    return stubEntity(id);
   }
 
   @Roles(UserRole.OWNER)

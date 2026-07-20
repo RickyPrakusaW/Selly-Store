@@ -17,10 +17,10 @@ import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { CatalogModule } from './modules/catalog/catalog.module';
 import { CartModule } from './modules/cart/cart.module';
-import { BookingModule } from './modules/booking/booking.module';
+import { RentalModule } from './modules/rental/rental.module';
 import { CheckoutModule } from './modules/checkout/checkout.module';
 import { OrdersModule } from './modules/orders/orders.module';
-import { PaymentProofModule } from './modules/payment-proof/payment-proof.module';
+import { PaymentsModule } from './modules/payments/payments.module';
 import { FinanceModule } from './modules/finance/finance.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { BlacklistModule } from './modules/blacklist/blacklist.module';
@@ -66,10 +66,10 @@ function validateConfig(config: Record<string, unknown>) {
     AuthModule,
     CatalogModule,
     CartModule,
-    BookingModule,
+    RentalModule,
     CheckoutModule,
     OrdersModule,
-    PaymentProofModule,
+    PaymentsModule,
     FinanceModule,
     ReportsModule,
     BlacklistModule,

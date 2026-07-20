@@ -1,4 +1,5 @@
 import { OrderStatus } from '@prisma/client';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsEnum,
   IsOptional,
@@ -13,6 +14,7 @@ export class OrderListQueryDto extends PaginationDto {
 }
 
 export class CancelOrderDto {
+  @ApiPropertyOptional({ maxLength: 1000 })
   @IsOptional() @IsString() @MaxLength(1000) reason?: string;
 }
 

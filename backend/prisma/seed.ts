@@ -1,214 +1,251 @@
-import { PrismaClient, StockType, UserRole } from '@prisma/client';
+import {
+  PrismaClient,
+  ProductMode,
+  RentalUnitStatus,
+  StockType,
+  UserRole,
+} from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
+const DUMMY_PASSWORD = 'PasswordKuat123!';
 
-async function main() {
-  console.log('🌱 Starting Seli Florist database seeding...');
+type SeedProduct = {
+  slug: string;
+  categorySlug: 'bunga' | 'kado' | 'papan_ucapan';
+  name: string;
+  description: string;
+  basePrice: number;
+  productMode: ProductMode;
+  stockType: StockType;
+  stockQty: number;
+  imageUrl: string;
+  variants: Array<{ name: string; priceDelta: number }>;
+};
 
-  // 1. Categories
-  const categoriesData = [
-    { slug: 'bunga', name: 'Bunga', description: 'Rangkaian bunga segar, bouquet mawar, tulip, & bunga meja' },
-    { slug: 'kado', name: 'Kado', description: 'Hampers eksklusif, boneka, cokelat, & preserved rose' },
-    { slug: 'papan_ucapan', name: 'Papan Ucapan', description: 'Sewa papan ucapan duka cita, happy wedding, & grand opening' },
-  ];
+const categories = [
+  {
+    slug: 'bunga',
+    name: 'Bunga Segar',
+    description: 'Bouquet dan rangkaian bunga segar untuk berbagai momen.',
+  },
+  {
+    slug: 'kado',
+    name: 'Hampers & Kado',
+    description: 'Hampers, gift box, dan hadiah bunga pilihan.',
+  },
+  {
+    slug: 'papan_ucapan',
+    name: 'Sewa Papan Ucapan',
+    description: 'Papan bunga sewa dengan unit fisik yang dapat dijadwalkan.',
+  },
+] as const;
 
-  const categoryMap = new Map<string, string>();
-  for (const cat of categoriesData) {
-    const created = await prisma.category.upsert({
-      where: { slug: cat.slug },
-      update: { name: cat.name, description: cat.description, isActive: true, deletedAt: null },
-      create: cat,
+const products: SeedProduct[] = [
+  {
+    slug: 'bucket-mawar-merah-passionate',
+    categorySlug: 'bunga',
+    name: 'Bucket Mawar Merah Passionate',
+    description:
+      'Rangkaian mawar merah segar bernuansa elegan untuk menyampaikan kasih dan apresiasi.',
+    basePrice: 250_000,
+    productMode: ProductMode.SALE,
+    stockType: StockType.READY_STOCK,
+    stockQty: 15,
+    imageUrl:
+      'https://images.unsplash.com/photo-1561181286-d3fee7d55364?w=900&auto=format&fit=crop&q=85',
+    variants: [
+      { name: '10 tangkai', priceDelta: 0 },
+      { name: '20 tangkai', priceDelta: 75_000 },
+    ],
+  },
+  {
+    slug: 'bouquet-tulip-pastel-spring',
+    categorySlug: 'bunga',
+    name: 'Bouquet Tulip Pastel Spring',
+    description:
+      'Bouquet tulip pastel dengan tampilan lembut dan ceria untuk hadiah istimewa.',
+    basePrice: 380_000,
+    productMode: ProductMode.SALE,
+    stockType: StockType.PRE_ORDER,
+    stockQty: 10,
+    imageUrl:
+      'https://images.unsplash.com/photo-1526047932273-341f2a7631f9?w=900&auto=format&fit=crop&q=85',
+    variants: [
+      { name: 'Soft Pink', priceDelta: 0 },
+      { name: 'Mixed Pastel', priceDelta: 30_000 },
+    ],
+  },
+  {
+    slug: 'rangkaian-lily-putih-premium',
+    categorySlug: 'bunga',
+    name: 'Rangkaian Lily Putih Premium',
+    description:
+      'Rangkaian lily putih premium dalam vas, cocok untuk dekorasi dan ucapan formal.',
+    basePrice: 450_000,
+    productMode: ProductMode.SALE,
+    stockType: StockType.PRE_ORDER,
+    stockQty: 8,
+    imageUrl:
+      'https://images.unsplash.com/photo-1582794543139-8ac9cb0f7b11?w=900&auto=format&fit=crop&q=85',
+    variants: [],
+  },
+  {
+    slug: 'hampers-bunga-boneka-teddy-bear',
+    categorySlug: 'kado',
+    name: 'Hampers Bunga & Boneka Teddy Bear',
+    description:
+      'Hampers bunga dengan boneka teddy bear lembut dan kartu ucapan personal.',
+    basePrice: 299_000,
+    productMode: ProductMode.SALE,
+    stockType: StockType.READY_STOCK,
+    stockQty: 20,
+    imageUrl:
+      'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=900&auto=format&fit=crop&q=85',
+    variants: [
+      { name: 'Teddy Bear Cokelat', priceDelta: 0 },
+      { name: 'Teddy Bear Cream', priceDelta: 0 },
+    ],
+  },
+  {
+    slug: 'gift-box-bunga-cokelat-ferrero',
+    categorySlug: 'kado',
+    name: 'Gift Box Bunga & Cokelat Ferrero',
+    description:
+      'Gift box eksklusif berisi bunga pilihan dan cokelat Ferrero Rocher.',
+    basePrice: 350_000,
+    productMode: ProductMode.SALE,
+    stockType: StockType.READY_STOCK,
+    stockQty: 15,
+    imageUrl:
+      'https://images.unsplash.com/photo-1513201099705-a9746e1e201f?w=900&auto=format&fit=crop&q=85',
+    variants: [],
+  },
+  {
+    slug: 'preserved-rose-box',
+    categorySlug: 'kado',
+    name: 'Preserved Rose Box',
+    description:
+      'Mawar preserved dalam kotak premium yang dirancang sebagai kenang-kenangan tahan lama.',
+    basePrice: 550_000,
+    productMode: ProductMode.SALE,
+    stockType: StockType.READY_STOCK,
+    stockQty: 5,
+    imageUrl:
+      'https://images.unsplash.com/photo-1533616688419-b7a585564566?w=900&auto=format&fit=crop&q=85',
+    variants: [],
+  },
+  {
+    slug: 'papan-bunga-duka-cita-elegance',
+    categorySlug: 'papan_ucapan',
+    name: 'Papan Bunga Duka Cita Elegance 2x1.2m',
+    description:
+      'Papan bunga duka cita bernuansa teduh dengan rangkaian bunga elegan ukuran 2x1.2 meter.',
+    basePrice: 650_000,
+    productMode: ProductMode.RENTAL,
+    stockType: StockType.RENTAL_UNIT,
+    stockQty: 0,
+    imageUrl:
+      'https://images.unsplash.com/photo-1508610048659-a06b669e3321?w=900&auto=format&fit=crop&q=85',
+    variants: [],
+  },
+  {
+    slug: 'papan-bunga-grand-opening-luxury',
+    categorySlug: 'papan_ucapan',
+    name: 'Papan Bunga Grand Opening Luxury 2x1.5m',
+    description:
+      'Papan bunga grand opening mewah dengan warna cerah ukuran 2x1.5 meter.',
+    basePrice: 850_000,
+    productMode: ProductMode.RENTAL,
+    stockType: StockType.RENTAL_UNIT,
+    stockQty: 0,
+    imageUrl:
+      'https://images.unsplash.com/photo-1563241527-3004b7be0ffd?w=900&auto=format&fit=crop&q=85',
+    variants: [],
+  },
+  {
+    slug: 'papan-bunga-happy-wedding-romantic',
+    categorySlug: 'papan_ucapan',
+    name: 'Papan Bunga Happy Wedding Romantic 2x1.5m',
+    description:
+      'Papan bunga pernikahan romantis bernuansa merah muda dan putih ukuran 2x1.5 meter.',
+    basePrice: 750_000,
+    productMode: ProductMode.RENTAL,
+    stockType: StockType.RENTAL_UNIT,
+    stockQty: 0,
+    imageUrl:
+      'https://images.unsplash.com/photo-1519225421980-715cb0215aed?w=900&auto=format&fit=crop&q=85',
+    variants: [],
+  },
+];
+
+async function seedCategories(): Promise<Map<string, string>> {
+  const categoryIds = new Map<string, string>();
+  for (const category of categories) {
+    const result = await prisma.category.upsert({
+      where: { slug: category.slug },
+      update: {
+        name: category.name,
+        description: category.description,
+        isActive: true,
+        deletedAt: null,
+      },
+      create: category,
     });
-    categoryMap.set(cat.slug, created.id);
+    categoryIds.set(category.slug, result.id);
   }
-  console.log('✅ Categories seeded');
+  return categoryIds;
+}
 
-  // 2. Physical Boards Inventory
-  const boardNames = ['Papan 1', 'Papan 2', 'Papan 3', 'Papan 4', 'Papan 5'];
-  for (const boardName of boardNames) {
-    await prisma.boardInventory.upsert({
-      where: { boardName },
-      update: { isActive: true, deletedAt: null },
-      create: { boardName, boardType: 'Ukuran Standar 2x1.2m' },
-    });
-  }
-  console.log('✅ Physical Board Inventories seeded');
-
-  // 3. Products Data
-  const products = [
-    // --- BUNGA ---
-    {
-      categorySlug: 'bunga',
-      name: 'Bucket Mawar Merah Passionate',
-      description: 'Buketan 20 tangkai mawar merah segar kualitas super dengan wrapper kain spons merah muda elegan.',
-      basePrice: 250000,
-      stockType: StockType.READY_STOCK,
-      stockQty: 15,
-      imageUrl: 'https://images.unsplash.com/photo-1561181286-d3fee7d55364?w=600&auto=format&fit=crop&q=80',
-      variants: [
-        { name: 'Ukuran Small (10 Tangkai)', priceDelta: 0 },
-        { name: 'Ukuran Medium (20 Tangkai)', priceDelta: 50000 },
-        { name: 'Ukuran Large (30 Tangkai)', priceDelta: 100000 },
-      ],
-    },
-    {
-      categorySlug: 'bunga',
-      name: 'Bouquet Tulip Pastel Spring',
-      description: 'Rangkaian tulip pastel import segar dipadukan dengan bunga baby breath impian.',
-      basePrice: 380000,
-      stockType: StockType.READY_STOCK,
-      stockQty: 10,
-      imageUrl: 'https://images.unsplash.com/photo-1526047932273-341f2a7631f9?w=600&auto=format&fit=crop&q=80',
-      variants: [
-        { name: 'Single Color (Soft Pink)', priceDelta: 0 },
-        { name: 'Mixed Pastels (Pink, Yellow, White)', priceDelta: 30000 },
-      ],
-    },
-    {
-      categorySlug: 'bunga',
-      name: 'Rangkaian Lily Putih Premium',
-      description: 'Bunga meja lily putih harum mewah di vas kaca cantik, cocok untuk ucapan selamat atau dekorasi.',
-      basePrice: 450000,
-      stockType: StockType.READY_STOCK,
-      stockQty: 8,
-      imageUrl: 'https://images.unsplash.com/photo-1582794543139-8ac9cb0f7b11?w=600&auto=format&fit=crop&q=80',
-      variants: [],
-    },
-    {
-      categorySlug: 'bunga',
-      name: 'Bunga Meja Hydrangea & Sunflower',
-      description: 'Kombinasi bunga matahari segar dan hydrangea biru memberikan suasana segar dan hangat.',
-      basePrice: 320000,
-      stockType: StockType.READY_STOCK,
-      stockQty: 12,
-      imageUrl: 'https://images.unsplash.com/photo-1591886960571-74d43a9d4166?w=600&auto=format&fit=crop&q=80',
-      variants: [],
-    },
-
-    // --- KADO ---
-    {
-      categorySlug: 'kado',
-      name: 'Hampers Bunga & Boneka Teddy Bear',
-      description: 'Hadiah manis berisi buket mawar mini, boneka teddy bear lembut 30cm, dan pita satin pink.',
-      basePrice: 299000,
-      stockType: StockType.READY_STOCK,
-      stockQty: 20,
-      imageUrl: 'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=600&auto=format&fit=crop&q=80',
-      variants: [
-        { name: 'Teddy Bear Cokelat', priceDelta: 0 },
-        { name: 'Teddy Bear Cream', priceDelta: 0 },
-        { name: 'Dengan Kartu Ucapan Custom', priceDelta: 15000 },
-      ],
-    },
-    {
-      categorySlug: 'kado',
-      name: 'Gift Box Bunga & Cokelat Ferrero',
-      description: 'Kotak hadiah eksklusif berisi 16 butir cokelat Ferrero Rocher dan mawar segar berkualitas tinggi.',
-      basePrice: 350000,
-      stockType: StockType.READY_STOCK,
-      stockQty: 15,
-      imageUrl: 'https://images.unsplash.com/photo-1513201099705-a9746e1e201f?w=600&auto=format&fit=crop&q=80',
-      variants: [],
-    },
-    {
-      categorySlug: 'kado',
-      name: 'Kotak Perhiasan Bunga Abadi (Preserved Rose)',
-      description: 'Mawar asli yang diawetkan bertahan hingga 3 tahun dalam kubus kaca mewah dengan laci perhiasan.',
-      basePrice: 550000,
-      stockType: StockType.READY_STOCK,
-      stockQty: 5,
-      imageUrl: 'https://images.unsplash.com/photo-1533616688419-b7a585564566?w=600&auto=format&fit=crop&q=80',
-      variants: [],
-    },
-
-    // --- PAPAN UCAPAN ---
-    {
-      categorySlug: 'papan_ucapan',
-      name: 'Papan Bunga Duka Cita Elegance 2x1.2m',
-      description: 'Papan ucapan duka cita dengan latar warna teduh dan rangkaian bunga mahkota atas & bawah.',
-      basePrice: 650000,
-      stockType: StockType.PRE_ORDER,
-      stockQty: 0,
-      poDays: 1,
-      imageUrl: 'https://images.unsplash.com/photo-1508610048659-a06b669e3321?w=600&auto=format&fit=crop&q=80',
-      variants: [
-        { name: 'Ukuran Standar 2x1.2m', priceDelta: 0 },
-        { name: 'Ukuran Jumbo 2x1.5m (Bunga Keliling)', priceDelta: 200000 },
-      ],
-    },
-    {
-      categorySlug: 'papan_ucapan',
-      name: 'Papan Bunga Grand Opening Luxury 2x1.5m',
-      description: 'Papan ucapan selamat & sukses usaha baru dengan kombinasi bunga segar cerah warna merah dan kuning.',
-      basePrice: 850000,
-      stockType: StockType.PRE_ORDER,
-      stockQty: 0,
-      poDays: 1,
-      imageUrl: 'https://images.unsplash.com/photo-1563241527-3004b7be0ffd?w=600&auto=format&fit=crop&q=80',
-      variants: [],
-    },
-    {
-      categorySlug: 'papan_ucapan',
-      name: 'Papan Bunga Happy Wedding Romantic 2x1.5m',
-      description: 'Papan ucapan pernikahan nuansa pink dan putih romantis dengan ucapan kustom nama pengantin.',
-      basePrice: 750000,
-      stockType: StockType.PRE_ORDER,
-      stockQty: 0,
-      poDays: 1,
-      imageUrl: 'https://images.unsplash.com/photo-1519225421980-715cb0215aed?w=600&auto=format&fit=crop&q=80',
-      variants: [],
-    },
-  ];
-
+async function seedProducts(
+  categoryIds: Map<string, string>,
+): Promise<Map<string, string>> {
+  const productIds = new Map<string, string>();
   for (const item of products) {
-    const categoryId = categoryMap.get(item.categorySlug);
-    if (!categoryId) continue;
+    const categoryId = categoryIds.get(item.categorySlug);
+    if (!categoryId) throw new Error(`Missing category ${item.categorySlug}`);
 
-    // Create or find product
-    const existingProduct = await prisma.product.findFirst({
-      where: { name: item.name, categoryId },
+    const product = await prisma.product.upsert({
+      where: { slug: item.slug },
+      update: {
+        categoryId,
+        name: item.name,
+        description: item.description,
+        productMode: item.productMode,
+        basePrice: item.basePrice,
+        stockType: item.stockType,
+        stockQty: item.stockQty,
+        reservedQty: 0,
+        poDays: item.stockType === StockType.PRE_ORDER ? 2 : null,
+        isActive: true,
+        deletedAt: null,
+      },
+      create: {
+        slug: item.slug,
+        categoryId,
+        name: item.name,
+        description: item.description,
+        productMode: item.productMode,
+        basePrice: item.basePrice,
+        stockType: item.stockType,
+        stockQty: item.stockQty,
+        poDays: item.stockType === StockType.PRE_ORDER ? 2 : null,
+      },
     });
+    productIds.set(item.slug, product.id);
 
-    let productId = existingProduct?.id;
-
-    if (!existingProduct) {
-      const createdProduct = await prisma.product.create({
-        data: {
-          categoryId,
-          name: item.name,
-          description: item.description,
-          basePrice: item.basePrice,
-          stockType: item.stockType,
-          stockQty: item.stockQty,
-          poDays: item.poDays ?? null,
-        },
+    const primaryImage = await prisma.productImage.findFirst({
+      where: { productId: product.id, isPrimary: true, deletedAt: null },
+    });
+    if (primaryImage) {
+      await prisma.productImage.update({
+        where: { id: primaryImage.id },
+        data: { imageUrl: item.imageUrl, sortOrder: 0 },
       });
-      productId = createdProduct.id;
     } else {
-      await prisma.product.update({
-        where: { id: productId },
-        data: {
-          description: item.description,
-          basePrice: item.basePrice,
-          stockType: item.stockType,
-          stockQty: item.stockQty,
-          poDays: item.poDays ?? null,
-          isActive: true,
-          deletedAt: null,
-        },
-      });
-    }
-
-    // Product Primary Image
-    const existingImage = await prisma.productImage.findFirst({
-      where: { productId, isPrimary: true },
-    });
-
-    if (!existingImage) {
       await prisma.productImage.create({
         data: {
-          productId: productId!,
+          productId: product.id,
           imageUrl: item.imageUrl,
           isPrimary: true,
           sortOrder: 0,
@@ -216,71 +253,141 @@ async function main() {
       });
     }
 
-    // Variants
-    for (const v of item.variants) {
-      const existingVariant = await prisma.productVariant.findFirst({
-        where: { productId, variantName: v.name },
-      });
-      if (!existingVariant) {
-        await prisma.productVariant.create({
-          data: {
-            productId: productId!,
-            variantName: v.name,
-            priceDelta: v.priceDelta,
+    for (const variant of item.variants) {
+      await prisma.productVariant.upsert({
+        where: {
+          productId_variantName: {
+            productId: product.id,
+            variantName: variant.name,
           },
-        });
-      }
+        },
+        update: { priceDelta: variant.priceDelta, deletedAt: null },
+        create: {
+          productId: product.id,
+          variantName: variant.name,
+          priceDelta: variant.priceDelta,
+        },
+      });
     }
   }
-  console.log('✅ Products, Images, & Variants seeded');
+  return productIds;
+}
 
-  // 4. Users (Owner & Dummy Customers)
-  const defaultPasswordHash = await bcrypt.hash('PasswordKuat123', 12);
+async function seedRentalUnits(productIds: Map<string, string>): Promise<void> {
+  const unitAssignments = [
+    ['PB-001', 'papan-bunga-duka-cita-elegance'],
+    ['PB-002', 'papan-bunga-duka-cita-elegance'],
+    ['PB-003', 'papan-bunga-grand-opening-luxury'],
+    ['PB-004', 'papan-bunga-grand-opening-luxury'],
+    ['PB-005', 'papan-bunga-happy-wedding-romantic'],
+  ] as const;
 
-  const ownerEmail = process.env.SEED_OWNER_EMAIL?.trim().toLowerCase() || 'rickyprakusa281@gmail.com';
-  const ownerPassword = process.env.SEED_OWNER_PASSWORD || 'YourStrongPassword123';
-
-  await prisma.user.upsert({
-    where: { email: ownerEmail },
-    update: { role: UserRole.OWNER, isActive: true, isVerified: true, deletedAt: null },
-    create: {
-      email: ownerEmail,
-      passwordHash: await bcrypt.hash(ownerPassword, 12),
-      role: UserRole.OWNER,
-      fullName: process.env.SEED_OWNER_NAME ?? 'Seli Florist Owner',
-      phoneNumber: '+628123456789',
-      isVerified: true,
-    },
-  });
-
-  const dummyCustomers = [
-    { email: 'budi.santoso@gmail.com', fullName: 'Budi Santoso', phone: '+6281234567801' },
-    { email: 'siti.aminah@gmail.com', fullName: 'Siti Aminah', phone: '+6281234567802' },
-  ];
-
-  for (const cust of dummyCustomers) {
-    await prisma.user.upsert({
-      where: { email: cust.email },
-      update: { isVerified: true, isActive: true, deletedAt: null },
+  for (const [unitCode, productSlug] of unitAssignments) {
+    const productId = productIds.get(productSlug);
+    if (!productId) throw new Error(`Missing rental product ${productSlug}`);
+    await prisma.rentalUnit.upsert({
+      where: { unitCode },
+      update: {
+        productId,
+        displayName: `Papan Bunga ${unitCode}`,
+        status: RentalUnitStatus.AVAILABLE,
+        conditionNote: null,
+        isActive: true,
+      },
       create: {
-        email: cust.email,
-        passwordHash: defaultPasswordHash,
-        role: UserRole.CUSTOMER,
-        fullName: cust.fullName,
-        phoneNumber: cust.phone,
+        productId,
+        unitCode,
+        displayName: `Papan Bunga ${unitCode}`,
+        status: RentalUnitStatus.AVAILABLE,
+      },
+    });
+  }
+}
+
+async function seedUsers(): Promise<void> {
+  const passwordHash = await bcrypt.hash(DUMMY_PASSWORD, 12);
+  const accounts = [
+    {
+      email: 'owner@seliflorist.com',
+      fullName: 'Seli Florist Owner',
+      phoneNumber: '+6281111111101',
+      role: UserRole.OWNER,
+    },
+    {
+      email: 'staff@seliflorist.com',
+      fullName: 'Seli Florist Staff',
+      phoneNumber: '+6281111111102',
+      role: UserRole.STAFF_VERIFICATION,
+    },
+    {
+      email: 'budi.santoso@gmail.com',
+      fullName: 'Budi Santoso',
+      phoneNumber: '+6281111111103',
+      role: UserRole.CUSTOMER,
+    },
+    {
+      email: 'siti.aminah@gmail.com',
+      fullName: 'Siti Aminah',
+      phoneNumber: '+6281111111104',
+      role: UserRole.CUSTOMER,
+    },
+  ] as const;
+
+  for (const account of accounts) {
+    await prisma.user.upsert({
+      where: { email: account.email },
+      update: {
+        passwordHash,
+        fullName: account.fullName,
+        phoneNumber: account.phoneNumber,
+        role: account.role,
+        isVerified: true,
+        isActive: true,
+        deletedAt: null,
+      },
+      create: {
+        ...account,
+        passwordHash,
         isVerified: true,
       },
     });
   }
-  console.log('✅ Users (Owner & Dummy Customers) seeded');
 
-  console.log('🎉 Seli Florist Database Seeding Completed Successfully!');
+  for (const account of accounts.slice(0, 2)) {
+    await prisma.adminUser.upsert({
+      where: { email: account.email },
+      update: {
+        passwordHash,
+        fullName: account.fullName,
+        role: account.role,
+        isActive: true,
+      },
+      create: {
+        email: account.email,
+        passwordHash,
+        fullName: account.fullName,
+        role: account.role,
+      },
+    });
+  }
+}
+
+async function main(): Promise<void> {
+  console.log('Starting Seli Florist database seed...');
+  const categoryIds = await seedCategories();
+  const productIds = await seedProducts(categoryIds);
+  await seedRentalUnits(productIds);
+  await seedUsers();
+  console.log(
+    'Seli Florist seed completed: 3 categories, 9 products, 5 rental units, and 4 users.',
+  );
 }
 
 main()
-  .then(() => prisma.$disconnect())
-  .catch(async (error: unknown) => {
-    console.error('❌ Error during seeding:', error);
+  .catch((error: unknown) => {
+    console.error('Seli Florist seed failed:', error);
+    process.exitCode = 1;
+  })
+  .finally(async () => {
     await prisma.$disconnect();
-    process.exit(1);
   });

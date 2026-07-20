@@ -16,11 +16,32 @@ enum UserRole {
   @@map("user_role")
 }
 
+enum ProductMode {
+  SALE   @map("sale")
+  RENTAL @map("rental")
+
+  @@map("product_mode")
+}
+
 enum StockType {
   READY_STOCK @map("ready_stock")
   PRE_ORDER   @map("pre_order")
+  RENTAL_UNIT @map("rental_unit")
 
   @@map("stock_type")
+}
+
+enum RentalUnitStatus {
+  AVAILABLE   @map("available")
+  RESERVED    @map("reserved")
+  RENTED      @map("rented")
+  CLEANING    @map("cleaning")
+  MAINTENANCE @map("maintenance")
+  DAMAGED     @map("damaged")
+  LOST        @map("lost")
+  RETIRED     @map("retired")
+
+  @@map("rental_unit_status")
 }
 
 enum DeliveryType {
@@ -64,6 +85,14 @@ enum VerificationStatus {
   REJECTED @map("rejected")
 
   @@map("verification_status")
+}
+
+enum PaymentProofStatus {
+  PENDING  @map("pending")
+  APPROVED @map("approved")
+  REJECTED @map("rejected")
+
+  @@map("payment_proof_status")
 }
 
 enum PaymentStatus {
@@ -138,6 +167,40 @@ model User {
   @@map("users")
 }
 
+model AdminUser {
+  id           String   @id @default(uuid()) @db.Uuid
+  email        String   @unique @db.VarChar(320)
+  passwordHash String   @map("password_hash")
+  role         UserRole
+  fullName     String   @map("full_name") @db.VarChar(150)
+  isActive     Boolean  @default(true) @map("is_active")
+  mfaEnabled   Boolean  @default(false) @map("mfa_enabled")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([role, isActive])
+  @@map("admin_users")
+}
+
+model AuthSession {
+  id               String    @id @default(uuid()) @db.Uuid
+  principalType    String    @map("principal_type") @db.VarChar(16)
+  principalId      String    @map("principal_id") @db.Uuid
+  tokenFamilyId    String    @map("token_family_id") @db.Uuid
+  refreshTokenHash String    @map("refresh_token_hash")
+  userAgentHash    String?   @map("user_agent_hash")
+  ipHash           String?   @map("ip_hash")
+  expiresAt        DateTime  @map("expires_at") @db.Timestamptz(3)
+  revokedAt        DateTime? @map("revoked_at") @db.Timestamptz(3)
+  lastUsedAt       DateTime  @default(now()) @map("last_used_at") @db.Timestamptz(3)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([principalType, principalId])
+  @@index([tokenFamilyId])
+  @@index([expiresAt, revokedAt])
+  @@map("auth_sessions")
+}
+
 model Category {
   id          String    @id @default(uuid()) @db.Uuid
   slug        String    @unique @db.VarChar(64)
@@ -155,8 +218,10 @@ model Category {
 model Product {
   id          String           @id @default(uuid()) @db.Uuid
   categoryId  String           @map("category_id") @db.Uuid
+  slug        String?          @unique @db.VarChar(180)
   name        String           @db.VarChar(180)
   description String
+  productMode ProductMode      @default(SALE) @map("product_mode")
   basePrice   Decimal          @map("base_price") @db.Decimal(15, 2)
   stockType   StockType        @map("stock_type")
   stockQty    Int              @default(0) @map("stock_qty")
@@ -172,10 +237,27 @@ model Product {
   cartItems   CartItem[]
   orderItems  OrderItem[]
   costs       ProductCost[]
+  rentalUnits RentalUnit[]
 
   @@index([categoryId, isActive, deletedAt])
   @@index([name])
   @@map("products")
+}
+
+model RentalUnit {
+  id            String           @id @default(uuid()) @db.Uuid
+  productId     String           @map("product_id") @db.Uuid
+  unitCode      String           @unique @map("unit_code") @db.VarChar(80)
+  displayName   String           @map("display_name") @db.VarChar(150)
+  status        RentalUnitStatus @default(AVAILABLE)
+  conditionNote String?          @map("condition_note")
+  isActive      Boolean          @default(true) @map("is_active")
+  createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+  product       Product          @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([productId, status, isActive])
+  @@map("rental_units")
 }
 
 model ProductImage {
@@ -455,4 +537,17 @@ model RevenueLedger {
   updatedAt            DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   @@map("revenue_ledger")
+}
+
+model FinancialReport {
+  id           String   @id @default(uuid()) @db.Uuid
+  periodStart  DateTime @map("period_start") @db.Date
+  periodEnd    DateTime @map("period_end") @db.Date
+  grossRevenue Decimal  @default(0) @map("gross_revenue") @db.Decimal(18, 0)
+  totalCost    Decimal  @default(0) @map("total_cost") @db.Decimal(18, 0)
+  grossProfit  Decimal  @default(0) @map("gross_profit") @db.Decimal(18, 0)
+  generatedAt  DateTime @default(now()) @map("generated_at") @db.Timestamptz(3)
+
+  @@unique([periodStart, periodEnd])
+  @@map("financial_reports")
 }
