@@ -29,6 +29,19 @@ describe('ImageUploadPipe', () => {
     );
   });
 
+  it('accepts a WEBP image with a valid RIFF container signature', () => {
+    const buffer = Buffer.concat([
+      Buffer.from('RIFF', 'ascii'),
+      Buffer.alloc(4),
+      Buffer.from('WEBP', 'ascii'),
+      Buffer.from('VP8 ', 'ascii'),
+      Buffer.alloc(16),
+    ]);
+    expect(pipe.transform(file(buffer, 'image/webp')).detectedExtension).toBe(
+      'webp',
+    );
+  });
+
   it('rejects executable content renamed as PNG', () => {
     expect(() =>
       pipe.transform(file(Buffer.from('MZ executable content'), 'image/png')),

@@ -76,7 +76,7 @@ export class OrdersService {
         },
       },
     });
-    if (!order) throw new NotFoundException('Order not found');
+    if (!order) throw new NotFoundException('Pesanan tidak ditemukan');
     return order;
   }
 
@@ -89,7 +89,7 @@ export class OrdersService {
         finalPaymentDeadline: true,
       },
     });
-    if (!order) throw new NotFoundException('Order not found');
+    if (!order) throw new NotFoundException('Pesanan tidak ditemukan');
     return order;
   }
 
@@ -104,7 +104,7 @@ export class OrdersService {
             downPayment: true,
           },
         });
-        if (!order) throw new NotFoundException('Order not found');
+        if (!order) throw new NotFoundException('Pesanan tidak ditemukan');
         const cancellable: OrderStatus[] = [
           OrderStatus.PENDING_PAYMENT,
           OrderStatus.DP_VERIFIED,
@@ -112,7 +112,7 @@ export class OrdersService {
         ];
         if (!cancellable.includes(order.status)) {
           throw new ConflictException(
-            'Order can no longer be cancelled by the customer',
+            'Pesanan ini sudah tidak dapat dibatalkan lagi oleh pelanggan',
           );
         }
         const cancelledAt = new Date();
@@ -146,7 +146,7 @@ export class OrdersService {
       cancelledBy: 'customer',
       refundAmount: result.refundAmount?.toString() ?? null,
     });
-    await this.mail.send(
+    this.sendMailInBackground(
       result.user.email,
       'Seli Florist order cancelled',
       `Order ${orderId} was cancelled. Refund: ${result.refundAmount?.toString() ?? 'none'}.`,
@@ -240,7 +240,7 @@ export class OrdersService {
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
     );
     this.notifications.admin('dp_verified', { orderId });
-    await this.mail.send(
+    this.sendMailInBackground(
       result.user.email,
       'Seli Florist DP verified',
       `Remaining amount: ${result.remainingAmount.toString()}. Deadline: ${deadline.toISOString()}.`,
@@ -290,7 +290,7 @@ export class OrdersService {
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
     );
     this.notifications.admin('final_payment_verified', { orderId });
-    await this.mail.send(
+    this.sendMailInBackground(
       result.user.email,
       'Seli Florist payment complete',
       `Order ${orderId} is fully paid.`,
@@ -399,6 +399,19 @@ export class OrdersService {
     );
   }
 
+  async process(orderId: string) {
+    const result = await this.prisma.order.updateMany({
+      where: { id: orderId, status: OrderStatus.FULLY_PAID },
+      data: { status: OrderStatus.PROCESSING },
+    });
+    if (!result.count) {
+      throw new ConflictException(
+        'Pesanan hanya dapat diproses setelah pembayaran lunas',
+      );
+    }
+    return this.prisma.order.findUniqueOrThrow({ where: { id: orderId } });
+  }
+
   async forceCancel(orderId: string, dto: ForceCancelDto) {
     const result = await this.prisma.$transaction(
       async (tx) => {
@@ -439,7 +452,7 @@ export class OrdersService {
       orderId,
       refundAmount: result.refundAmount?.toString() ?? null,
     });
-    await this.mail.send(
+    this.sendMailInBackground(
       result.user.email,
       'Seli Florist order cancelled by store',
       `${dto.adminCancelNote}. Refund: ${result.refundAmount?.toString() ?? 'none'}.`,
@@ -459,7 +472,7 @@ export class OrdersService {
       data: { refundStatus: RefundStatus.REFUNDED, refundNote: dto.refundNote },
       include: { user: true },
     });
-    await this.mail.send(
+    this.sendMailInBackground(
       result.user.email,
       'Seli Florist refund completed',
       `Refund for order ${orderId} has been transferred.`,
@@ -467,30 +480,49 @@ export class OrdersService {
     return result;
   }
 
+  private sendMailInBackground(to: string, subject: string, text: string) {
+    void this.mail.send(to, subject, text).catch(() => undefined);
+  }
+
   async reassignBoard(
     orderId: string,
-    bookingId: string,
     dto: ReassignBoardDto,
+    bookingId?: string,
   ) {
     try {
       return await this.prisma.$transaction(
         async (tx) => {
+          let targetBookingId = bookingId;
+          if (!targetBookingId) {
+            const firstBooking = await tx.boardBooking.findFirst({
+              where: {
+                orderId,
+                status: {
+                  in: [BookingStatus.SOFT_LOCKED, BookingStatus.CONFIRMED],
+                },
+              },
+            });
+            if (!firstBooking)
+              throw new NotFoundException('Jadwal sewa aktif tidak ditemukan');
+            targetBookingId = firstBooking.id;
+          }
           const booking = await tx.boardBooking.findFirst({
             where: {
-              id: bookingId,
+              id: targetBookingId,
               orderId,
               status: {
                 in: [BookingStatus.SOFT_LOCKED, BookingStatus.CONFIRMED],
               },
             },
           });
-          if (!booking) throw new NotFoundException('Active booking not found');
+          if (!booking)
+            throw new NotFoundException('Jadwal sewa aktif tidak ditemukan');
           const board = await tx.boardInventory.findFirst({
             where: { id: dto.boardId, isActive: true, deletedAt: null },
           });
-          if (!board) throw new NotFoundException('Board not found');
+          if (!board) throw new NotFoundException('Unit papan tidak ditemukan');
           return tx.boardBooking.update({
-            where: { id: bookingId },
+            where: { id: targetBookingId },
             data: { boardId: dto.boardId },
           });
         },

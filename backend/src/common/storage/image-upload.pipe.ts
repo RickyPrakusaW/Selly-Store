@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, PipeTransform } from '@nestjs/common';
 
 export type UploadedImage = Express.Multer.File & {
-  detectedExtension: 'jpg' | 'png';
+  detectedExtension: 'jpg' | 'png' | 'webp';
 };
 
 @Injectable()
@@ -11,10 +11,10 @@ export class ImageUploadPipe implements PipeTransform<
 > {
   transform(file?: Express.Multer.File): UploadedImage {
     if (!file?.buffer?.length)
-      throw new BadRequestException('Image file is required');
-    const maxBytes = Number(process.env.MAX_UPLOAD_SIZE_MB ?? 2) * 1024 * 1024;
+      throw new BadRequestException('File gambar wajib dipilih');
+    const maxBytes = Number(process.env.MAX_UPLOAD_SIZE_MB ?? 5) * 1024 * 1024;
     if (file.size > maxBytes)
-      throw new BadRequestException('Image exceeds the upload size limit');
+      throw new BadRequestException('Ukuran gambar melebihi batas unggahan');
 
     const b = file.buffer;
     const pngSignature =
@@ -33,19 +33,23 @@ export class ImageUploadPipe implements PipeTransform<
       b[2] === 0xff &&
       b[b.length - 2] === 0xff &&
       b[b.length - 1] === 0xd9;
-    if (!png && !jpeg)
-      throw new BadRequestException('File content is not a valid JPG or PNG');
-    const expectedMime = png ? 'image/png' : 'image/jpeg';
+    const webp =
+      b.length >= 12 &&
+      b.subarray(0, 4).toString('ascii') === 'RIFF' &&
+      b.subarray(8, 12).toString('ascii') === 'WEBP';
+    if (!png && !jpeg && !webp)
+      throw new BadRequestException(
+        'Isi file bukan gambar JPG, PNG, atau WEBP yang valid',
+      );
+    const expectedMime = png ? 'image/png' : webp ? 'image/webp' : 'image/jpeg';
     if (
       file.mimetype !== expectedMime &&
       !(jpeg && file.mimetype === 'image/jpg')
     ) {
-      throw new BadRequestException(
-        'File MIME type does not match its content',
-      );
+      throw new BadRequestException('Tipe file tidak sesuai dengan isi gambar');
     }
     return Object.assign(file, {
-      detectedExtension: png ? 'png' : 'jpg',
+      detectedExtension: png ? 'png' : webp ? 'webp' : 'jpg',
     }) as UploadedImage;
   }
 }

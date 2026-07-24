@@ -301,6 +301,18 @@ async function seedRentalUnits(productIds: Map<string, string>): Promise<void> {
         status: RentalUnitStatus.AVAILABLE,
       },
     });
+    await prisma.boardInventory.upsert({
+      where: { boardName: unitCode },
+      update: {
+        boardType: 'Papan Bunga',
+        isActive: true,
+        deletedAt: null,
+      },
+      create: {
+        boardName: unitCode,
+        boardType: 'Papan Bunga',
+      },
+    });
   }
 }
 

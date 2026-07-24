@@ -12,7 +12,11 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.setGlobalPrefix('api');
   app.enableShutdownHooks();
-  app.use(helmet());
+  app.use(
+    helmet({
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+    }),
+  );
   app.use(cookieParser());
 
   const allowedOrigins = new Set(
@@ -29,7 +33,9 @@ async function bootstrap() {
       'Content-Type',
       'Accept',
       'X-CSRF-Token',
+      'Idempotency-Key',
     ],
+
     maxAge: 600,
     origin(
       origin: string | undefined,
@@ -37,13 +43,15 @@ async function bootstrap() {
     ) {
       if (
         !origin ||
+        process.env.NODE_ENV !== 'production' ||
         allowedOrigins.has(origin) ||
-        /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)
+        /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)(:\d+)?$/.test(origin)
       ) {
         return callback(null, true);
       }
       return callback(new Error('Origin is not allowed by CORS'), false);
     },
+
   });
   app.useGlobalPipes(
     new SanitizationPipe(),

@@ -3,6 +3,7 @@ import { Playfair_Display, Plus_Jakarta_Sans } from 'next/font/google';
 import { AuthDialog } from '@/components/auth-dialog';
 import { BottomNav } from '@/components/bottom-nav';
 import { Providers } from '@/components/providers';
+import { SiteHeader } from '@/components/site-header';
 import './globals.css';
 
 const jakarta = Plus_Jakarta_Sans({ subsets: ['latin'], variable: '--font-jakarta', display: 'swap' });
@@ -18,5 +19,17 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="id"><body className={`${jakarta.variable} ${playfair.variable}`}><Providers>{children}<AuthDialog /><BottomNav /></Providers></body></html>;
+  return (
+    <html lang="id" data-scroll-behavior="smooth" suppressHydrationWarning>
+
+      <body className={`${jakarta.variable} ${playfair.variable}`} suppressHydrationWarning>
+        <Providers>
+          <SiteHeader />
+          {children}
+          <AuthDialog />
+          <BottomNav />
+        </Providers>
+      </body>
+    </html>
+  );
 }

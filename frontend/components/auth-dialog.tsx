@@ -1,8 +1,8 @@
 'use client';
 
-import { AlertCircle, CheckCircle2, Eye, EyeOff, Mail, X } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Eye, EyeOff, LogIn, Mail, X } from 'lucide-react';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { ApiError, apiRequest, setAccessToken } from '@/lib/api';
+import { apiRequest, setAccessToken } from '@/lib/api';
 import { useSeliStore } from '@/lib/store';
 import type { User } from '@/lib/types';
 
@@ -74,14 +74,18 @@ export function AuthDialog() {
         setAccessToken(result.accessToken);
         setUser(result.user);
         setOpen(false);
+        void useSeliStore.getState().syncGuestCart();
+        void useSeliStore.getState().loadCart();
       }
+
     } catch (caught) {
       setError(
-        caught instanceof ApiError
+        caught instanceof Error
           ? caught.message
-          : 'Koneksi bermasalah. Silakan coba kembali.',
+          : 'Gagal memproses permintaan. Silakan coba kembali.',
       );
     } finally {
+
       setLoading(false);
     }
   }
@@ -103,7 +107,7 @@ export function AuthDialog() {
     }
   }
 
-  const waNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? '6281234567890';
+  const waNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? '6289517880077';
   const waLink = `https://wa.me/${waNumber}?text=${encodeURIComponent(`Halo Admin Seli Florist, tolong bantu verifikasi akun saya ${verificationEmail}`)}`;
 
   return (
@@ -168,5 +172,28 @@ export function AuthDialog() {
 }
 
 function InlineError({ message }: Readonly<{ message: string }>) {
-  return <div className="inline-error" role="alert"><AlertCircle size={18} /><span>{message}</span></div>;
+  const isAdminMsg = message.toLowerCase().includes('admin');
+  return (
+    <div className="inline-error" role="alert" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '8px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <AlertCircle size={18} />
+        <span>{message}</span>
+      </div>
+      {isAdminMsg && (
+        <a
+          href="/admin/login"
+          style={{
+            color: '#a94065',
+            fontWeight: 600,
+            textDecoration: 'underline',
+            fontSize: '12px',
+            marginLeft: '26px',
+          }}
+        >
+          <LogIn size={14} style={{ verticalAlign: 'middle', marginRight: '5px' }} />
+          Klik di sini untuk Masuk ke Portal Admin
+        </a>
+      )}
+    </div>
+  );
 }

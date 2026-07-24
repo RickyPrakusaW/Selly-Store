@@ -15,10 +15,27 @@ export function Providers({ children }: Readonly<{ children: React.ReactNode }>)
       }),
   );
   const setUser = useSeliStore((state) => state.setUser);
+  const loadCart = useSeliStore((state) => state.loadCart);
+  const toast = useSeliStore((state) => state.toast);
+  const clearToast = useSeliStore((state) => state.clearToast);
 
   useEffect(() => {
-    void fetchMe().then(setUser).catch(() => setUser(null));
-  }, [setUser]);
+    void fetchMe()
+      .then((user) => {
+        setUser(user);
+        if (user) void loadCart();
+      })
+      .catch(() => setUser(null));
+  }, [setUser, loadCart]);
 
-  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+  return (
+    <QueryClientProvider client={queryClient}>
+      {children}
+      {toast && (
+        <div className={`toast-banner toast-${toast.type}`} onClick={clearToast}>
+          <span>{toast.message}</span>
+        </div>
+      )}
+    </QueryClientProvider>
+  );
 }

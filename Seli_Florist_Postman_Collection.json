@@ -1,3196 +1,966 @@
 {
   "info": {
-    "_postman_id": "15cfc658-d3f4-4090-adbd-46b29814f1b9",
-    "name": "Seli Florist E-Commerce API",
-    "description": "Postman Collection v2.1.0 untuk REST API Seli Florist: autentikasi customer/admin, katalog, kategori, keranjang offline-resilient, rental availability, checkout DP 50%, bukti pembayaran DP/pelunasan, order customer, serta verifikasi admin.\n\nImport collection ini ke Postman, jalankan Customer Login atau Admin Login, dan JWT akan disimpan otomatis ke collection variables. Refresh token httpOnly dikelola otomatis oleh Postman Cookie Jar untuk localhost.\n\nCatatan: endpoint yang ditulis sebagai CRUD di note.md diekspansi secara konvensional menjadi list/detail/create/update/delete menggunakan parameter ID.",
+    "_postman_id": "seli-florist-complete-master-v4-collection",
+    "name": "Seli Florist - Master API Collection & Workflows (Lengkap)",
+    "description": "# 🌸 Seli Florist E-Commerce - Master API Collection (Versi Lengkap)\n\nDokumen Postman Collection resmi yang mengurutkan seluruh alur API berdasarkan **Role-Based Workflows** dengan **x-www-form-urlencoded** & **form-data**:\n1. **1.0 ALUR CUSTOMER**: Registrasi, Verifikasi, Login, Catalog (Kategori, List Produk, Detail Produk), Kalender Sewa, Keranjang, Ongkir, Checkout DP 50%, & Upload Struk.\n2. **2.0 ALUR STAFF VERIFIKASI**: Antrean Verifikasi, Approve DP, Approve Pelunasan, Reject & Blacklist, Reassign Papan.\n3. **3.0 ALUR FINANCE**: Ringkasan Keuangan Laba/Rugi, Grafik Penjualan, Ekspor Excel, Modal & Biaya Operasional.\n4. **4.0 ALUR OWNER**: Kelola Produk/Kategori, Daftarkan Staff, Batal Paksa (Force Majeure).\n5. **5.0 PENGUJIAN ERROR & KEAMANAN**: Pengujian status `400 Bad Request`, `401 Unauthorized`, `403 Forbidden`, `404 Not Found`, `409 Conflict`.\n\n### 📌 Fitur Spesial:\n- **Body Format**: Menggunakan `x-www-form-urlencoded` untuk form text & `form-data` untuk upload berkas.\n- **Lengkap Contoh Respon (Success & Error)**: Setiap request memiliki contoh balikan Sukses (200/201) DAN Error (400/401/403/404/409).\n- **Script Uji Otomatis & Auto JWT**: Menyimpan token JWT otomatis ke variabel collection.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
-  "event": [
-    {
-      "listen": "prerequest",
-      "script": {
-        "type": "text/javascript",
-        "packages": {},
-        "exec": [
-          "const future = new Date();",
-          "future.setUTCDate(future.getUTCDate() + 7);",
-          "const bookingDate = future.toISOString().slice(0, 10);",
-          "const bookingMonth = bookingDate.slice(0, 7);",
-          "pm.collectionVariables.set('bookingDate', bookingDate);",
-          "pm.collectionVariables.set('bookingMonth', bookingMonth);"
-        ]
-      }
-    }
-  ],
   "variable": [
-    {
-      "key": "baseUrl",
-      "value": "http://localhost:3000/api",
-      "type": "string"
-    },
-    {
-      "key": "accessToken",
-      "value": "",
-      "type": "string"
-    },
-    {
-      "key": "refreshToken",
-      "value": "",
-      "type": "string"
-    },
-    {
-      "key": "adminAccessToken",
-      "value": "",
-      "type": "string"
-    },
-    {
-      "key": "adminRefreshToken",
-      "value": "",
-      "type": "string"
-    },
-    {
-      "key": "customerEmail",
-      "value": "customer@example.com",
-      "type": "string"
-    },
-    {
-      "key": "customerPassword",
-      "value": "SeliFlorist!123",
-      "type": "string"
-    },
-    {
-      "key": "adminEmail",
-      "value": "owner@example.com",
-      "type": "string"
-    },
-    {
-      "key": "adminPassword",
-      "value": "AdminSeli!123",
-      "type": "string"
-    },
-    {
-      "key": "emailVerificationToken",
-      "value": "replace-with-verification-token",
-      "type": "string"
-    },
-    {
-      "key": "userId",
-      "value": "",
-      "type": "string"
-    },
-    {
-      "key": "adminId",
-      "value": "",
-      "type": "string"
-    },
-    {
-      "key": "staffId",
-      "value": "replace-with-staff-uuid",
-      "type": "string"
-    },
-    {
-      "key": "categoryId",
-      "value": "replace-with-category-uuid",
-      "type": "string"
-    },
-    {
-      "key": "productId",
-      "value": "replace-with-product-uuid",
-      "type": "string"
-    },
-    {
-      "key": "variantId",
-      "value": "replace-with-variant-uuid",
-      "type": "string"
-    },
-    {
-      "key": "imageId",
-      "value": "replace-with-image-uuid",
-      "type": "string"
-    },
-    {
-      "key": "cartItemId",
-      "value": "replace-with-cart-item-uuid",
-      "type": "string"
-    },
-    {
-      "key": "orderId",
-      "value": "replace-with-order-uuid",
-      "type": "string"
-    },
-    {
-      "key": "boardId",
-      "value": "replace-with-board-uuid",
-      "type": "string"
-    },
-    {
-      "key": "blacklistId",
-      "value": "replace-with-blacklist-uuid",
-      "type": "string"
-    },
-    {
-      "key": "bookingDate",
-      "value": "",
-      "type": "string"
-    },
-    {
-      "key": "bookingMonth",
-      "value": "",
-      "type": "string"
-    },
-    {
-      "key": "dpAmount",
-      "value": "",
-      "type": "string"
-    },
-    {
-      "key": "remainingAmount",
-      "value": "",
-      "type": "string"
-    }
+    { "key": "baseUrl", "value": "http://localhost:3000/api", "type": "string" },
+    { "key": "accessToken", "value": "", "type": "string" },
+    { "key": "adminAccessToken", "value": "", "type": "string" },
+    { "key": "customerEmail", "value": "budi.santoso@gmail.com", "type": "string" },
+    { "key": "customerPassword", "value": "PasswordKuat123!", "type": "string" },
+    { "key": "staffEmail", "value": "staff@seliflorist.com", "type": "string" },
+    { "key": "staffPassword", "value": "PasswordKuat123!", "type": "string" },
+    { "key": "financeEmail", "value": "finance@seliflorist.com", "type": "string" },
+    { "key": "financePassword", "value": "PasswordKuat123!", "type": "string" },
+    { "key": "ownerEmail", "value": "owner@seliflorist.com", "type": "string" },
+    { "key": "ownerPassword", "value": "PasswordKuat123!", "type": "string" },
+    { "key": "sampleProductId", "value": "replace-with-product-uuid", "type": "string" },
+    { "key": "sampleOrderId", "value": "", "type": "string" },
+    { "key": "sampleCategoryId", "value": "", "type": "string" },
+    { "key": "verificationToken", "value": "", "type": "string" }
   ],
   "item": [
     {
-      "name": "01 - Auth & User Management",
-      "description": "Customer authentication, profile, admin authentication/profile, and owner-only staff management.",
+      "name": "1.0 ALUR CUSTOMER (PELANGGAN)",
+      "description": "Seluruh alur aktivitas pelanggan mulai dari autentikasi, eksplorasi katalog produk & kategori, kalender papan sewa, keranjang, estimasi ongkir, checkout DP 50%, hingga upload bukti pembayaran.",
       "item": [
         {
-          "name": "Register Customer",
+          "name": "1.1 Registrasi Customer Baru",
           "request": {
             "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json",
-                "type": "text"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/auth/register",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "auth",
-                "register"
+            "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
+            "url": { "raw": "{{baseUrl}}/auth/register", "host": ["{{baseUrl}}"], "path": ["auth", "register"] },
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "fullName", "value": "Budi Santoso", "description": "Nama lengkap customer" },
+                { "key": "email", "value": "{{customerEmail}}", "description": "Email aktif customer" },
+                { "key": "phoneNumber", "value": "081234567890", "description": "Nomor WhatsApp aktif" },
+                { "key": "password", "value": "{{customerPassword}}", "description": "Password minimal 6 karakter" }
               ]
             },
-            "description": "Register customer baru dan kirim email verifikasi.",
-            "auth": {
-              "type": "noauth"
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"{{customerEmail}}\",\n  \"password\": \"{{customerPassword}}\",\n  \"fullName\": \"Seli Customer\",\n  \"phoneNumber\": \"081234567890\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
+            "description": "### 1.1 Registrasi Customer Baru\n- **Deskripsi:** Mendaftarkan akun pelanggan baru ke sistem Seli Florist.\n- **Method & URL:** `POST {{baseUrl}}/auth/register`\n- **Authorization:** Tidak Perlu (Publik)\n- **Body (x-www-form-urlencoded):**\n  | Field | Tipe | Wajib/Opsional | Deskripsi | Contoh |\n  |---|---|---|---|---|\n  | `fullName` | String | Wajib | Nama lengkap | Budi Santoso |\n  | `email` | String | Wajib | Email valid | budi.santoso@gmail.com |\n  | `phoneNumber` | String | Wajib | No WA | 081234567890 |\n  | `password` | String | Wajib | Minimal 6 char | PasswordKuat123! |\n- **Status Code:** `201 Created` (Sukses) / `409 Conflict` (Email terdaftar)"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201 Created or 409 Conflict', function () {",
+                  "    pm.expect([201, 409]).to.include(pm.response.code);",
+                  "});"
+                ],
+                "type": "text/javascript"
               }
             }
-          },
-          "response": []
+          ],
+          "response": [
+            {
+              "name": "1.1.A Respon Sukses (201 Created)",
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"message\": \"Pendaftaran berhasil. Silakan cek email Anda untuk memverifikasi akun.\",\n  \"data\": {\n    \"id\": \"budi-uuid-123\",\n    \"email\": \"budi.santoso@gmail.com\",\n    \"fullName\": \"Budi Santoso\"\n  }\n}"
+            },
+            {
+              "name": "1.1.B Respon Error (409 Conflict - Email Duplikat)",
+              "status": "Conflict",
+              "code": 409,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"statusCode\": 409,\n  \"message\": \"Email ini sudah terdaftar\"\n}"
+            }
+          ]
         },
         {
-          "name": "Verify Customer Email",
+          "name": "1.2 Verifikasi Email Akun",
           "request": {
             "method": "GET",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
             "url": {
-              "raw": "{{baseUrl}}/auth/verify?token={{emailVerificationToken}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "auth",
-                "verify"
-              ],
-              "query": [
-                {
-                  "key": "token",
-                  "value": "{{emailVerificationToken}}",
-                  "description": "Token dari tautan verifikasi email."
-                }
-              ]
+              "raw": "{{baseUrl}}/auth/verify?token={{verificationToken}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "verify"],
+              "query": [{ "key": "token", "value": "{{verificationToken}}", "description": "Token verifikasi dari email" }]
             },
-            "description": "Aktifkan akun customer menggunakan token verifikasi.",
-            "auth": {
-              "type": "noauth"
-            }
+            "description": "### 1.2 Verifikasi Email Akun\n- **Deskripsi:** Memverifikasi alamat email akun customer menggunakan token unik dari inbox email.\n- **Method & URL:** `GET {{baseUrl}}/auth/verify?token={{verificationToken}}`\n- **Authorization:** Tidak Perlu (Publik)\n- **Status Code:** `200 OK` (Kartu HTML Seli Florist) / `400 Bad Request` (Token kadaluwarsa)"
           },
-          "response": []
-        },
-        {
-          "name": "Resend Verification Email",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json",
-                "type": "text"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/auth/resend-verification",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "auth",
-                "resend-verification"
-              ]
-            },
-            "description": "Kirim ulang email verifikasi. Endpoint direncanakan memiliki rate limit.",
-            "auth": {
-              "type": "noauth"
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"{{customerEmail}}\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Customer Login - Auto Save JWT",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json",
-                "type": "text"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/auth/login",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "auth",
-                "login"
-              ]
-            },
-            "description": "Login customer. Script test menyimpan JWT ke accessToken; cookie refresh httpOnly masuk ke Postman Cookie Jar.",
-            "auth": {
-              "type": "noauth"
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"{{customerEmail}}\",\n  \"password\": \"{{customerPassword}}\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "response": [],
-          "event": [
+          "response": [
             {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "packages": {},
-                "exec": [
-                  "pm.test('Customer login returned a success status', function () {",
-                  "  pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
-                  "});",
-                  "let jsonData = {};",
-                  "try { jsonData = pm.response.json(); } catch (e) {}",
-                  "const payload = jsonData.data || jsonData;",
-                  "const accessToken = payload.accessToken || payload.access_token || payload.token || payload.jwt;",
-                  "pm.test('Customer access token is present', function () {",
-                  "  pm.expect(accessToken, 'No JWT access token found in response').to.be.a('string').and.not.empty;",
-                  "});",
-                  "if (accessToken) pm.collectionVariables.set('accessToken', accessToken);",
-                  "const refreshToken = payload.refreshToken || payload.refresh_token;",
-                  "if (refreshToken) pm.collectionVariables.set('refreshToken', refreshToken);",
-                  "const user = payload.user || payload.customer || payload.profile;",
-                  "if (user && user.id) pm.collectionVariables.set('userId', String(user.id));"
-                ]
-              }
+              "name": "1.2.A Respon Sukses (200 OK - Kartu HTML)",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "html",
+              "header": [{ "key": "Content-Type", "value": "text/html" }],
+              "body": "<!DOCTYPE html><html><body><h1>Akun Seli Florist Berhasil Diverifikasi!</h1></body></html>"
+            },
+            {
+              "name": "1.2.B Respon Error (400 Bad Request - Token Kadaluwarsa)",
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"statusCode\": 400,\n  \"message\": \"Token verifikasi tidak valid atau telah kedaluwarsa\"\n}"
             }
           ]
         },
         {
-          "name": "Refresh Customer Access Token",
+          "name": "1.3 Login Customer",
           "request": {
             "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/auth/refresh-token",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "auth",
-                "refresh-token"
+            "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
+            "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth", "login"] },
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "email", "value": "{{customerEmail}}", "description": "Email terdaftar" },
+                { "key": "password", "value": "{{customerPassword}}", "description": "Password akun" }
               ]
             },
-            "description": "Tukar refresh-token cookie menjadi access token baru.",
-            "auth": {
-              "type": "noauth"
-            }
+            "description": "### 1.3 Login Customer\n- **Deskripsi:** Autentikasi pelanggan untuk mendapatkan Bearer Access Token.\n- **Method & URL:** `POST {{baseUrl}}/auth/login`\n- **Authorization:** Tidak Perlu (Publik)\n- **Body (x-www-form-urlencoded):**\n  | Field | Tipe | Wajib/Opsional | Deskripsi | Contoh |\n  |---|---|---|---|---|\n  | `email` | String | Wajib | Email | budi.santoso@gmail.com |\n  | `password` | String | Wajib | Password | PasswordKuat123! |\n- **Status Code:** `200 OK` (Sukses) / `401 Unauthorized` (Password/Email Salah)"
           },
-          "response": [],
           "event": [
             {
               "listen": "test",
               "script": {
-                "type": "text/javascript",
-                "packages": {},
                 "exec": [
-                  "pm.test('Refresh returned a success status', function () {",
-                  "  pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
-                  "});",
-                  "let jsonData = {};",
-                  "try { jsonData = pm.response.json(); } catch (e) {}",
-                  "const payload = jsonData.data || jsonData;",
-                  "const accessToken = payload.accessToken || payload.access_token || payload.token || payload.jwt;",
-                  "if (accessToken) pm.collectionVariables.set('accessToken', accessToken);",
-                  "const refreshToken = payload.refreshToken || payload.refresh_token;",
-                  "if (refreshToken) pm.collectionVariables.set('refreshToken', refreshToken);"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Customer Logout",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/auth/logout",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "auth",
-                "logout"
-              ]
-            },
-            "description": "Revoke refresh session dan hapus cookie autentikasi.",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{accessToken}}",
-                  "type": "string"
-                }
-              ]
-            }
-          },
-          "response": [],
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "packages": {},
-                "exec": [
-                  "if (pm.response.code >= 200 && pm.response.code < 300) {",
-                  "  pm.collectionVariables.unset('accessToken');",
-                  "  pm.collectionVariables.unset('refreshToken');",
+                  "const res = pm.response.json();",
+                  "if (res.success && res.data && res.data.accessToken) {",
+                  "    pm.collectionVariables.set('accessToken', res.data.accessToken);",
+                  "    pm.test('Access token automatically saved to collection variable', function() {",
+                  "        pm.expect(res.data.accessToken).to.be.a('string');",
+                  "    });",
                   "}"
-                ]
+                ],
+                "type": "text/javascript"
               }
             }
-          ]
-        },
-        {
-          "name": "Get My Customer Profile",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/auth/me",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "auth",
-                "me"
-              ]
-            },
-            "description": "Ambil profil customer yang sedang login.",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{accessToken}}",
-                  "type": "string"
-                }
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Update My Customer Profile",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json",
-                "type": "text"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/auth/me",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "auth",
-                "me"
-              ]
-            },
-            "description": "Perbarui nama, nomor telepon, dan/atau password. Hapus field password jika tidak ingin menggantinya.",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{accessToken}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"full_name\": \"Seli Customer Updated\",\n  \"phone_number\": \"6281234567891\",\n  \"current_password\": \"{{customerPassword}}\",\n  \"new_password\": \"SeliFlorist!456\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Admin Login - Auto Save JWT",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json",
-                "type": "text"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/admin/auth/login",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "admin",
-                "auth",
-                "login"
-              ]
-            },
-            "description": "Login owner/finance/staff verifikasi. Script test menyimpan JWT ke adminAccessToken.",
-            "auth": {
-              "type": "noauth"
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "response": [],
-          "event": [
+          ],
+          "response": [
             {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "packages": {},
-                "exec": [
-                  "pm.test('Admin login returned a success status', function () {",
-                  "  pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
-                  "});",
-                  "let jsonData = {};",
-                  "try { jsonData = pm.response.json(); } catch (e) {}",
-                  "const payload = jsonData.data || jsonData;",
-                  "const accessToken = payload.accessToken || payload.access_token || payload.token || payload.jwt;",
-                  "pm.test('Admin access token is present', function () {",
-                  "  pm.expect(accessToken, 'No admin JWT access token found in response').to.be.a('string').and.not.empty;",
-                  "});",
-                  "if (accessToken) pm.collectionVariables.set('adminAccessToken', accessToken);",
-                  "const refreshToken = payload.refreshToken || payload.refresh_token;",
-                  "if (refreshToken) pm.collectionVariables.set('adminRefreshToken', refreshToken);",
-                  "const admin = payload.admin || payload.user || payload.profile;",
-                  "if (admin && admin.id) pm.collectionVariables.set('adminId', String(admin.id));"
-                ]
-              }
+              "name": "1.3.A Respon Sukses (200 OK)",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"message\": \"Login berhasil\",\n  \"data\": {\n    \"accessToken\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n    \"user\": {\n      \"id\": \"budi-uuid-123\",\n      \"email\": \"budi.santoso@gmail.com\",\n      \"fullName\": \"Budi Santoso\",\n      \"role\": \"customer\"\n    }\n  }\n}"
+            },
+            {
+              "name": "1.3.B Respon Error (401 Unauthorized - Password Salah)",
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"statusCode\": 401,\n  \"message\": \"Email atau password yang Anda masukkan salah\"\n}"
             }
           ]
         },
         {
-          "name": "Get Admin Profile",
+          "name": "1.4 Lihat Daftar Kategori Produk",
           "request": {
             "method": "GET",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/admin/profile",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "admin",
-                "profile"
-              ]
-            },
-            "description": "Ambil profil admin aktif.",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{adminAccessToken}}",
-                  "type": "string"
-                }
-              ]
-            }
+            "url": { "raw": "{{baseUrl}}/categories", "host": ["{{baseUrl}}"], "path": ["categories"] },
+            "description": "### 1.4 Lihat Kategori Produk\n- **Deskripsi:** Mendapatkan daftar kategori produk (Bunga Segar, Hampers & Kado, Sewa Papan Ucapan).\n- **Method & URL:** `GET {{baseUrl}}/categories`\n- **Authorization:** Tidak Perlu (Publik)\n- **Status Code:** `200 OK` (Sukses)"
           },
-          "response": []
+          "response": [
+            {
+              "name": "1.4.A Respon Sukses (200 OK)",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"id\": \"cat-uuid-1\",\n      \"name\": \"Bunga Segar\",\n      \"slug\": \"bunga\",\n      \"description\": \"Bouquet mawar, tulip, lily\"\n    },\n    {\n      \"id\": \"cat-uuid-2\",\n      \"name\": \"Hampers & Kado\",\n      \"slug\": \"kado\",\n      \"description\": \"Hampers & gift box\"\n    },\n    {\n      \"id\": \"cat-uuid-3\",\n      \"name\": \"Sewa Papan Ucapan\",\n      \"slug\": \"papan_ucapan\",\n      \"description\": \"Papan sewa pernikahan & duka cita\"\n    }\n  ]\n}"
+            }
+          ]
         },
         {
-          "name": "Update Admin Profile",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json",
-                "type": "text"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/admin/profile",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "admin",
-                "profile"
-              ]
-            },
-            "description": "Perbarui profil dan/atau password admin.",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{adminAccessToken}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"full_name\": \"Seli Florist Owner\",\n  \"current_password\": \"{{adminPassword}}\",\n  \"new_password\": \"AdminSeli!456\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "List Staff",
+          "name": "1.5 Lihat Katalog Produk (Filter & Search)",
           "request": {
             "method": "GET",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
             "url": {
-              "raw": "{{baseUrl}}/admin/staff?page=1&limit=20",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "admin",
-                "staff"
-              ],
+              "raw": "{{baseUrl}}/products?category=bunga&search=mawar&page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["products"],
               "query": [
-                {
-                  "key": "page",
-                  "value": "1"
-                },
-                {
-                  "key": "limit",
-                  "value": "20"
-                },
-                {
-                  "key": "role",
-                  "value": "staff_verifikasi",
-                  "disabled": true,
-                  "description": "Optional role filter."
-                }
+                { "key": "category", "value": "bunga", "description": "Filter slug kategori" },
+                { "key": "search", "value": "mawar", "description": "Kata kunci pencarian nama produk" },
+                { "key": "page", "value": "1", "description": "Halaman pagination" },
+                { "key": "limit", "value": "10", "description": "Jumlah item per halaman" }
               ]
             },
-            "description": "Owner-only: daftar akun staff.",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{adminAccessToken}}",
-                  "type": "string"
-                }
-              ]
-            }
+            "description": "### 1.5 Lihat Katalog Produk\n- **Deskripsi:** Menampilkan daftar katalog produk publik dengan fitur pencarian dan filter kategori.\n- **Method & URL:** `GET {{baseUrl}}/products?category=bunga&search=mawar`\n- **Authorization:** Tidak Perlu (Publik)\n- **Query Params:**\n  | Field | Tipe | Wajib/Opsional | Deskripsi | Contoh |\n  |---|---|---|---|---|\n  | `category` | String | Opsional | Slug kategori | bunga |\n  | `search` | String | Opsional | Kata kunci | mawar |\n  | `page` | Number | Opsional | Halaman | 1 |\n  | `limit` | Number | Opsional | Item per page | 10 |\n- **Status Code:** `200 OK` (Sukses)"
           },
-          "response": []
-        },
-        {
-          "name": "Get Staff Detail",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/admin/staff/{{staffId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "admin",
-                "staff",
-                "{{staffId}}"
-              ]
-            },
-            "description": "Owner-only: detail satu staff.",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{adminAccessToken}}",
-                  "type": "string"
-                }
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Create Staff",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json",
-                "type": "text"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/admin/staff",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "admin",
-                "staff"
-              ]
-            },
-            "description": "Owner-only: buat akun staff baru.",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{adminAccessToken}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"staff.verifikasi@example.com\",\n  \"password\": \"StaffSeli!123\",\n  \"full_name\": \"Staff Verifikasi\",\n  \"role\": \"staff_verifikasi\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "response": [],
           "event": [
             {
               "listen": "test",
               "script": {
-                "type": "text/javascript",
-                "packages": {},
                 "exec": [
-                  "let jsonData = {};",
-                  "try { jsonData = pm.response.json(); } catch (e) {}",
-                  "const payload = jsonData.data || jsonData;",
-                  "const candidateKeys = [\"staffId\", \"staff_id\"];",
-                  "let value;",
-                  "for (const key of candidateKeys) {",
-                  "  if (payload && payload[key] !== undefined && payload[key] !== null) { value = payload[key]; break; }",
-                  "}",
-                  "if (!value && payload && payload.id) value = payload.id;",
-                  "if (value) pm.collectionVariables.set('staffId', String(value));"
-                ]
+                  "const res = pm.response.json();",
+                  "if (res.success && res.data && res.data.items && res.data.items.length > 0) {",
+                  "    pm.collectionVariables.set('sampleProductId', res.data.items[0].id);",
+                  "}"
+                ],
+                "type": "text/javascript"
               }
+            }
+          ],
+          "response": [
+            {
+              "name": "1.5.A Respon Sukses (200 OK)",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"items\": [\n      {\n        \"id\": \"product-uuid-111\",\n        \"name\": \"Bucket Mawar Merah Passionate\",\n        \"slug\": \"bucket-mawar-merah-passionate\",\n        \"basePrice\": 250000,\n        \"stockQty\": 15,\n        \"imageUrl\": \"https://images.unsplash.com/photo-1561181286-d3fee7d55364\"\n      }\n    ],\n    \"meta\": {\n      \"page\": 1,\n      \"limit\": 10,\n      \"totalItems\": 1,\n      \"totalPages\": 1\n    }\n  }\n}"
             }
           ]
         },
         {
-          "name": "Update Staff",
+          "name": "1.6 Lihat Detail Produk Spesifik",
           "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json",
-                "type": "text"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
+            "method": "GET",
             "url": {
-              "raw": "{{baseUrl}}/admin/staff/{{staffId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "admin",
-                "staff",
-                "{{staffId}}"
-              ]
+              "raw": "{{baseUrl}}/products/{{sampleProductId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["products", "{{sampleProductId}}"]
             },
-            "description": "Owner-only: ubah profil, role, atau status staff.",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{adminAccessToken}}",
-                  "type": "string"
-                }
-              ]
+            "description": "### 1.6 Detail Produk Spesifik\n- **Deskripsi:** Mendapatkan rincian informasi satu produk beserta foto, varian harga, dan status stok.\n- **Method & URL:** `GET {{baseUrl}}/products/:id`\n- **Authorization:** Tidak Perlu (Publik)\n- **Status Code:** `200 OK` (Sukses) / `404 Not Found` (Produk tidak ditemukan)"
+          },
+          "response": [
+            {
+              "name": "1.6.A Respon Sukses (200 OK)",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"product-uuid-111\",\n    \"name\": \"Bucket Mawar Merah Passionate\",\n    \"slug\": \"bucket-mawar-merah-passionate\",\n    \"basePrice\": 250000,\n    \"description\": \"Rangkaian mawar merah segar bernuansa elegan.\",\n    \"variants\": [\n      {\n        \"id\": \"var-1\",\n        \"name\": \"10 tangkai\",\n        \"priceDelta\": 0\n      }\n    ]\n  }\n}"
             },
+            {
+              "name": "1.6.B Respon Error (404 Not Found)",
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"statusCode\": 404,\n  \"message\": \"Produk tidak ditemukan\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "1.7 Cek Kalender Sewa Papan Bunga",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/booking/check-availability?date=2026-07-25",
+              "host": ["{{baseUrl}}"],
+              "path": ["booking", "check-availability"],
+              "query": [{ "key": "date", "value": "2026-07-25", "description": "Format tanggal YYYY-MM-DD" }]
+            },
+            "description": "### 1.7 Cek Ketersediaan Papan Bunga\n- **Deskripsi:** Mengecek jumlah sisa unit papan sewa fisik yang tersedia pada tanggal spesifik.\n- **Method & URL:** `GET {{baseUrl}}/booking/check-availability?date=2026-07-25`\n- **Authorization:** Tidak Perlu (Publik)\n- **Status Code:** `200 OK` (Menampilkan ketersediaan sisa papan)"
+          },
+          "response": [
+            {
+              "name": "1.7.A Respon Sukses (200 OK - Papan Tersedia)",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"date\": \"2026-07-25T00:00:00.000Z\",\n    \"available\": true,\n    \"availableBoards\": 5\n  }\n}"
+            },
+            {
+              "name": "1.7.B Respon Sukses (200 OK - Papan Penuh)",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"date\": \"2026-07-25T00:00:00.000Z\",\n    \"available\": false,\n    \"availableBoards\": 0\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "1.8 Tambah Item ke Keranjang",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
+            "url": { "raw": "{{baseUrl}}/cart/items", "host": ["{{baseUrl}}"], "path": ["cart", "items"] },
             "body": {
-              "mode": "raw",
-              "raw": "{\n  \"full_name\": \"Staff Verifikasi Updated\",\n  \"role\": \"staff_verifikasi\",\n  \"is_active\": true\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Delete/Deactivate Staff",
-          "request": {
-            "method": "DELETE",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/admin/staff/{{staffId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "admin",
-                "staff",
-                "{{staffId}}"
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "productId", "value": "{{sampleProductId}}", "description": "UUID Produk" },
+                { "key": "qty", "value": "1", "description": "Jumlah pesanan" },
+                { "key": "customNote", "value": "Selamat Pernikahan Rian & Sinta. Dari: Budi Santoso.", "description": "Teks tulisan ucapan pada papan/kartu" },
+                { "key": "bookingDate", "value": "2026-07-25", "description": "Wajib diisi jika produk Kategori Papan Bunga" }
               ]
             },
-            "description": "Owner-only: nonaktifkan atau hapus staff sesuai implementasi backend.",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{adminAccessToken}}",
-                  "type": "string"
-                }
-              ]
-            }
+            "description": "### 1.8 Tambah ke Keranjang Belanja\n- **Deskripsi:** Menyimpan produk buket / papan sewa ke keranjang belanja tersimpan di database.\n- **Method & URL:** `POST {{baseUrl}}/cart/items`\n- **Authorization:** `Bearer {{accessToken}}`\n- **Body (x-www-form-urlencoded):**\n  | Field | Tipe | Wajib/Opsional | Deskripsi | Contoh |\n  |---|---|---|---|---|\n  | `productId` | UUID | Wajib | ID Produk | 9c1a2e3b-d4e5... |\n  | `qty` | Number | Wajib | Qty | 1 |\n  | `customNote` | String | Opsional | Tulisan Ucapan | Selamat Pernikahan... |\n  | `bookingDate` | Date | Kondisional | Wajib untuk Papan | 2026-07-25 |\n- **Status Code:** `201 Created` (Sukses) / `400 Bad Request` (Tanggal sewa masa lalu)"
           },
-          "response": []
-        }
-      ]
-    },
-    {
-      "name": "02 - Catalog, Categories & Inventory",
-      "description": "Category CRUD, public product catalogue, and admin product/image/stock management.",
-      "item": [
-        {
-          "name": "List Categories",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/categories?page=1&limit=100",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "categories"
-              ],
-              "query": [
-                {
-                  "key": "page",
-                  "value": "1"
-                },
-                {
-                  "key": "limit",
-                  "value": "100"
-                }
-              ]
+          "response": [
+            {
+              "name": "1.8.A Respon Sukses (201 Created)",
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"message\": \"Produk berhasil ditambahkan ke keranjang belanja\",\n  \"data\": [\n    {\n      \"id\": \"cart-item-uuid-999\",\n      \"productId\": \"product-uuid-111\",\n      \"qty\": 1,\n      \"customNote\": \"Selamat Pernikahan Rian & Sinta.\",\n      \"bookingDate\": \"2026-07-25T00:00:00.000Z\"\n    }\n  ]\n}"
             },
-            "description": "Daftar kategori produk.",
-            "auth": {
-              "type": "noauth"
+            {
+              "name": "1.8.B Respon Error (400 Bad Request - Tanggal Masa Lalu)",
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"statusCode\": 400,\n  \"message\": \"Tanggal sewa tidak boleh di masa lalu\"\n}"
             }
-          },
-          "response": []
+          ]
         },
         {
-          "name": "Get Category Detail",
+          "name": "1.9 Estimasi Ongkir Pengiriman",
           "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/categories/{{categoryId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "categories",
-                "{{categoryId}}"
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
+            "url": { "raw": "{{baseUrl}}/checkout/estimate-ongkir", "host": ["{{baseUrl}}"], "path": ["checkout", "estimate-ongkir"] },
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "deliveryType", "value": "delivery", "description": "delivery atau pickup" },
+                { "key": "address", "value": "Jl. Kertajaya No. 102, Surabaya", "description": "Alamat lengkap tujuan" }
               ]
             },
-            "description": "Detail kategori berdasarkan ID.",
-            "auth": {
-              "type": "noauth"
-            }
+            "description": "### 1.9 Estimasi Ongkir Pengiriman\n- **Deskripsi:** Menghitung jarak rute jalan & tarif ongkir pengiriman kurir toko.\n- **Method & URL:** `POST {{baseUrl}}/checkout/estimate-ongkir`\n- **Authorization:** `Bearer {{accessToken}}`\n- **Body (x-www-form-urlencoded):**\n  | Field | Tipe | Wajib/Opsional | Deskripsi | Contoh |\n  |---|---|---|---|---|\n  | `deliveryType` | Enum | Wajib | delivery / pickup | delivery |\n  | `address` | String | Kondisional | Wajib untuk delivery | Jl. Kertajaya No. 102 |\n- **Status Code:** `200 OK` (Sukses)"
           },
-          "response": []
+          "response": [
+            {
+              "name": "1.9.A Respon Sukses (200 OK)",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"deliveryType\": \"delivery\",\n    \"distanceKm\": 8.5,\n    \"fee\": 25000\n  }\n}"
+            }
+          ]
         },
         {
-          "name": "Create Category",
+          "name": "1.10 Checkout Pesanan (DP 50%)",
           "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }] },
             "method": "POST",
             "header": [
-              {
-                "key": "Accept",
-                "value": "application/json",
-                "type": "text"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json",
-                "type": "text"
-              }
+              { "key": "Content-Type", "value": "application/x-www-form-urlencoded" },
+              { "key": "Idempotency-Key", "value": "checkout-budi-20260725" }
             ],
-            "url": {
-              "raw": "{{baseUrl}}/categories",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "categories"
-              ]
-            },
-            "description": "Admin: buat kategori.",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{adminAccessToken}}",
-                  "type": "string"
-                }
-              ]
-            },
+            "url": { "raw": "{{baseUrl}}/checkout", "host": ["{{baseUrl}}"], "path": ["checkout"] },
             "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"Buket Bunga\",\n  \"slug\": \"buket-bunga\",\n  \"description\": \"Koleksi buket bunga segar dan artificial.\",\n  \"is_active\": true\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "deliveryType", "value": "delivery", "description": "delivery / pickup" },
+                { "key": "customerName", "value": "Budi Santoso", "description": "Nama pemesan" },
+                { "key": "waNumber", "value": "081234567890", "description": "No WA pemesan" },
+                { "key": "recipientName", "value": "Rian (Mempelai)", "description": "Nama penerima lokasi" },
+                { "key": "recipientPhone", "value": "089517880077", "description": "No HP penerima lokasi" },
+                { "key": "deliveryAddress", "value": "Jl. Kertajaya No. 102, Surabaya", "description": "Alamat pengiriman" },
+                { "key": "notes", "value": "Papan ditaruh dekat panggung resepsi", "description": "Catatan khusus kurir" }
+              ]
+            },
+            "description": "### 1.10 Checkout Pesanan (DP 50%)\n- **Deskripsi:** Membuat invoice order baru, menghitung DP 50%, dan mengunci reservasi papan sewa di database.\n- **Method & URL:** `POST {{baseUrl}}/checkout`\n- **Authorization:** `Bearer {{accessToken}}`\n- **Header Wajib:** `Idempotency-Key: checkout-budi-20260725`\n- **Body (x-www-form-urlencoded):**\n  | Field | Tipe | Wajib/Opsional | Deskripsi | Contoh |\n  |---|---|---|---|---|\n  | `deliveryType` | Enum | Wajib | delivery / pickup | delivery |\n  | `customerName` | String | Wajib | Nama pemesan | Budi Santoso |\n  | `waNumber` | String | Wajib | No WA pemesan | 081234567890 |\n  | `recipientName` | String | Wajib | Nama penerima | Rian (Mempelai) |\n  | `recipientPhone` | String | Wajib | No HP penerima | 089517880077 |\n  | `deliveryAddress` | String | Kondisional | Alamat lengkap | Jl. Kertajaya No. 102 |\n  | `notes` | String | Opsional | Catatan kurir | Ditaruh di panggung |\n- **Status Code:** `201 Created` (Sukses) / `409 Conflict` (Stok / Papan habis)"
           },
-          "response": [],
           "event": [
             {
               "listen": "test",
               "script": {
-                "type": "text/javascript",
-                "packages": {},
                 "exec": [
-                  "let jsonData = {};",
-                  "try { jsonData = pm.response.json(); } catch (e) {}",
-                  "const payload = jsonData.data || jsonData;",
-                  "const candidateKeys = [\"categoryId\", \"category_id\"];",
-                  "let value;",
-                  "for (const key of candidateKeys) {",
-                  "  if (payload && payload[key] !== undefined && payload[key] !== null) { value = payload[key]; break; }",
-                  "}",
-                  "if (!value && payload && payload.id) value = payload.id;",
-                  "if (value) pm.collectionVariables.set('categoryId', String(value));"
-                ]
+                  "const res = pm.response.json();",
+                  "if (res.success && res.data && res.data.orderId) {",
+                  "    pm.collectionVariables.set('sampleOrderId', res.data.orderId);",
+                  "    pm.test('Sample Order ID saved to collection variable', function() {",
+                  "        pm.expect(res.data.orderId).to.be.a('string');",
+                  "    });",
+                  "}"
+                ],
+                "type": "text/javascript"
               }
             }
-          ]
-        },
-        {
-          "name": "Update Category",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json",
-                "type": "text"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/categories/{{categoryId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "categories",
-                "{{categoryId}}"
-              ]
-            },
-            "description": "Admin: ubah kategori.",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{adminAccessToken}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"Buket Bunga Premium\",\n  \"description\": \"Koleksi buket bunga premium.\",\n  \"is_active\": true\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Delete Category",
-          "request": {
-            "method": "DELETE",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/categories/{{categoryId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "categories",
-                "{{categoryId}}"
-              ]
-            },
-            "description": "Admin: hapus/nonaktifkan kategori.",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{adminAccessToken}}",
-                  "type": "string"
-                }
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "List Products",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/products?page=1&limit=20",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "products"
-              ],
-              "query": [
-                {
-                  "key": "page",
-                  "value": "1"
-                },
-                {
-                  "key": "limit",
-                  "value": "20"
-                },
-                {
-                  "key": "category",
-                  "value": "bunga",
-                  "disabled": true,
-                  "description": "bunga | kado | papan_ucapan"
-                },
-                {
-                  "key": "search",
-                  "value": "mawar",
-                  "disabled": true,
-                  "description": "Optional full-text search."
-                }
-              ]
-            },
-            "description": "Katalog produk publik dengan pagination dan filter.",
-            "auth": {
-              "type": "noauth"
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Get Product Detail",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/products/{{productId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "products",
-                "{{productId}}"
-              ]
-            },
-            "description": "Detail produk publik beserta foto, varian, dan stok tersedia.",
-            "auth": {
-              "type": "noauth"
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Create Product",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json",
-                "type": "text"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/admin/products",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "admin",
-                "products"
-              ]
-            },
-            "description": "Admin: buat produk. productId otomatis disimpan jika response menyertakannya.",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{adminAccessToken}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"category\": \"bunga\",\n  \"category_id\": \"{{categoryId}}\",\n  \"name\": \"Buket Mawar Pink\",\n  \"description\": \"Buket mawar pink premium dengan kartu ucapan.\",\n  \"base_price\": 250000,\n  \"stock_type\": \"ready_stock\",\n  \"stock_qty\": 10,\n  \"po_days\": null,\n  \"is_active\": true,\n  \"variants\": [\n    {\n      \"variant_name\": \"Large\",\n      \"price_delta\": 75000\n    }\n  ]\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "response": [],
-          "event": [
+          ],
+          "response": [
             {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "packages": {},
-                "exec": [
-                  "let jsonData = {};",
-                  "try { jsonData = pm.response.json(); } catch (e) {}",
-                  "const payload = jsonData.data || jsonData;",
-                  "const candidateKeys = [\"productId\", \"product_id\"];",
-                  "let value;",
-                  "for (const key of candidateKeys) {",
-                  "  if (payload && payload[key] !== undefined && payload[key] !== null) { value = payload[key]; break; }",
-                  "}",
-                  "if (!value && payload && payload.id) value = payload.id;",
-                  "if (value) pm.collectionVariables.set('productId', String(value));"
-                ]
-              }
+              "name": "1.10.A Respon Sukses (201 Created)",
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"message\": \"Pesanan berhasil dibuat. Silakan transfer DP Anda sebelum tenggat waktu.\",\n  \"data\": {\n    \"orderId\": \"order-uuid-999aaabbb\",\n    \"dpAmount\": 150000,\n    \"remainingAmount\": 150000,\n    \"dpDeadline\": \"2026-07-22T00:20:00.000Z\"\n  }\n}"
+            },
+            {
+              "name": "1.10.B Respon Error (409 Conflict - Double Booking Papan)",
+              "status": "Conflict",
+              "code": 409,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"statusCode\": 409,\n  \"message\": \"Ketersediaan stok atau papan ucapan berubah saat proses checkout. Silakan coba beberapa saat lagi.\"\n}"
             }
           ]
         },
         {
-          "name": "Update Product",
+          "name": "1.11 Upload Bukti Transfer DP 50%",
           "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json",
-                "type": "text"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/admin/products/{{productId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "admin",
-                "products",
-                "{{productId}}"
-              ]
-            },
-            "description": "Admin: ubah data produk.",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{adminAccessToken}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"Buket Mawar Pink Premium\",\n  \"description\": \"Buket mawar pink premium versi terbaru.\",\n  \"base_price\": 275000,\n  \"is_active\": true\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Delete Product (Soft Delete)",
-          "request": {
-            "method": "DELETE",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/admin/products/{{productId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "admin",
-                "products",
-                "{{productId}}"
-              ]
-            },
-            "description": "Admin: soft-delete produk.",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{adminAccessToken}}",
-                  "type": "string"
-                }
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Upload Product Image",
-          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }] },
             "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/admin/products/{{productId}}/images",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "admin",
-                "products",
-                "{{productId}}",
-                "images"
-              ]
-            },
-            "description": "Admin: unggah foto produk ke object storage.",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{adminAccessToken}}",
-                  "type": "string"
-                }
-              ]
-            },
+            "url": { "raw": "{{baseUrl}}/orders/{{sampleOrderId}}/payment-proof/dp", "host": ["{{baseUrl}}"], "path": ["orders", "{{sampleOrderId}}", "payment-proof", "dp"] },
             "body": {
               "mode": "formdata",
               "formdata": [
-                {
-                  "key": "file",
-                  "type": "file",
-                  "src": "/path/to/product-image.jpg",
-                  "description": "JPG/PNG; ubah path sebelum mengirim."
-                },
-                {
-                  "key": "is_primary",
-                  "value": "true",
-                  "type": "text"
-                },
-                {
-                  "key": "sort_order",
-                  "value": "1",
-                  "type": "text"
-                }
+                { "key": "file", "type": "file", "description": "Pilih file gambar struk transfer (.jpg, .jpeg, .png, maks 2MB)" }
               ]
-            }
+            },
+            "description": "### 1.11 Upload Bukti DP 50%\n- **Deskripsi:** Mengunggah foto struk bukti transfer pembayaran DP 50%.\n- **Method & URL:** `POST {{baseUrl}}/orders/{{sampleOrderId}}/payment-proof/dp`\n- **Authorization:** `Bearer {{accessToken}}`\n- **Body (form-data):**\n  | Field | Tipe | Wajib/Opsional | Deskripsi | Contoh |\n  |---|---|---|---|---|\n  | `file` | File | Wajib | Foto Struk Transfer | struk_dp_budi.jpg |\n- **Status Code:** `201 Created` (Sukses) / `400 Bad Request` (File bukan gambar / >2MB)"
           },
-          "response": [],
-          "event": [
+          "response": [
             {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "packages": {},
-                "exec": [
-                  "let jsonData = {};",
-                  "try { jsonData = pm.response.json(); } catch (e) {}",
-                  "const payload = jsonData.data || jsonData;",
-                  "const candidateKeys = [\"imageId\", \"image_id\"];",
-                  "let value;",
-                  "for (const key of candidateKeys) {",
-                  "  if (payload && payload[key] !== undefined && payload[key] !== null) { value = payload[key]; break; }",
-                  "}",
-                  "if (!value && payload && payload.id) value = payload.id;",
-                  "if (value) pm.collectionVariables.set('imageId', String(value));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Delete Product Image",
-          "request": {
-            "method": "DELETE",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/admin/products/{{productId}}/images/{{imageId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "admin",
-                "products",
-                "{{productId}}",
-                "images",
-                "{{imageId}}"
-              ]
+              "name": "1.11.A Respon Sukses (201 Created)",
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"message\": \"Bukti pembayaran DP berhasil diunggah dan sedang menunggu verifikasi staff.\",\n  \"data\": {\n    \"id\": \"proof-uuid-111\",\n    \"proofType\": \"dp\",\n    \"uploadedAt\": \"2026-07-21T15:20:00.000Z\",\n    \"verificationStatus\": \"pending\"\n  }\n}"
             },
-            "description": "Admin: hapus foto produk.",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{adminAccessToken}}",
-                  "type": "string"
-                }
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Update Product Stock",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json",
-                "type": "text"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/admin/products/{{productId}}/stock",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "admin",
-                "products",
-                "{{productId}}",
-                "stock"
-              ]
-            },
-            "description": "Admin: set jumlah stok, tipe stok, dan lead time pre-order.",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{adminAccessToken}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"stock_qty\": 25,\n  \"stock_type\": \"ready_stock\",\n  \"po_days\": null\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "response": []
-        }
-      ]
-    },
-    {
-      "name": "03 - Cart",
-      "description": "Persistent customer cart and offline synchronization.",
-      "item": [
-        {
-          "name": "Get Cart",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/cart",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "cart"
-              ]
-            },
-            "description": "Ambil keranjang customer dari server.",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{accessToken}}",
-                  "type": "string"
-                }
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Add Item to Cart",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json",
-                "type": "text"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/cart/items",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "cart",
-                "items"
-              ]
-            },
-            "description": "Tambah item. booking_date wajib untuk kategori papan_ucapan; hapus untuk produk non-rental.",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{accessToken}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"product_id\": \"{{productId}}\",\n  \"variant_id\": \"{{variantId}}\",\n  \"qty\": 1,\n  \"custom_note\": \"Dominan warna pink; kartu ucapan: Selamat!\",\n  \"booking_date\": \"{{bookingDate}}\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "response": [],
-          "event": [
             {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "packages": {},
-                "exec": [
-                  "let jsonData = {};",
-                  "try { jsonData = pm.response.json(); } catch (e) {}",
-                  "const payload = jsonData.data || jsonData;",
-                  "const candidateKeys = [\"cartItemId\", \"cart_item_id\"];",
-                  "let value;",
-                  "for (const key of candidateKeys) {",
-                  "  if (payload && payload[key] !== undefined && payload[key] !== null) { value = payload[key]; break; }",
-                  "}",
-                  "if (!value && payload && payload.id) value = payload.id;",
-                  "if (value) pm.collectionVariables.set('cartItemId', String(value));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Update Cart Item",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json",
-                "type": "text"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/cart/items/{{cartItemId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "cart",
-                "items",
-                "{{cartItemId}}"
-              ]
-            },
-            "description": "Ubah quantity, note, atau tanggal booking.",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{accessToken}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"qty\": 2,\n  \"custom_note\": \"Ubah kartu ucapan menjadi: Happy Birthday!\",\n  \"booking_date\": \"{{bookingDate}}\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Delete Cart Item",
-          "request": {
-            "method": "DELETE",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/cart/items/{{cartItemId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "cart",
-                "items",
-                "{{cartItemId}}"
-              ]
-            },
-            "description": "Hapus satu item dari keranjang.",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{accessToken}}",
-                  "type": "string"
-                }
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Clear Cart",
-          "request": {
-            "method": "DELETE",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/cart",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "cart"
-              ]
-            },
-            "description": "Kosongkan seluruh keranjang customer.",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{accessToken}}",
-                  "type": "string"
-                }
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Sync Offline Cart",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json",
-                "type": "text"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/cart/sync",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "cart",
-                "sync"
-              ]
-            },
-            "description": "Batch sync keranjang lokal ketika client kembali online.",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{accessToken}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"items\": [\n    {\n      \"product_id\": \"{{productId}}\",\n      \"variant_id\": \"{{variantId}}\",\n      \"qty\": 1,\n      \"custom_note\": \"Disinkronkan dari antrean offline.\",\n      \"booking_date\": \"{{bookingDate}}\",\n      \"client_updated_at\": \"{{$isoTimestamp}}\"\n    }\n  ]\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "response": []
-        }
-      ]
-    },
-    {
-      "name": "04 - Rental Availability",
-      "description": "Public booking calendar and authenticated availability check.",
-      "item": [
-        {
-          "name": "Get Rental Calendar",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/booking/calendar?month={{bookingMonth}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "booking",
-                "calendar"
-              ],
-              "query": [
-                {
-                  "key": "month",
-                  "value": "{{bookingMonth}}",
-                  "description": "Format YYYY-MM."
-                }
-              ]
-            },
-            "description": "Kalender publik available/booked per unit papan.",
-            "auth": {
-              "type": "noauth"
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Check Rental Availability",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/booking/check-availability?date={{bookingDate}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "booking",
-                "check-availability"
-              ],
-              "query": [
-                {
-                  "key": "date",
-                  "value": "{{bookingDate}}",
-                  "description": "Format YYYY-MM-DD."
-                }
-              ]
-            },
-            "description": "Cek ketersediaan tanggal sebelum checkout.",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{accessToken}}",
-                  "type": "string"
-                }
-              ]
-            }
-          },
-          "response": []
-        }
-      ]
-    },
-    {
-      "name": "05 - Checkout & DP 50%",
-      "description": "Shipping estimate and transactional checkout that reserves stock/rental unit.",
-      "item": [
-        {
-          "name": "Estimate Delivery Fee",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json",
-                "type": "text"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/checkout/estimate-ongkir",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "checkout",
-                "estimate-ongkir"
-              ]
-            },
-            "description": "Hitung ongkir untuk delivery. Untuk pickup, kirim delivery_type=pickup dan backend harus mengembalikan ongkir 0.",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{accessToken}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"delivery_type\": \"delivery\",\n  \"address\": {\n    \"full_address\": \"Jl. Contoh No. 10, Surabaya, Jawa Timur\",\n    \"lat\": -7.2756,\n    \"lng\": 112.6426\n  }\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Create Checkout - DP 50%",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json",
-                "type": "text"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json",
-                "type": "text"
-              },
-              {
-                "key": "Idempotency-Key",
-                "value": "{{$guid}}",
-                "type": "text",
-                "description": "Client-generated key untuk mencegah duplicate submission jika backend mendukungnya."
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/checkout",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "checkout"
-              ]
-            },
-            "description": "Checkout terverifikasi: validasi blacklist/stok/rental, reserve stok, auto-assign unit, dan buat tagihan DP 50%. orderId disimpan otomatis.",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{accessToken}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"items\": [\n    {\n      \"product_id\": \"{{productId}}\",\n      \"variant_id\": \"{{variantId}}\",\n      \"qty\": 1,\n      \"booking_date\": \"{{bookingDate}}\",\n      \"custom_note\": \"Ucapan: Selamat atas pembukaan usahanya.\"\n    }\n  ],\n  \"delivery_type\": \"delivery\",\n  \"address\": {\n    \"full_address\": \"Jl. Contoh No. 10, Surabaya, Jawa Timur\",\n    \"lat\": -7.2756,\n    \"lng\": 112.6426\n  },\n  \"wa_number\": \"6281234567890\",\n  \"customer_name\": \"Seli Customer\",\n  \"recipient_name\": \"Penerima Bunga\",\n  \"recipient_phone\": \"6281234567892\",\n  \"custom_text\": \"Selamat dan sukses selalu.\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "response": [],
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "packages": {},
-                "exec": [
-                  "pm.test('Checkout returned a success status', function () {",
-                  "  pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
-                  "});",
-                  "let jsonData = {};",
-                  "try { jsonData = pm.response.json(); } catch (e) {}",
-                  "const payload = jsonData.data || jsonData;",
-                  "const orderId = payload.orderId || payload.order_id || payload.id;",
-                  "if (orderId) pm.collectionVariables.set('orderId', String(orderId));",
-                  "if (payload.dpAmount !== undefined) pm.collectionVariables.set('dpAmount', String(payload.dpAmount));",
-                  "if (payload.dp_amount !== undefined) pm.collectionVariables.set('dpAmount', String(payload.dp_amount));",
-                  "if (payload.remainingAmount !== undefined) pm.collectionVariables.set('remainingAmount', String(payload.remainingAmount));",
-                  "if (payload.remaining_amount !== undefined) pm.collectionVariables.set('remainingAmount', String(payload.remaining_amount));"
-                ]
-              }
+              "name": "1.11.B Respon Error (400 Bad Request - File Terlalu Besar)",
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"statusCode\": 400,\n  \"message\": \"Ukuran berkas tidak boleh melebihi 2MB\"\n}"
             }
           ]
         }
       ]
     },
     {
-      "name": "06 - Payment Proofs",
-      "description": "Upload/retract proof for DP and final payment, plus remaining amount.",
+      "name": "2.0 ALUR STAFF VERIFIKASI",
+      "description": "Alur kerja Staff Verifikasi untuk menyetujui DP/pelunasan, menolak bukti bayar palsu, atau menukar unit papan sewa yang rusak.",
       "item": [
         {
-          "name": "Upload DP Payment Proof",
+          "name": "2.1 Login Staff",
           "request": {
             "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/orders/{{orderId}}/payment-proof/dp",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "orders",
-                "{{orderId}}",
-                "payment-proof",
-                "dp"
-              ]
-            },
-            "description": "Upload bukti pembayaran DP. Backend harus memvalidasi MIME type, magic bytes, ukuran, ownership, dan status order.",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{accessToken}}",
-                  "type": "string"
-                }
-              ]
-            },
+            "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
+            "url": { "raw": "{{baseUrl}}/admin/auth/login", "host": ["{{baseUrl}}"], "path": ["admin", "auth", "login"] },
             "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "file",
-                  "type": "file",
-                  "src": "/path/to/dp-payment-proof.jpg",
-                  "description": "JPG/PNG max 2 MB; ubah path sebelum mengirim."
-                }
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "email", "value": "{{staffEmail}}", "description": "Email akun staff" },
+                { "key": "password", "value": "{{staffPassword}}", "description": "Password akun staff" }
               ]
-            }
+            },
+            "description": "### 2.1 Login Staff Verifikasi\n- **Deskripsi:** Login akun staff untuk mengupdate variabel `adminAccessToken`.\n- **Method & URL:** `POST {{baseUrl}}/admin/auth/login`\n- **Status Code:** `200 OK` (Sukses)"
           },
-          "response": []
-        },
-        {
-          "name": "Retract DP Payment Proof",
-          "request": {
-            "method": "DELETE",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/orders/{{orderId}}/payment-proof/dp",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "orders",
-                "{{orderId}}",
-                "payment-proof",
-                "dp"
-              ]
-            },
-            "description": "Tarik bukti DP selama verification_status masih pending.",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{accessToken}}",
-                  "type": "string"
-                }
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Get Remaining Amount",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/orders/{{orderId}}/remaining-amount",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "orders",
-                "{{orderId}}",
-                "remaining-amount"
-              ]
-            },
-            "description": "Ambil sisa tagihan setelah DP.",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{accessToken}}",
-                  "type": "string"
-                }
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Upload Final Payment Proof",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/orders/{{orderId}}/payment-proof/final",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "orders",
-                "{{orderId}}",
-                "payment-proof",
-                "final"
-              ]
-            },
-            "description": "Upload bukti pelunasan sisa 50%.",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{accessToken}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "file",
-                  "type": "file",
-                  "src": "/path/to/final-payment-proof.jpg",
-                  "description": "JPG/PNG max 2 MB; ubah path sebelum mengirim."
-                }
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Retract Final Payment Proof",
-          "request": {
-            "method": "DELETE",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/orders/{{orderId}}/payment-proof/final",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "orders",
-                "{{orderId}}",
-                "payment-proof",
-                "final"
-              ]
-            },
-            "description": "Tarik bukti pelunasan selama verification_status masih pending.",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{accessToken}}",
-                  "type": "string"
-                }
-              ]
-            }
-          },
-          "response": []
-        }
-      ]
-    },
-    {
-      "name": "07 - Customer Orders",
-      "description": "Customer order history, detail, timeline, and cancellation/refund request.",
-      "item": [
-        {
-          "name": "List My Orders",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/orders/my?page=1&limit=20",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "orders",
-                "my"
-              ],
-              "query": [
-                {
-                  "key": "page",
-                  "value": "1"
-                },
-                {
-                  "key": "limit",
-                  "value": "20"
-                },
-                {
-                  "key": "status",
-                  "value": "pending_payment",
-                  "disabled": true,
-                  "description": "Optional order status filter."
-                }
-              ]
-            },
-            "description": "Riwayat order customer dengan pagination.",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{accessToken}}",
-                  "type": "string"
-                }
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Get My Order Detail",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/orders/my/{{orderId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "orders",
-                "my",
-                "{{orderId}}"
-              ]
-            },
-            "description": "Detail order milik customer: item, pembayaran, status, dan timeline.",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{accessToken}}",
-                  "type": "string"
-                }
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Cancel My Order",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json",
-                "type": "text"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/orders/my/{{orderId}}/cancel",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "orders",
-                "my",
-                "{{orderId}}",
-                "cancel"
-              ]
-            },
-            "description": "Batalkan order. Refund DP dihitung backend berdasarkan usia order dan status pembayaran.",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{accessToken}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"reason\": \"Jadwal acara berubah.\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "response": []
-        }
-      ]
-    },
-    {
-      "name": "08 - Admin Verification & Operations",
-      "description": "Admin order queues, payment verification, cancellation/refund operations, board assignment, and blacklist CRUD.",
-      "item": [
-        {
-          "name": "List Admin Orders",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/admin/orders?page=1&limit=20",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "admin",
-                "orders"
-              ],
-              "query": [
-                {
-                  "key": "status",
-                  "value": "pending_payment",
-                  "disabled": true,
-                  "description": "Optional order status filter."
-                },
-                {
-                  "key": "page",
-                  "value": "1"
-                },
-                {
-                  "key": "limit",
-                  "value": "20"
-                }
-              ]
-            },
-            "description": "Antrian order untuk admin dengan filter dan pagination.",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{adminAccessToken}}",
-                  "type": "string"
-                }
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "List Pending Refunds",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/admin/orders?refund_status=pending_refund&page=1&limit=20",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "admin",
-                "orders"
-              ],
-              "query": [
-                {
-                  "key": "refund_status",
-                  "value": "pending_refund"
-                },
-                {
-                  "key": "page",
-                  "value": "1"
-                },
-                {
-                  "key": "limit",
-                  "value": "20"
-                }
-              ]
-            },
-            "description": "Filter order yang memerlukan proses refund manual.",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{adminAccessToken}}",
-                  "type": "string"
-                }
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Get Admin Order Detail",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/admin/orders/{{orderId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "admin",
-                "orders",
-                "{{orderId}}"
-              ]
-            },
-            "description": "Detail lengkap order untuk admin.",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{adminAccessToken}}",
-                  "type": "string"
-                }
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Verify DP Payment",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json",
-                "type": "text"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/admin/orders/{{orderId}}/verify-dp",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "admin",
-                "orders",
-                "{{orderId}}",
-                "verify-dp"
-              ]
-            },
-            "description": "Setujui DP; ubah status, tetapkan deadline pelunasan, dan antrekan notifikasi.",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{adminAccessToken}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"verification_note\": \"Nominal dan rekening pengirim sesuai.\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Verify Final Payment",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json",
-                "type": "text"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/admin/orders/{{orderId}}/verify-final",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "admin",
-                "orders",
-                "{{orderId}}",
-                "verify-final"
-              ]
-            },
-            "description": "Setujui pelunasan; order menjadi fully_paid dan booking rental dikonfirmasi.",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{adminAccessToken}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"verification_note\": \"Pelunasan sesuai.\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Reject Order",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json",
-                "type": "text"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/admin/orders/{{orderId}}/reject",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "admin",
-                "orders",
-                "{{orderId}}",
-                "reject"
-              ]
-            },
-            "description": "Tolak order, release reservation, dan blacklist identitas sesuai kebijakan.",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{adminAccessToken}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"reason\": \"Bukti pembayaran tidak valid.\",\n  \"blacklist_email\": true,\n  \"blacklist_wa_number\": true\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Complete Order",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json",
-                "type": "text"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/admin/orders/{{orderId}}/complete",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "admin",
-                "orders",
-                "{{orderId}}",
-                "complete"
-              ]
-            },
-            "description": "Tandai order selesai dan finalisasi perubahan stok.",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{adminAccessToken}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"completion_note\": \"Order telah diterima customer dalam kondisi baik.\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Force Cancel Order",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json",
-                "type": "text"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/admin/orders/{{orderId}}/force-cancel",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "admin",
-                "orders",
-                "{{orderId}}",
-                "force-cancel"
-              ]
-            },
-            "description": "Admin membatalkan order dengan full refund bila DP telah dibayar.",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{adminAccessToken}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"admin_cancel_note\": \"Force majeure: unit papan mengalami kerusakan mendadak.\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Mark Refund Done",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json",
-                "type": "text"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/admin/orders/{{orderId}}/refund-done",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "admin",
-                "orders",
-                "{{orderId}}",
-                "refund-done"
-              ]
-            },
-            "description": "Tandai refund manual selesai dan kirim notifikasi customer.",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{adminAccessToken}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"refund_note\": \"Refund ditransfer ke rekening customer pada {{$isoTimestamp}}. Referensi: RF-001.\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "List Rental Boards",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/admin/boards?page=1&limit=100",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "admin",
-                "boards"
-              ],
-              "query": [
-                {
-                  "key": "page",
-                  "value": "1"
-                },
-                {
-                  "key": "limit",
-                  "value": "100"
-                },
-                {
-                  "key": "is_active",
-                  "value": "true",
-                  "disabled": true
-                }
-              ]
-            },
-            "description": "Lihat seluruh unit papan ucapan.",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{adminAccessToken}}",
-                  "type": "string"
-                }
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Reassign Rental Board",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json",
-                "type": "text"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/admin/orders/{{orderId}}/reassign-board",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "admin",
-                "orders",
-                "{{orderId}}",
-                "reassign-board"
-              ]
-            },
-            "description": "Pindahkan booking order ke unit papan lain setelah validasi availability.",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{adminAccessToken}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"board_id\": \"{{boardId}}\",\n  \"reason\": \"Unit awal masuk maintenance.\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "List Blacklist Entries",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/admin/blacklist?page=1&limit=20",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "admin",
-                "blacklist"
-              ],
-              "query": [
-                {
-                  "key": "page",
-                  "value": "1"
-                },
-                {
-                  "key": "limit",
-                  "value": "20"
-                },
-                {
-                  "key": "type",
-                  "value": "email",
-                  "disabled": true,
-                  "description": "email | wa_number"
-                },
-                {
-                  "key": "search",
-                  "value": "",
-                  "disabled": true
-                }
-              ]
-            },
-            "description": "Daftar email/nomor WA yang diblokir.",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{adminAccessToken}}",
-                  "type": "string"
-                }
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Get Blacklist Entry",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/admin/blacklist/{{blacklistId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "admin",
-                "blacklist",
-                "{{blacklistId}}"
-              ]
-            },
-            "description": "Detail satu entri blacklist.",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{adminAccessToken}}",
-                  "type": "string"
-                }
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Create Blacklist Entry",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json",
-                "type": "text"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/admin/blacklist",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "admin",
-                "blacklist"
-              ]
-            },
-            "description": "Tambahkan email atau nomor WhatsApp ke blacklist.",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{adminAccessToken}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"type\": \"email\",\n  \"value\": \"fraudulent@example.com\",\n  \"reason\": \"Bukti pembayaran palsu berulang.\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "response": [],
           "event": [
             {
               "listen": "test",
               "script": {
-                "type": "text/javascript",
-                "packages": {},
                 "exec": [
-                  "let jsonData = {};",
-                  "try { jsonData = pm.response.json(); } catch (e) {}",
-                  "const payload = jsonData.data || jsonData;",
-                  "const candidateKeys = [\"blacklistId\", \"blacklist_id\"];",
-                  "let value;",
-                  "for (const key of candidateKeys) {",
-                  "  if (payload && payload[key] !== undefined && payload[key] !== null) { value = payload[key]; break; }",
-                  "}",
-                  "if (!value && payload && payload.id) value = payload.id;",
-                  "if (value) pm.collectionVariables.set('blacklistId', String(value));"
-                ]
+                  "const res = pm.response.json();",
+                  "if (res.success && res.data && res.data.accessToken) {",
+                  "    pm.collectionVariables.set('adminAccessToken', res.data.accessToken);",
+                  "}"
+                ],
+                "type": "text/javascript"
               }
+            }
+          ],
+          "response": [
+            {
+              "name": "2.1.A Respon Sukses (200 OK)",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"accessToken\": \"staff-token-123\",\n    \"user\": { \"role\": \"staff_verifikasi\", \"fullName\": \"Ahmad Staff\" }\n  }\n}"
             }
           ]
         },
         {
-          "name": "Update Blacklist Entry",
+          "name": "2.2 Lihat Antrean Verifikasi Admin",
           "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json",
-                "type": "text"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/admin/blacklist/{{blacklistId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "admin",
-                "blacklist",
-                "{{blacklistId}}"
-              ]
-            },
-            "description": "Perbarui alasan atau nilai blacklist sesuai implementasi.",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{adminAccessToken}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"reason\": \"Bukti pembayaran palsu; review owner selesai.\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminAccessToken}}", "type": "string" }] },
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/admin/orders?status=PENDING_PAYMENT", "host": ["{{baseUrl}}"], "path": ["admin", "orders"], "query": [{ "key": "status", "value": "PENDING_PAYMENT" }] },
+            "description": "### 2.2 Lihat Antrean Verifikasi\n- **Deskripsi:** Staff melihat daftar seluruh order yang membutuhkan pengecekan bukti transfer DP.\n- **Authorization:** `Bearer {{adminAccessToken}}` (Role: Staff / Owner)\n- **Status Code:** `200 OK` (Sukses)"
           },
-          "response": []
+          "response": [
+            {
+              "name": "2.2.A Respon Sukses (200 OK)",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"id\": \"order-uuid-999aaabbb\",\n      \"customerName\": \"Budi Santoso\",\n      \"total\": 300000,\n      \"status\": \"pending_payment\"\n    }\n  ]\n}"
+            }
+          ]
         },
         {
-          "name": "Delete Blacklist Entry",
+          "name": "2.3 Setujui Bukti DP 50%",
           "request": {
-            "method": "DELETE",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/admin/blacklist/{{blacklistId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "admin",
-                "blacklist",
-                "{{blacklistId}}"
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminAccessToken}}", "type": "string" }] },
+            "method": "POST",
+            "url": { "raw": "{{baseUrl}}/admin/orders/{{sampleOrderId}}/verify-dp", "host": ["{{baseUrl}}"], "path": ["admin", "orders", "{{sampleOrderId}}", "verify-dp"] },
+            "description": "### 2.3 Setujui Bukti DP 50%\n- **Deskripsi:** Staff menyetujui pembayaran DP 50% dan merubah status ke `pending_final_payment`.\n- **Authorization:** `Bearer {{adminAccessToken}}` (Role: Staff / Owner)\n- **Status Code:** `200 OK` (Sukses)"
+          },
+          "response": [
+            {
+              "name": "2.3.A Respon Sukses (200 OK)",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"Pembayaran DP berhasil diverifikasi. Pesanan sekarang menunggu pelunasan.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "2.4 Tolak Bukti Bayar & Blacklist Pelaku",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminAccessToken}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
+            "url": { "raw": "{{baseUrl}}/admin/orders/{{sampleOrderId}}/reject", "host": ["{{baseUrl}}"], "path": ["admin", "orders", "{{sampleOrderId}}", "reject"] },
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "reason", "value": "Struk transfer palsu / foto kosong", "description": "Alasan penolakan" }
               ]
             },
-            "description": "Hapus entri blacklist.",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{adminAccessToken}}",
-                  "type": "string"
-                }
-              ]
-            }
+            "description": "### 2.4 Tolak Bukti Bayar & Blacklist\n- **Deskripsi:** Staff menolak bukti pembayaran palsu dan otomatis mem-blacklist email & No WA pelaku.\n- **Authorization:** `Bearer {{adminAccessToken}}` (Role: Staff / Owner)\n- **Body (x-www-form-urlencoded):** `reason=Struk transfer palsu`\n- **Status Code:** `200 OK` (Sukses)"
           },
-          "response": []
+          "response": [
+            {
+              "name": "2.4.A Respon Sukses (200 OK - Order Rejected & Blacklisted)",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"Bukti pembayaran ditolak dan akun pelaku berhasil dimasukkan ke daftar blacklist.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "2.5 Tukar Unit Papan Sewa (Reassign)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminAccessToken}}", "type": "string" }] },
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
+            "url": { "raw": "{{baseUrl}}/admin/orders/{{sampleOrderId}}/reassign-board", "host": ["{{baseUrl}}"], "path": ["admin", "orders", "{{sampleOrderId}}", "reassign-board"] },
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "boardId", "value": "board-uuid-baru-002", "description": "ID Papan Fisik Pengganti" }
+              ]
+            },
+            "description": "### 2.5 Tukar Unit Papan Sewa\n- **Deskripsi:** Staff mengganti/menukar unit fisik papan sewa secara manual jika unit lama rusak.\n- **Authorization:** `Bearer {{adminAccessToken}}` (Role: Staff / Owner)\n- **Body (x-www-form-urlencoded):** `boardId=board-uuid-baru-002`\n- **Status Code:** `200 OK` (Sukses)"
+          },
+          "response": [
+            {
+              "name": "2.5.A Respon Sukses (200 OK)",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"Unit papan berhasil ditukar ke papan ID baru.\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3.0 ALUR FINANCE (KEUANGAN)",
+      "description": "Alur kerja Finance untuk melihat laporan laba/rugi, mencatat biaya pengeluaran toko, menyuntik modal, dan mengonfirmasi manual transfer refund.",
+      "item": [
+        {
+          "name": "3.1 Login Finance",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
+            "url": { "raw": "{{baseUrl}}/admin/auth/login", "host": ["{{baseUrl}}"], "path": ["admin", "auth", "login"] },
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "email", "value": "{{financeEmail}}", "description": "Email akun finance" },
+                { "key": "password", "value": "{{financePassword}}", "description": "Password akun finance" }
+              ]
+            },
+            "description": "### 3.1 Login Finance\n- **Deskripsi:** Login akun keuangan untuk mengupdate `adminAccessToken`.\n- **Status Code:** `200 OK` (Sukses)"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.success && res.data && res.data.accessToken) {",
+                  "    pm.collectionVariables.set('adminAccessToken', res.data.accessToken);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "3.1.A Respon Sukses (200 OK)",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"data\": { \"accessToken\": \"finance-token-123\", \"user\": { \"role\": \"finance\", \"fullName\": \"Dewi Finance\" } }\n}"
+            }
+          ]
+        },
+        {
+          "name": "3.2 Ringkasan Laba Bersih & HPP",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminAccessToken}}", "type": "string" }] },
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/admin/reports/summary?from=2026-07-01&to=2026-07-31", "host": ["{{baseUrl}}"], "path": ["admin", "reports", "summary"], "query": [{ "key": "from", "value": "2026-07-01" }, { "key": "to", "value": "2026-07-31" }] },
+            "description": "### 3.2 Laporan Summary Laba/Rugi\n- **Deskripsi:** Menampilkan agregasi finansial toko: Total Omzet, HPP, Biaya Operasional, dan Laba Bersih.\n- **Authorization:** `Bearer {{adminAccessToken}}` (Role: Finance / Owner)\n- **Status Code:** `200 OK` (Sukses)"
+          },
+          "response": [
+            {
+              "name": "3.2.A Respon Sukses (200 OK)",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"data\": { \"totalRevenue\": 5000000, \"totalCostOfGoodsSold\": 2000000, \"totalExpenses\": 500000, \"netProfit\": 2500000 }\n}"
+            }
+          ]
+        },
+        {
+          "name": "3.3 Catat Pengeluaran Operasional Toko",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminAccessToken}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
+            "url": { "raw": "{{baseUrl}}/admin/finance/expenses", "host": ["{{baseUrl}}"], "path": ["admin", "finance", "expenses"] },
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "category", "value": "operasional", "description": "operasional / bahan_baku / gaji / transport / marketing / lainnya" },
+                { "key": "amount", "value": "150000", "description": "Jumlah pengeluaran (Rp)" },
+                { "key": "description", "value": "Pembelian pita hiasan & jarum pentul papan ucapan", "description": "Rincian catatan biaya" }
+              ]
+            },
+            "description": "### 3.3 Catat Biaya Pengeluaran Toko\n- **Deskripsi:** Mencatat pengeluaran harian/bulanan toko florist.\n- **Authorization:** `Bearer {{adminAccessToken}}` (Role: Finance / Owner)\n- **Body (x-www-form-urlencoded):**\n  | Field | Tipe | Wajib/Opsional | Deskripsi | Contoh |\n  |---|---|---|---|---|\n  | `category` | Enum | Wajib | Kategori Biaya | operasional |\n  | `amount` | Number | Wajib | Nilai Rupiah | 150000 |\n  | `description` | String | Wajib | Rincian | Beli pita hias |\n- **Status Code:** `201 Created` (Sukses)"
+          },
+          "response": [
+            {
+              "name": "3.3.A Respon Sukses (201 Created)",
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"Biaya pengeluaran berhasil disimpan\",\n  \"data\": { \"id\": \"expense-uuid-333\", \"amount\": 150000 }\n}"
+            }
+          ]
+        },
+        {
+          "name": "3.4 Konfirmasi Transfer Refund Pembatalan",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminAccessToken}}", "type": "string" }] },
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
+            "url": { "raw": "{{baseUrl}}/admin/orders/{{sampleOrderId}}/refund-done", "host": ["{{baseUrl}}"], "path": ["admin", "orders", "{{sampleOrderId}}", "refund-done"] },
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "refundNote", "value": "Refund Rp150.000 telah ditransfer ke Bank Mandiri No. Rek 12345 a/n Budi Santoso", "description": "Catatan bukti transfer manual" }
+              ]
+            },
+            "description": "### 3.4 Konfirmasi Transfer Refund\n- **Deskripsi:** Konfirmasi bahwa dana refund pengembalian customer telah sukses ditransfer manual.\n- **Authorization:** `Bearer {{adminAccessToken}}` (Role: Finance / Owner)\n- **Body (x-www-form-urlencoded):** `refundNote=Refund Rp150.000 ditransfer...`\n- **Status Code:** `200 OK` (Sukses)"
+          },
+          "response": [
+            {
+              "name": "3.4.A Respon Sukses (200 OK)",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"Status refund berhasil dikonfirmasi selesai.\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4.0 ALUR OWNER (SUPER ADMIN)",
+      "description": "Fitur khusus Pemilik Toko (Owner) untuk mendaftarkan akun staff, mengatur modal HPP produk, serta membatalkan pesanan paksa (Force Majeure).",
+      "item": [
+        {
+          "name": "4.1 Login Owner",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
+            "url": { "raw": "{{baseUrl}}/admin/auth/login", "host": ["{{baseUrl}}"], "path": ["admin", "auth", "login"] },
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "email", "value": "{{ownerEmail}}", "description": "Email akun owner" },
+                { "key": "password", "value": "{{ownerPassword}}", "description": "Password akun owner" }
+              ]
+            },
+            "description": "### 4.1 Login Owner\n- **Deskripsi:** Login akun Super Admin Owner untuk mengupdate `adminAccessToken`.\n- **Status Code:** `200 OK` (Sukses)"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.success && res.data && res.data.accessToken) {",
+                  "    pm.collectionVariables.set('adminAccessToken', res.data.accessToken);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "4.1.A Respon Sukses (200 OK)",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"data\": { \"accessToken\": \"owner-token-123\", \"user\": { \"role\": \"owner\", \"fullName\": \"Bapak Owner\" } }\n}"
+            }
+          ]
+        },
+        {
+          "name": "4.2 Daftarkan Akun Staff Baru",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminAccessToken}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
+            "url": { "raw": "{{baseUrl}}/admin/staff", "host": ["{{baseUrl}}"], "path": ["admin", "staff"] },
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "fullName", "value": "Staff Barumu", "description": "Nama staf" },
+                { "key": "email", "value": "staff.baru@seliflorist.com", "description": "Email staf" },
+                { "key": "role", "value": "staff_verifikasi", "description": "staff_verifikasi / finance" },
+                { "key": "password", "value": "PasswordKuat123!", "description": "Password staf" }
+              ]
+            },
+            "description": "### 4.2 Daftarkan Akun Staff Baru\n- **Deskripsi:** Owner mendaftarkan akun baru untuk karyawan Staff Verifikasi / Finance.\n- **Authorization:** `Bearer {{adminAccessToken}}` (Role: Owner Only)\n- **Body (x-www-form-urlencoded):**\n  | Field | Tipe | Wajib/Opsional | Deskripsi | Contoh |\n  |---|---|---|---|---|\n  | `fullName` | String | Wajib | Nama Staf | Staff Barumu |\n  | `email` | String | Wajib | Email | staff.baru@seliflorist.com |\n  | `role` | Enum | Wajib | Role Staf | staff_verifikasi |\n  | `password` | String | Wajib | Password | PasswordKuat123! |\n- **Status Code:** `201 Created` (Sukses) / `403 Forbidden` (Jika diakses Staff)"
+          },
+          "response": [
+            {
+              "name": "4.2.A Respon Sukses (201 Created)",
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"Akun staff baru berhasil didaftarkan.\",\n  \"data\": { \"id\": \"staff-uuid-baru\", \"email\": \"staff.baru@seliflorist.com\" }\n}"
+            },
+            {
+              "name": "4.2.B Respon Error (403 Forbidden - Staff Mencoba Akses)",
+              "status": "Forbidden",
+              "code": 403,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"statusCode\": 403,\n  \"message\": \"Anda tidak memiliki izin (role) yang sesuai untuk mengakses rute ini\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "4.3 Tetapkan HPP (Modal) Produk",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminAccessToken}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
+            "url": { "raw": "{{baseUrl}}/admin/finance/product-costs", "host": ["{{baseUrl}}"], "path": ["admin", "finance", "product-costs"] },
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "productId", "value": "{{sampleProductId}}", "description": "UUID Produk" },
+                { "key": "costPrice", "value": "75000", "description": "Nilai HPP Modal (Rp)" },
+                { "key": "effectiveDate", "value": "2026-07-21T00:00:00.000Z", "description": "Tanggal berlaku HPP" }
+              ]
+            },
+            "description": "### 4.3 Tetapkan HPP (Modal) Produk\n- **Deskripsi:** Owner/Finance menentukan modal pokok produksi barang untuk hitungan laba bersih.\n- **Authorization:** `Bearer {{adminAccessToken}}` (Role: Owner / Finance)\n- **Body (x-www-form-urlencoded):** `productId=...&costPrice=75000`\n- **Status Code:** `201 Created` (Sukses)"
+          },
+          "response": [
+            {
+              "name": "4.3.A Respon Sukses (201 Created)",
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"HPP produk berhasil diperbarui.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "4.4 Pembatalan Force Majeure (Batal Paksa)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminAccessToken}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
+            "url": { "raw": "{{baseUrl}}/admin/orders/{{sampleOrderId}}/force-cancel", "host": ["{{baseUrl}}"], "path": ["admin", "orders", "{{sampleOrderId}}", "force-cancel"] },
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "adminCancelNote", "value": "Badai besar di lokasi pengiriman. Pesanan dibatalkan paksa demi keselamatan kurir.", "description": "Alasan pembatalan darurat" }
+              ]
+            },
+            "description": "### 4.4 Pembatalan Force Majeure\n- **Deskripsi:** Owner membatalkan pesanan secara sepihak akibat musibah alam dengan pengembalian DP 100% utuh.\n- **Authorization:** `Bearer {{adminAccessToken}}` (Role: Owner Only)\n- **Body (x-www-form-urlencoded):** `adminCancelNote=Badai besar...`\n- **Status Code:** `200 OK` (Sukses)"
+          },
+          "response": [
+            {
+              "name": "4.4.A Respon Sukses (200 OK)",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"Pesanan berhasil dibatalkan sepihak. Pengembalian dana 100% diproses.\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "5.0 PENGUJIAN ERROR & KEAMANAN",
+      "description": "Kasus uji untuk memverifikasi ketahanan sistem backend terhadap input salah, token kedaluwarsa, atau manipulasi hak akses.",
+      "item": [
+        {
+          "name": "5.1 Uji Error 401 Unauthorized (Tanpa Token)",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/auth/me", "host": ["{{baseUrl}}"], "path": ["auth", "me"] },
+            "description": "### 5.1 Uji 401 Unauthorized\n- **Ekspektasi HTTP:** `401 Unauthorized`\n- **Keterangan:** Memanggil rute terproteksi tanpa menyertakan Bearer Token."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 401 Unauthorized', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "5.1.A Respon Error (401 Unauthorized)",
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"statusCode\": 401,\n  \"message\": \"Token tidak ditemukan atau telah kedaluwarsa.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "5.2 Uji Error 403 Forbidden (Peran Tidak Sesuai)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
+            "url": { "raw": "{{baseUrl}}/admin/staff", "host": ["{{baseUrl}}"], "path": ["admin", "staff"] },
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "fullName", "value": "Penjahat", "description": "" },
+                { "key": "email", "value": "penjahat@gmail.com", "description": "" },
+                { "key": "role", "value": "owner", "description": "" },
+                { "key": "password", "value": "123456", "description": "" }
+              ]
+            },
+            "description": "### 5.2 Uji 403 Forbidden\n- **Ekspektasi HTTP:** `403 Forbidden`\n- **Keterangan:** Mengakses menu khusus Owner menggunakan token peran Customer."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 403 Forbidden', function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "5.2.A Respon Error (403 Forbidden)",
+              "status": "Forbidden",
+              "code": 403,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"statusCode\": 403,\n  \"message\": \"Anda tidak memiliki izin (role) yang sesuai untuk mengakses rute ini\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "5.3 Uji Error 400 Bad Request (Validasi Input Gagal)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
+            "url": { "raw": "{{baseUrl}}/auth/register", "host": ["{{baseUrl}}"], "path": ["auth", "register"] },
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "fullName", "value": "", "description": "" },
+                { "key": "email", "value": "email-salah-format", "description": "" },
+                { "key": "phoneNumber", "value": "", "description": "" },
+                { "key": "password", "value": "123", "description": "" }
+              ]
+            },
+            "description": "### 5.3 Uji 400 Bad Request\n- **Ekspektasi HTTP:** `400 Bad Request`\n- **Keterangan:** Mengirim format email tidak valid dan password terlalu pendek."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 400 Bad Request', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "5.3.A Respon Error (400 Bad Request)",
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"statusCode\": 400,\n  \"message\": [\n    \"email must be a valid email\",\n    \"password must be longer than or equal to 6 characters\"\n  ],\n  \"error\": \"Bad Request\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "5.4 Uji Error 404 Not Found (Resource Tidak Ditemukan)",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/products/00000000-0000-0000-0000-000000000000", "host": ["{{baseUrl}}"], "path": ["products", "00000000-0000-0000-0000-000000000000"] },
+            "description": "### 5.4 Uji 404 Not Found\n- **Ekspektasi HTTP:** `404 Not Found`\n- **Keterangan:** Mencari produk dengan ID dummy yang tidak ada."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 404 Not Found', function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "5.4.A Respon Error (404 Not Found)",
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"statusCode\": 404,\n  \"message\": \"Produk tidak ditemukan\"\n}"
+            }
+          ]
         }
       ]
     }

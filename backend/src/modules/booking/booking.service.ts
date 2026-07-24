@@ -73,7 +73,7 @@ export class BookingService {
     const board = await this.prisma.boardInventory.findFirst({
       where: { id, deletedAt: null },
     });
-    if (!board) throw new NotFoundException('Board not found');
+    if (!board) throw new NotFoundException('Unit papan ucapan tidak ditemukan');
     return this.prisma.boardInventory.update({ where: { id }, data: dto });
   }
 
@@ -84,12 +84,12 @@ export class BookingService {
         status: { in: [BookingStatus.SOFT_LOCKED, BookingStatus.CONFIRMED] },
       },
     });
-    if (active) throw new ConflictException('Board has an active booking');
+    if (active) throw new ConflictException('Unit papan ucapan masih memiliki jadwal sewa aktif');
     const result = await this.prisma.boardInventory.updateMany({
       where: { id, deletedAt: null },
       data: { deletedAt: new Date(), isActive: false },
     });
-    if (!result.count) throw new NotFoundException('Board not found');
-    return { message: 'Board deleted', data: null };
+    if (!result.count) throw new NotFoundException('Unit papan ucapan tidak ditemukan');
+    return { message: 'Unit papan ucapan berhasil dihapus', data: null };
   }
 }

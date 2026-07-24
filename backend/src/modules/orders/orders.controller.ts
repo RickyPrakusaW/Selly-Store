@@ -20,23 +20,21 @@ export class OrdersController {
   constructor(private readonly orders: OrdersService) {}
 
   @Get('orders/my')
-  @ApiOperation({ summary: 'List current customer orders scaffold' })
-  @ApiOkResponse({ type: StubListDto })
+  @ApiOperation({ summary: 'List current customer orders' })
   mine(
-    @CurrentUser() _user: JwtUser,
-    @Query() _query: OrderListQueryDto,
-  ): StubListDto {
-    return stubList();
+    @CurrentUser() user: JwtUser,
+    @Query() query: OrderListQueryDto,
+  ) {
+    return this.orders.listMine(user.id, query);
   }
 
   @Get('orders/my/:id')
-  @ApiOperation({ summary: 'Get customer order detail scaffold' })
-  @ApiOkResponse({ type: StubEntityDto })
+  @ApiOperation({ summary: 'Get customer order detail' })
   detail(
-    @CurrentUser() _user: JwtUser,
+    @CurrentUser() user: JwtUser,
     @Param('id', ParseUUIDPipe) id: string,
-  ): StubEntityDto {
-    return stubEntity(id);
+  ) {
+    return this.orders.getMine(user.id, id);
   }
 
   @Get('orders/:id/remaining-amount')
@@ -48,14 +46,13 @@ export class OrdersController {
   }
 
   @Post('orders/my/:id/cancel')
-  @ApiOperation({ summary: 'Cancel customer order scaffold' })
-  @ApiCreatedResponse({ type: StubEntityDto })
+  @ApiOperation({ summary: 'Cancel customer order' })
   cancel(
-    @CurrentUser() _user: JwtUser,
+    @CurrentUser() user: JwtUser,
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() _dto: CancelOrderDto,
-  ): StubEntityDto {
-    return stubEntity(id);
+    @Body() dto: CancelOrderDto,
+  ) {
+    return this.orders.cancelByCustomer(user.id, id, dto.reason);
   }
 
 }

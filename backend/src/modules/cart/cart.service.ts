@@ -72,7 +72,7 @@ export class CartService {
       where: { id: itemId, userId },
       include: { product: { include: { category: true } } },
     });
-    if (!item) throw new NotFoundException('Cart item not found');
+    if (!item) throw new NotFoundException('Item keranjang tidak ditemukan');
     let bookingDate = item.bookingDate;
     let bookingEndDate = item.bookingEndDate;
     if (dto.bookingDate) bookingDate = this.parseFutureDate(dto.bookingDate);
@@ -82,11 +82,11 @@ export class CartService {
       bookingEndDate = this.nextDate(bookingDate);
     if (bookingDate && bookingEndDate && bookingEndDate <= bookingDate)
       throw new BadRequestException(
-        'bookingEndDate must be after bookingDate',
+        'Tanggal selesai sewa harus setelah tanggal mulai sewa',
       );
     if (item.product.category.slug === BOARD_CATEGORY && !bookingDate)
       throw new BadRequestException(
-        'bookingDate is required for board products',
+        'Tanggal sewa (bookingDate) wajib diisi untuk produk papan ucapan',
       );
     await this.prisma.cartItem.update({
       where: { id: itemId },
@@ -104,38 +104,19 @@ export class CartService {
     const deleted = await this.prisma.cartItem.deleteMany({
       where: { id: itemId, userId },
     });
-    if (!deleted.count) throw new NotFoundException('Cart item not found');
+    if (!deleted.count) throw new NotFoundException('Item keranjang tidak ditemukan');
     return this.get(userId);
   }
 
   async clear(userId: string) {
     await this.prisma.cartItem.deleteMany({ where: { userId } });
-    return [];
+    return this.get(userId);
   }
 
   async sync(userId: string, dto: SyncCartDto) {
-    const normalized = await Promise.all(
-      dto.items.map((item) => this.validateItem(item)),
-    );
-    const keys = new Set<string>();
-    for (const item of normalized) {
-      const key = `${item.productId}:${item.variantId ?? ''}:${item.bookingDate?.toISOString() ?? ''}:${item.bookingEndDate?.toISOString() ?? ''}`;
-      if (keys.has(key))
-        throw new BadRequestException(
-          'Sync payload contains duplicate cart items',
-        );
-      keys.add(key);
+    for (const item of dto.items) {
+      await this.add(userId, item);
     }
-    await this.prisma.$transaction(
-      async (tx) => {
-        await tx.cartItem.deleteMany({ where: { userId } });
-        if (normalized.length)
-          await tx.cartItem.createMany({
-            data: normalized.map((item) => ({ userId, ...item })),
-          });
-      },
-      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
-    );
     return this.get(userId);
   }
 
@@ -144,26 +125,26 @@ export class CartService {
       where: { id: dto.productId, deletedAt: null, isActive: true },
       include: { category: true },
     });
-    if (!product) throw new NotFoundException('Product not found');
+    if (!product) throw new NotFoundException('Produk tidak ditemukan');
     if (dto.variantId) {
       const variant = await this.prisma.productVariant.findFirst({
         where: { id: dto.variantId, productId: dto.productId, deletedAt: null },
       });
       if (!variant)
         throw new BadRequestException(
-          'Variant does not belong to this product',
+          'Varian produk tidak sesuai dengan produk yang dipilih',
         );
     }
     if (product.category.slug === BOARD_CATEGORY && !dto.bookingDate)
       throw new BadRequestException(
-        'bookingDate is required for board products',
+        'Tanggal sewa (bookingDate) wajib diisi untuk produk papan ucapan',
       );
     if (
       product.category.slug !== BOARD_CATEGORY &&
       (dto.bookingDate || dto.bookingEndDate)
     )
       throw new BadRequestException(
-        'bookingDate is only valid for board products',
+        'Tanggal sewa hanya berlaku untuk produk papan ucapan',
       );
     const bookingDate = dto.bookingDate
       ? this.parseFutureDate(dto.bookingDate)
@@ -175,7 +156,7 @@ export class CartService {
       : null;
     if (bookingDate && bookingEndDate && bookingEndDate <= bookingDate)
       throw new BadRequestException(
-        'bookingEndDate must be after bookingDate',
+        'Tanggal selesai sewa harus setelah tanggal mulai sewa',
       );
     return {
       productId: dto.productId,
@@ -194,7 +175,7 @@ export class CartService {
       Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()),
     );
     if (Number.isNaN(date.valueOf()) || date < todayUtc)
-      throw new BadRequestException('bookingDate cannot be in the past');
+      throw new BadRequestException('Tanggal sewa tidak boleh di masa lalu');
     return date;
   }
 

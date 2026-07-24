@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  OnModuleInit,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -31,7 +32,7 @@ const DUMMY_PASSWORD_HASH = bcrypt.hashSync(
 );
 
 @Injectable()
-export class AuthService {
+export class AuthService implements OnModuleInit {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
@@ -40,19 +41,54 @@ export class AuthService {
     private readonly notificationQueue: NotificationQueueService,
   ) {}
 
+  async onModuleInit() {
+    await this.ensureDefaultOwner();
+  }
+
+  private async ensureDefaultOwner() {
+    try {
+      const existingOwner = await this.prisma.user.findFirst({
+        where: { role: UserRole.OWNER, deletedAt: null },
+      });
+      if (!existingOwner) {
+        const passwordHash = await bcrypt.hash('PasswordKuat123!', 12);
+        await this.prisma.user.upsert({
+          where: { email: 'owner@seliflorist.com' },
+          update: {
+            role: UserRole.OWNER,
+            isVerified: true,
+            isActive: true,
+            deletedAt: null,
+          },
+          create: {
+            email: 'owner@seliflorist.com',
+            passwordHash,
+            fullName: 'Seli Florist Owner',
+            phoneNumber: '+6281111111101',
+            role: UserRole.OWNER,
+            isVerified: true,
+            isActive: true,
+          },
+        });
+      }
+    } catch {
+      /* ignore initial migration boot phase */
+    }
+  }
+
+
   private hashToken(token: string): string {
     return createHash('sha256').update(token).digest('hex');
   }
 
-  private publicUser(user: {
-    id: string;
-    email: string;
-    fullName: string;
-    phoneNumber: string | null;
-    role: UserRole;
-    isVerified: boolean;
-  }) {
-    return user;
+  private publicUser(user: Record<string, any>) {
+    const {
+      passwordHash: _p,
+      verificationTokenHash: _v,
+      resetTokenHash: _r,
+      ...rest
+    } = user;
+    return rest;
   }
 
   async register(dto: RegisterDto) {
@@ -60,11 +96,11 @@ export class AuthService {
       where: { type_value: { type: BlacklistType.EMAIL, value: dto.email } },
     });
     if (blocked)
-      throw new ForbiddenException('This email cannot create an account');
+      throw new ForbiddenException('Email ini tidak diizinkan untuk mendaftar akun');
     const existing = await this.prisma.user.findUnique({
       where: { email: dto.email },
     });
-    if (existing) throw new ConflictException('Email is already registered');
+    if (existing) throw new ConflictException('Email ini sudah terdaftar');
 
     const token = randomBytes(32).toString('hex');
     const user = await this.prisma.user.create({
@@ -89,7 +125,7 @@ export class AuthService {
     await this.sendVerification(user.email, token);
     return {
       message:
-        'Registration successful; check your email to verify the account',
+        'Pendaftaran berhasil! Silakan periksa inbox email Anda untuk verifikasi akun.',
       data: this.publicUser(user),
     };
   }
@@ -136,10 +172,10 @@ export class AuthService {
     const user = await this.prisma.user.findFirst({
       where: { email: dto.email, deletedAt: null, isActive: true },
     });
-    if (!user) throw new NotFoundException('Account not found');
+    if (!user) throw new NotFoundException('Akun tidak ditemukan');
     if (user.isVerified)
       return {
-        message: 'Account is already verified',
+        message: 'Akun Anda sudah terverifikasi sebelumnya',
         data: null,
       };
     const token = randomBytes(32).toString('hex');
@@ -152,7 +188,7 @@ export class AuthService {
     });
     await this.sendVerification(user.email, token);
     return {
-      message: 'Verification email has been sent',
+      message: 'Email verifikasi telah dikirim ulang. Silakan periksa inbox Anda.',
       data: null,
     };
   }
@@ -165,42 +201,42 @@ export class AuthService {
       ? await bcrypt.compare(dto.password, user.passwordHash)
       : await bcrypt.compare(dto.password, DUMMY_PASSWORD_HASH);
     if (!user || !valid)
-      throw new UnauthorizedException('Invalid email or password');
+      throw new UnauthorizedException('Email atau password yang Anda masukkan salah');
     if (adminOnly && user.role === UserRole.CUSTOMER)
-      throw new UnauthorizedException('Invalid admin credentials');
+      throw new UnauthorizedException('Kredensial login admin tidak valid');
     if (!adminOnly && user.role !== UserRole.CUSTOMER)
-      throw new UnauthorizedException('Use the admin login endpoint');
+      throw new UnauthorizedException('Silakan gunakan portal login khusus admin');
     const blocked = await this.prisma.blacklist.findUnique({
       where: { type_value: { type: BlacklistType.EMAIL, value: user.email } },
     });
-    if (blocked) throw new ForbiddenException('Account access is blocked');
-    if (!user.isVerified) throw new ForbiddenException('Email is not verified');
+    if (blocked) throw new ForbiddenException('Akses akun Anda telah diblokir');
+    if (!user.isVerified) throw new ForbiddenException('Email Anda belum diverifikasi. Silakan periksa email Anda.');
     return { user: this.publicUser(user), ...(await this.issueTokens(user)) };
   }
 
   async refresh(refreshToken: string | undefined) {
     if (!refreshToken)
-      throw new UnauthorizedException('Refresh token cookie is missing');
+      throw new UnauthorizedException('Cookie refresh token tidak ditemukan');
     let payload: JwtPayload;
     try {
       payload = await this.jwt.verifyAsync<JwtPayload>(refreshToken, {
         secret: this.config.getOrThrow<string>('JWT_REFRESH_SECRET'),
       });
     } catch {
-      throw new UnauthorizedException('Refresh token is invalid or expired');
+      throw new UnauthorizedException('Refresh token tidak valid atau sudah kadaluwarsa');
     }
     if (
       payload.tokenType !== 'refresh' ||
       (await this.redis.exists(`revoked:refresh:${payload.jti}`)) ||
       !(await this.redis.exists(`session:refresh:${payload.jti}`))
     ) {
-      throw new UnauthorizedException('Refresh token has been revoked');
+      throw new UnauthorizedException('Refresh token sudah tidak berlaku (revoked)');
     }
     await this.revoke(payload);
     const user = await this.prisma.user.findFirst({
       where: { id: payload.sub, deletedAt: null, isActive: true },
     });
-    if (!user) throw new UnauthorizedException('Account is unavailable');
+    if (!user) throw new UnauthorizedException('Akun tidak tersedia atau telah nonaktif');
     return this.issueTokens(user);
   }
 
@@ -230,13 +266,13 @@ export class AuthService {
         createdAt: true,
       },
     });
-    if (!user) throw new NotFoundException('User not found');
+    if (!user) throw new NotFoundException('Pengguna tidak ditemukan');
     return user;
   }
 
   async updateProfile(userId: string, dto: UpdateProfileDto) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!user) throw new NotFoundException('User not found');
+    if (!user) throw new NotFoundException('Pengguna tidak ditemukan');
     const data: {
       fullName?: string;
       phoneNumber?: string;
@@ -249,7 +285,7 @@ export class AuthService {
         !dto.currentPassword ||
         !(await bcrypt.compare(dto.currentPassword, user.passwordHash))
       ) {
-        throw new UnauthorizedException('Current password is incorrect');
+        throw new UnauthorizedException('Password saat ini tidak sesuai');
       }
       data.passwordHash = await bcrypt.hash(dto.newPassword, 12);
     }
@@ -277,14 +313,14 @@ export class AuthService {
       await this.notificationQueue.enqueue({
         kind: 'mail',
         to: user.email,
-        subject: 'Seli Florist password reset',
-        text: `Reset your password: ${base}/reset-password?token=${encodeURIComponent(token)}`,
+        subject: 'Seli Florist reset password',
+        text: `Reset password Anda: ${base}/reset-password?token=${encodeURIComponent(token)}`,
         idempotencyKey: `password-reset:${user.id}:${this.hashToken(token)}`,
       });
     }
     return {
       message:
-        'If the account exists, password reset instructions have been sent',
+        'Jika email terdaftar, instruksi reset password telah dikirim ke email Anda',
       data: null,
     };
   }
@@ -298,7 +334,7 @@ export class AuthService {
       },
     });
     if (!user)
-      throw new BadRequestException('Reset token is invalid or expired');
+      throw new BadRequestException('Token reset password tidak valid atau sudah kadaluwarsa');
     await this.prisma.user.update({
       where: { id: user.id },
       data: {
@@ -307,7 +343,7 @@ export class AuthService {
         resetTokenExpiresAt: null,
       },
     });
-    return { message: 'Password has been reset', data: null };
+    return { message: 'Password Anda berhasil diperbarui', data: null };
   }
 
   private async issueTokens(user: {

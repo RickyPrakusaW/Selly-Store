@@ -1,3 +1,4 @@
+import { ArrowLeft, Package } from 'lucide-react';
 import Link from 'next/link';
 
 type ProductDetailPageProps = { params: Promise<{ id: string }> };
@@ -6,9 +7,9 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
   const { id } = await params;
   return (
     <main className="product-page shell">
-      <Link href="/">← Kembali ke katalog</Link>
+      <Link href="/"><ArrowLeft size={16} /> Kembali ke katalog</Link>
       <div className="product-detail">
-        <div className="detail-image" aria-label="Product image placeholder"><span>✿</span></div>
+        <div className="detail-image" aria-label="Product image placeholder"><Package aria-hidden="true" /></div>
         <section className="detail-copy">
           <p className="eyebrow">Product scaffold · {id}</p>
           <h1>Nama Produk</h1>

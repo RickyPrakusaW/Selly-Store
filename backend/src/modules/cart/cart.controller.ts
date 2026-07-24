@@ -21,35 +21,36 @@ export class CartController {
   constructor(private readonly cart: CartService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Get current customer cart scaffold' })
-  @ApiOkResponse({ type: StubListDto })
-  get(@CurrentUser() _user: JwtUser): StubListDto {
-    return stubList();
+  @ApiOperation({ summary: 'Get current customer cart' })
+  get(@CurrentUser() user: JwtUser) {
+    return this.cart.get(user.id);
   }
+
   @Post('items')
-  @ApiOperation({ summary: 'Add cart item scaffold' })
-  @ApiCreatedResponse({ type: StubEntityDto })
+  @ApiOperation({ summary: 'Add cart item' })
   add(
-    @CurrentUser() _user: JwtUser,
-    @Body() _dto: AddCartItemDto,
-  ): StubEntityDto {
-    return stubEntity();
+    @CurrentUser() user: JwtUser,
+    @Body() dto: AddCartItemDto,
+  ) {
+    return this.cart.add(user.id, dto);
   }
-  @Put('items/:id') update(
+
+  @Put('items/:id')
+  update(
     @CurrentUser() user: JwtUser,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateCartItemDto,
   ) {
     return this.cart.update(user.id, id, dto);
   }
+
   @Delete('items/:id')
-  @ApiOperation({ summary: 'Delete cart item scaffold' })
-  @ApiNoContentResponse()
+  @ApiOperation({ summary: 'Delete cart item' })
   remove(
-    @CurrentUser() _user: JwtUser,
+    @CurrentUser() user: JwtUser,
     @Param('id', ParseUUIDPipe) id: string,
-  ): StubEntityDto {
-    return stubEntity(id);
+  ) {
+    return this.cart.remove(user.id, id);
   }
   @Delete() clear(@CurrentUser() user: JwtUser) {
     return this.cart.clear(user.id);

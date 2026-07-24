@@ -33,13 +33,15 @@ export class PaymentProofService {
     const order = await this.prisma.order.findFirst({
       where: { id: orderId, userId },
     });
-    if (!order) throw new NotFoundException('Order not found');
+    if (!order) throw new NotFoundException('Pesanan tidak ditemukan');
     const validStatus =
       type === ProofType.DP
         ? order.status === OrderStatus.PENDING_PAYMENT
         : order.status === OrderStatus.PENDING_FINAL_PAYMENT;
     if (!validStatus)
-      throw new ConflictException('Order is not accepting this payment proof');
+      throw new ConflictException(
+        'Pesanan ini tidak sedang menerima unggahan bukti pembayaran tersebut',
+      );
     const active = await this.prisma.paymentProof.findFirst({
       where: {
         orderId,
@@ -52,7 +54,7 @@ export class PaymentProofService {
     });
     if (active)
       throw new ConflictException(
-        'An active proof already exists for this payment stage',
+        'Bukti pembayaran aktif sudah diunggah untuk tahap pembayaran ini',
       );
 
     const stored = await this.storage.store(file, 'payment-proofs');
@@ -68,8 +70,7 @@ export class PaymentProofService {
               .replace(/[^\p{L}\p{N}._ -]/gu, '_')
               .slice(0, 255),
             fileSize: file.size,
-            mimeType:
-              file.mimetype === 'image/png' ? 'image/png' : 'image/jpeg',
+            mimeType: file.mimetype,
           },
           select: {
             id: true,
@@ -98,7 +99,7 @@ export class PaymentProofService {
         error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === 'P2002'
       )
-        throw new ConflictException('An active proof already exists');
+        throw new ConflictException('Bukti pembayaran aktif sudah ada');
       throw error;
     }
   }
@@ -107,14 +108,16 @@ export class PaymentProofService {
     const order = await this.prisma.order.findFirst({
       where: { id: orderId, userId },
     });
-    if (!order) throw new NotFoundException('Order not found');
+    if (!order) throw new NotFoundException('Pesanan tidak ditemukan');
     const proof = await this.prisma.paymentProof.findFirst({
       where: { orderId, proofType: type, retractedAt: null },
       orderBy: { uploadedAt: 'desc' },
     });
-    if (!proof) throw new NotFoundException('Payment proof not found');
+    if (!proof) throw new NotFoundException('Bukti pembayaran tidak ditemukan');
     if (proof.verificationStatus !== VerificationStatus.PENDING)
-      throw new ForbiddenException('Only pending proofs can be retracted');
+      throw new ForbiddenException(
+        'Hanya bukti pembayaran berstatus pending yang dapat ditarik kembali',
+      );
     await this.prisma.$transaction(async (tx) => {
       await tx.paymentProof.update({
         where: { id: proof.id },
@@ -132,6 +135,6 @@ export class PaymentProofService {
       proofId: proof.id,
       proofType: type,
     });
-    return { message: 'Payment proof retracted', data: null };
+    return { message: 'Bukti pembayaran berhasil ditarik kembali', data: null };
   }
 }

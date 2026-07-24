@@ -49,7 +49,7 @@ export class CheckoutService {
     const user = await this.prisma.user.findFirst({
       where: { id: userId, deletedAt: null, isActive: true },
     });
-    if (!user) throw new NotFoundException('User not found');
+    if (!user) throw new NotFoundException('Pengguna tidak ditemukan');
     const blocked = await this.prisma.blacklist.findFirst({
       where: {
         OR: [
@@ -59,13 +59,13 @@ export class CheckoutService {
       },
     });
     if (blocked)
-      throw new ForbiddenException('Checkout is blocked for this account');
+      throw new ForbiddenException('Proses checkout diblokir untuk akun atau nomor WA ini');
 
     const shipping = await this.shipping.estimate(dto);
     const requestedItems = dto.items?.length
       ? dto.items
       : await this.itemsFromCart(userId);
-    if (!requestedItems.length) throw new BadRequestException('Cart is empty');
+    if (!requestedItems.length) throw new BadRequestException('Keranjang belanja Anda masih kosong');
 
     let lastError: unknown;
     for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -99,6 +99,7 @@ export class CheckoutService {
           }),
         ]);
         return {
+          id: result.id,
           orderId: result.id,
           dpAmount: result.dpAmount,
           remainingAmount: result.remainingAmount,
@@ -114,7 +115,7 @@ export class CheckoutService {
       }
     }
     throw new ConflictException(
-      'Stock or board availability changed during checkout; please retry',
+      'Ketersediaan stok atau papan ucapan berubah saat proses checkout. Silakan coba beberapa saat lagi.',
       { cause: lastError },
     );
   }
@@ -129,7 +130,7 @@ export class CheckoutService {
     const pending = await tx.order.findFirst({
       where: { userId, status: OrderStatus.PENDING_PAYMENT },
     });
-    if (pending) throw new ConflictException('An unpaid order already exists');
+    if (pending) throw new ConflictException('Anda masih memiliki pesanan yang belum dibayar (menunggu DP)');
     const resolved = this.resolveItems(requested);
     const now = new Date();
     const dpDeadline = new Date(
@@ -156,26 +157,26 @@ export class CheckoutService {
         },
       });
       if (!product)
-        throw new NotFoundException(`Product ${item.productId} is unavailable`);
+        throw new NotFoundException(`Produk ${item.productId} tidak tersedia atau telah dihapus`);
       const variant = item.variantId
         ? product.variants.find((entry) => entry.id === item.variantId)
         : undefined;
       if (item.variantId && !variant)
-        throw new BadRequestException('Selected variant is unavailable');
+        throw new BadRequestException('Varian produk yang dipilih tidak tersedia');
       if (
         product.stockType === StockType.READY_STOCK &&
         product.stockQty - product.reservedQty < item.qty
       ) {
-        throw new ConflictException(`Insufficient stock for ${product.name}`);
+        throw new ConflictException(`Stok produk ${product.name} tidak mencukupi`);
       }
       if (product.category.slug === 'papan_ucapan' && !item.bookingDate)
-        throw new BadRequestException('Board products require a booking date');
+        throw new BadRequestException('Produk papan ucapan membutuhkan tanggal sewa (bookingDate)');
       if (
         product.category.slug !== 'papan_ucapan' &&
         (item.bookingDate || item.bookingEndDate)
       )
         throw new BadRequestException(
-          'Only board products accept a booking date',
+          'Tanggal sewa hanya dapat diisi untuk produk papan ucapan',
         );
 
       const unitPrice = product.basePrice.add(variant?.priceDelta ?? 0);

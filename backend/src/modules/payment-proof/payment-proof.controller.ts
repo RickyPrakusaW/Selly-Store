@@ -24,7 +24,7 @@ export class PaymentProofController {
   @Post('dp')
   @UseInterceptors(
     FileInterceptor('file', {
-      limits: { fileSize: 2 * 1024 * 1024, files: 1 },
+      limits: { fileSize: 5 * 1024 * 1024 + 1, files: 1 },
     }),
   )
   uploadDp(
@@ -46,7 +46,7 @@ export class PaymentProofController {
   @Post('final')
   @UseInterceptors(
     FileInterceptor('file', {
-      limits: { fileSize: 2 * 1024 * 1024, files: 1 },
+      limits: { fileSize: 5 * 1024 * 1024 + 1, files: 1 },
     }),
   )
   uploadFinal(

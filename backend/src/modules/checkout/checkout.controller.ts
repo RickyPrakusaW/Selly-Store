@@ -14,21 +14,19 @@ export class CheckoutController {
   constructor(private readonly checkoutService: CheckoutService) {}
 
   @Post('estimate-ongkir')
-  @ApiOperation({ summary: 'Estimate delivery fee scaffold' })
-  @ApiOkResponse({ type: StubEntityDto })
-  estimate(@Body() _dto: EstimateShippingDto): StubEntityDto {
-    return stubEntity();
+  @ApiOperation({ summary: 'Estimate delivery fee' })
+  estimate(@Body() dto: EstimateShippingDto) {
+    return this.checkoutService.estimate(dto);
   }
 
   @VerifiedOnly()
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post()
-  @ApiOperation({ summary: 'Create checkout scaffold' })
-  @ApiCreatedResponse({ type: StubEntityDto })
+  @ApiOperation({ summary: 'Create checkout order' })
   checkout(
-    @CurrentUser() _user: JwtUser,
-    @Body() _dto: CheckoutDto,
-  ): StubEntityDto {
-    return stubEntity();
+    @CurrentUser() user: JwtUser,
+    @Body() dto: CheckoutDto,
+  ) {
+    return this.checkoutService.checkout(user.id, dto);
   }
 }

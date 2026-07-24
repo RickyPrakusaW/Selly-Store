@@ -9,11 +9,17 @@ import { Observable, map } from 'rxjs';
 @Injectable()
 export class ResponseInterceptor implements NestInterceptor {
   intercept(
-    _context: ExecutionContext,
+    context: ExecutionContext,
     next: CallHandler,
   ): Observable<unknown> {
+    const http = context.switchToHttp();
+    const res = http.getResponse();
+
     return next.handle().pipe(
       map((result: unknown) => {
+        if (res && res.headersSent) {
+          return result;
+        }
         if (
           result &&
           typeof result === 'object' &&

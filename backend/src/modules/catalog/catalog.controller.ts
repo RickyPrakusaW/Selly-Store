@@ -18,7 +18,12 @@ import { Public } from '../../common/decorators/public.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { ImageUploadPipe } from '../../common/storage/image-upload.pipe';
 import type { UploadedImage } from '../../common/storage/image-upload.pipe';
-import { StubEntityDto, StubListDto, stubEntity, stubList } from '../../common/dto/api-contract.dto';
+import {
+  StubEntityDto,
+  StubListDto,
+  stubEntity,
+  stubList,
+} from '../../common/dto/api-contract.dto';
 import { CatalogService } from './catalog.service';
 import {
   CatalogQueryDto,
@@ -37,35 +42,32 @@ export class CatalogController {
 
   @Public()
   @Get('categories')
-  @ApiOperation({ summary: 'List product categories scaffold' })
-  @ApiOkResponse({ type: StubListDto })
-  categories(): StubListDto {
-    return stubList();
-  }
-  @Public()
-  @Get('products')
-  @ApiOperation({ summary: 'List public products scaffold' })
-  @ApiOkResponse({ type: StubListDto })
-  products(@Query() _query: CatalogQueryDto): StubListDto {
-    return stubList();
-  }
-  @Public()
-  @Get('products/:id')
-  @ApiOperation({ summary: 'Get product detail scaffold' })
-  @ApiOkResponse({ type: StubEntityDto })
-  product(
-    @Param('id', ParseUUIDPipe) id: string,
-  ): StubEntityDto {
-    return stubEntity(id);
+  @ApiOperation({ summary: 'List product categories' })
+  categories() {
+    return this.catalog.listCategories();
   }
 
-  @Roles(UserRole.OWNER)
+  @Public()
+  @Get('products')
+  @ApiOperation({ summary: 'List public products' })
+  products(@Query() query: CatalogQueryDto) {
+    return this.catalog.listProducts(query);
+  }
+
+  @Public()
+  @Get('products/:id')
+  @ApiOperation({ summary: 'Get product detail' })
+  product(@Param('id', ParseUUIDPipe) id: string) {
+    return this.catalog.getProduct(id);
+  }
+
+  @Roles(UserRole.OWNER, UserRole.STAFF_VERIFICATION, UserRole.FINANCE)
   @Post('admin/categories')
   createCategory(@Body() dto: CreateCategoryDto) {
     return this.catalog.createCategory(dto);
   }
 
-  @Roles(UserRole.OWNER)
+  @Roles(UserRole.OWNER, UserRole.STAFF_VERIFICATION, UserRole.FINANCE)
   @Put('admin/categories/:id')
   updateCategory(
     @Param('id', ParseUUIDPipe) id: string,
@@ -74,19 +76,19 @@ export class CatalogController {
     return this.catalog.updateCategory(id, dto);
   }
 
-  @Roles(UserRole.OWNER)
+  @Roles(UserRole.OWNER, UserRole.STAFF_VERIFICATION, UserRole.FINANCE)
   @Delete('admin/categories/:id')
   deleteCategory(@Param('id', ParseUUIDPipe) id: string) {
     return this.catalog.deleteCategory(id);
   }
 
-  @Roles(UserRole.OWNER)
+  @Roles(UserRole.OWNER, UserRole.STAFF_VERIFICATION, UserRole.FINANCE)
   @Post('admin/products')
   create(@Body() dto: CreateProductDto) {
     return this.catalog.createProduct(dto);
   }
 
-  @Roles(UserRole.OWNER)
+  @Roles(UserRole.OWNER, UserRole.STAFF_VERIFICATION, UserRole.FINANCE)
   @Put('admin/products/:id')
   update(
     @Param('id', ParseUUIDPipe) id: string,
@@ -95,23 +97,23 @@ export class CatalogController {
     return this.catalog.updateProduct(id, dto);
   }
 
-  @Roles(UserRole.OWNER)
+  @Roles(UserRole.OWNER, UserRole.STAFF_VERIFICATION, UserRole.FINANCE)
   @Put('admin/products/:id/stock')
   stock(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateStockDto) {
     return this.catalog.updateStock(id, dto);
   }
 
-  @Roles(UserRole.OWNER)
+  @Roles(UserRole.OWNER, UserRole.STAFF_VERIFICATION, UserRole.FINANCE)
   @Delete('admin/products/:id')
   delete(@Param('id', ParseUUIDPipe) id: string) {
     return this.catalog.deleteProduct(id);
   }
 
-  @Roles(UserRole.OWNER)
+  @Roles(UserRole.OWNER, UserRole.STAFF_VERIFICATION, UserRole.FINANCE)
   @Post('admin/products/:id/images')
   @UseInterceptors(
     FileInterceptor('file', {
-      limits: { fileSize: 2 * 1024 * 1024, files: 1 },
+      limits: { fileSize: 5 * 1024 * 1024 + 1, files: 1 },
     }),
   )
   image(
@@ -122,7 +124,7 @@ export class CatalogController {
     return this.catalog.addImage(id, file, metadata);
   }
 
-  @Roles(UserRole.OWNER)
+  @Roles(UserRole.OWNER, UserRole.STAFF_VERIFICATION, UserRole.FINANCE)
   @Delete('admin/products/:id/images/:imageId')
   deleteImage(
     @Param('id', ParseUUIDPipe) id: string,

@@ -5,7 +5,13 @@ CREATE SCHEMA IF NOT EXISTS "public";
 CREATE TYPE "user_role" AS ENUM ('owner', 'finance', 'staff_verifikasi', 'customer');
 
 -- CreateEnum
-CREATE TYPE "stock_type" AS ENUM ('ready_stock', 'pre_order');
+CREATE TYPE "product_mode" AS ENUM ('sale', 'rental');
+
+-- CreateEnum
+CREATE TYPE "stock_type" AS ENUM ('ready_stock', 'pre_order', 'rental_unit');
+
+-- CreateEnum
+CREATE TYPE "rental_unit_status" AS ENUM ('available', 'reserved', 'rented', 'cleaning', 'maintenance', 'damaged', 'lost', 'retired');
 
 -- CreateEnum
 CREATE TYPE "delivery_type" AS ENUM ('delivery', 'pickup');
@@ -36,6 +42,7 @@ CREATE TYPE "blacklist_type" AS ENUM ('email', 'wa_number');
 
 -- CreateEnum
 CREATE TYPE "expense_category" AS ENUM ('bahan_baku', 'operasional', 'gaji', 'transport', 'marketing', 'lainnya');
+
 
 -- CreateTable
 CREATE TABLE "users" (
@@ -76,8 +83,10 @@ CREATE TABLE "categories" (
 CREATE TABLE "products" (
     "id" UUID NOT NULL,
     "category_id" UUID NOT NULL,
+    "slug" VARCHAR(180),
     "name" VARCHAR(180) NOT NULL,
     "description" TEXT NOT NULL,
+    "product_mode" "product_mode" NOT NULL DEFAULT 'sale',
     "base_price" DECIMAL(15,2) NOT NULL,
     "stock_type" "stock_type" NOT NULL,
     "stock_qty" INTEGER NOT NULL DEFAULT 0,
@@ -90,6 +99,7 @@ CREATE TABLE "products" (
 
     CONSTRAINT "products_pkey" PRIMARY KEY ("id")
 );
+
 
 -- CreateTable
 CREATE TABLE "product_images" (
@@ -118,16 +128,21 @@ CREATE TABLE "product_variants" (
 );
 
 -- CreateTable
-CREATE TABLE "board_inventory" (
+CREATE TABLE "rental_units" (
     "id" UUID NOT NULL,
-    "board_name" VARCHAR(100) NOT NULL,
-    "board_type" VARCHAR(80),
+    "product_id" UUID NOT NULL,
+    "unit_code" VARCHAR(80) NOT NULL,
+    "display_name" VARCHAR(150) NOT NULL,
+    "status" "rental_unit_status" NOT NULL DEFAULT 'available',
+    "condition_note" TEXT,
     "is_active" BOOLEAN NOT NULL DEFAULT true,
-    "deleted_at" TIMESTAMPTZ(3),
     "created_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(3) NOT NULL,
 
-    CONSTRAINT "board_inventory_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "rental_units_pkey" PRIMARY KEY ("id")
 );
+
+
 
 -- CreateTable
 CREATE TABLE "cart_items" (
@@ -351,7 +366,11 @@ CREATE UNIQUE INDEX "categories_slug_key" ON "categories"("slug");
 CREATE INDEX "products_category_id_is_active_deleted_at_idx" ON "products"("category_id", "is_active", "deleted_at");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "products_slug_key" ON "products"("slug");
+
+-- CreateIndex
 CREATE INDEX "products_name_idx" ON "products"("name");
+
 
 -- CreateIndex
 CREATE INDEX "product_images_product_id_sort_order_idx" ON "product_images"("product_id", "sort_order");
@@ -360,7 +379,11 @@ CREATE INDEX "product_images_product_id_sort_order_idx" ON "product_images"("pro
 CREATE UNIQUE INDEX "product_variants_product_id_variant_name_key" ON "product_variants"("product_id", "variant_name");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "board_inventory_board_name_key" ON "board_inventory"("board_name");
+CREATE UNIQUE INDEX "rental_units_unit_code_key" ON "rental_units"("unit_code");
+
+-- CreateIndex
+CREATE INDEX "rental_units_product_id_status_is_active_idx" ON "rental_units"("product_id", "status", "is_active");
+
 
 -- CreateIndex
 CREATE INDEX "cart_items_user_id_idx" ON "cart_items"("user_id");
@@ -444,7 +467,11 @@ ALTER TABLE "order_items" ADD CONSTRAINT "order_items_variant_id_fkey" FOREIGN K
 ALTER TABLE "delivery_addresses" ADD CONSTRAINT "delivery_addresses_order_id_fkey" FOREIGN KEY ("order_id") REFERENCES "orders"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "board_bookings" ADD CONSTRAINT "board_bookings_board_id_fkey" FOREIGN KEY ("board_id") REFERENCES "board_inventory"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "rental_units" ADD CONSTRAINT "rental_units_product_id_fkey" FOREIGN KEY ("product_id") REFERENCES "products"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "board_bookings" ADD CONSTRAINT "board_bookings_board_id_fkey" FOREIGN KEY ("board_id") REFERENCES "rental_units"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
 
 -- AddForeignKey
 ALTER TABLE "board_bookings" ADD CONSTRAINT "board_bookings_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
