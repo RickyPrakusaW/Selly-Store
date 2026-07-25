@@ -3,13 +3,14 @@
 import {
   Calendar,
   Check,
+  Clock,
   Minus,
   Plus,
   ShoppingBag,
   MessageCircle,
   ShieldCheck,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useSeliStore } from "@/lib/store";
 import type { Product } from "@/lib/types";
 
@@ -30,7 +31,18 @@ export function ProductDetailInteractive({
   const [customNote, setCustomNote] = useState("");
   const [bookingDate, setBookingDate] = useState("");
   const [bookingEndDate, setBookingEndDate] = useState("");
+  const [startTime, setStartTime] = useState("12:00");
+  const [endTime, setEndTime] = useState("15:00");
   const [loading, setLoading] = useState(false);
+  const [minDate, setMinDate] = useState("");
+
+  useEffect(() => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    setMinDate(`${year}-${month}-${day}`);
+  }, []);
 
   const selectedVariant = product.variants?.find(
     (v) => v.id === selectedVariantId,
@@ -52,11 +64,24 @@ export function ProductDetailInteractive({
       showToast("Silakan pilih Tanggal Mulai Sewa terlebih dahulu.", "error");
       return;
     }
+
+    const effectiveEndDate = bookingEndDate || bookingDate;
+    if (isRental && bookingDate && effectiveEndDate < bookingDate) {
+      showToast("Tanggal Selesai Sewa tidak boleh sebelum Tanggal Mulai.", "error");
+      return;
+    }
+
+    let finalNote = customNote.trim();
+    if (isRental && (startTime || endTime)) {
+      const timeInfo = `[Waktu Sewa: ${startTime || "12:00"} s/d ${endTime || "15:00"} WIB]`;
+      finalNote = finalNote ? `${timeInfo} ${finalNote}` : timeInfo;
+    }
+
     setLoading(true);
     await addToCart(product, selectedVariantId || undefined, qty, {
-      ...(customNote.trim() ? { customNote: customNote.trim() } : {}),
+      ...(finalNote ? { customNote: finalNote } : {}),
       ...(bookingDate ? { bookingDate } : {}),
-      ...(bookingEndDate ? { bookingEndDate } : {}),
+      ...(effectiveEndDate ? { bookingEndDate: effectiveEndDate } : {}),
     });
     setLoading(false);
   };
@@ -139,32 +164,70 @@ export function ProductDetailInteractive({
         </div>
       </div>
 
-      {/* Rental Booking Dates */}
+      {/* Rental Booking Dates & Time */}
       {isRental && (
         <div className="option-group rental-dates-box">
-          <label className="option-label">
-            <Calendar size={16} /> Jadwal Sewa Unit Papan Ucapan:
+          <label className="option-label" style={{ fontWeight: 700, color: "var(--rose)" }}>
+            <Calendar size={16} /> Waktu & Jadwal Sewa Papan Ucapan:
           </label>
-          <div className="date-inputs">
+
+          <div className="date-inputs" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginTop: "6px" }}>
             <div>
-              <small>Tanggal Mulai / Acara:</small>
+              <small style={{ fontWeight: 600, display: "block", marginBottom: "4px" }}>Tanggal Mulai / Acara *</small>
               <input
                 type="date"
-                min={new Date().toISOString().split("T")[0]}
+                min={minDate || undefined}
                 value={bookingDate}
-                onChange={(e) => setBookingDate(e.target.value)}
+                onChange={(e) => {
+                  setBookingDate(e.target.value);
+                  if (!bookingEndDate || bookingEndDate < e.target.value) {
+                    setBookingEndDate(e.target.value);
+                  }
+                }}
+                style={{ width: "100%", padding: "8px 10px", borderRadius: "8px", border: "1px solid #ddd" }}
               />
             </div>
             <div>
-              <small>Tanggal Selesai (Opsional):</small>
+              <small style={{ fontWeight: 600, display: "block", marginBottom: "4px" }}>Tanggal Selesai (Sama / Harian)</small>
               <input
                 type="date"
-                min={bookingDate || new Date().toISOString().split("T")[0]}
+                min={bookingDate || minDate || undefined}
                 value={bookingEndDate}
                 onChange={(e) => setBookingEndDate(e.target.value)}
+                style={{ width: "100%", padding: "8px 10px", borderRadius: "8px", border: "1px solid #ddd" }}
               />
             </div>
           </div>
+
+          <div className="time-inputs" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginTop: "10px" }}>
+            <div>
+              <small style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: "4px", marginBottom: "4px" }}>
+                <Clock size={13} /> Harus Sampai Lokasi:
+              </small>
+              <input
+                type="time"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+                style={{ width: "100%", padding: "8px 10px", borderRadius: "8px", border: "1px solid #ddd" }}
+              />
+            </div>
+            <div>
+              <small style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: "4px", marginBottom: "4px" }}>
+                <Clock size={13} /> Selesai (Maks 18:00):
+              </small>
+              <input
+                type="time"
+                value={endTime}
+                max="18:00"
+                onChange={(e) => setEndTime(e.target.value)}
+                style={{ width: "100%", padding: "8px 10px", borderRadius: "8px", border: "1px solid #ddd" }}
+              />
+            </div>
+          </div>
+
+          <small style={{ color: "#777", fontSize: "11px", display: "block", marginTop: "8px", lineHeight: "1.4" }}>
+            💡 Sewa papan ucapan bisa harian atau per jam (misal jam 12:00 di lokasi & selesai jam 15:00 WIB). Penarikan papan dilakukan maksimal jam 18:00 WIB.
+          </small>
         </div>
       )}
 

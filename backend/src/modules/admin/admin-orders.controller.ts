@@ -20,6 +20,7 @@ import {
   OrderListQueryDto,
   ReassignBoardDto,
   RefundDoneDto,
+  UpdateOrderStatusDto,
 } from '../orders/dto/orders.dto';
 
 @ApiTags('admin-orders')
@@ -105,5 +106,14 @@ export class AdminOrdersController {
     @Body() dto: ReassignBoardDto,
   ) {
     return this.ordersService.reassignBoard(id, dto);
+  }
+
+  @Put(':id/status')
+  @ApiOperation({ summary: 'Manually change order status' })
+  updateStatus(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateOrderStatusDto,
+  ) {
+    return this.ordersService.updateStatus(id, dto);
   }
 }

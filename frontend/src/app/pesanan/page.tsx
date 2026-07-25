@@ -3,7 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { ArrowRight, Clock, PackageCheck, ShoppingBag } from 'lucide-react';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { fetchMyOrders } from '@/lib/api';
 import { useSeliStore } from '@/lib/store';
 import type { OrderListItem, OrderStatus } from '@/lib/types';
@@ -38,15 +38,32 @@ export function getStatusBadge(status: OrderStatus) {
 }
 
 export default function CustomerOrdersPage() {
+  const [mounted, setMounted] = useState(false);
   const user = useSeliStore((state) => state.user);
   const setAuthOpen = useSeliStore((state) => state.setAuthOpen);
   const [selectedStatus, setSelectedStatus] = useState<string>('');
 
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const currentUser = mounted ? user : null;
+
   const { data: orders = [], isLoading } = useQuery<OrderListItem[]>({
     queryKey: ['my-orders', selectedStatus],
     queryFn: () => fetchMyOrders(1, selectedStatus || undefined),
-    enabled: !!user,
+    enabled: !!currentUser,
   });
+
+  if (!mounted) {
+    return (
+      <main className="simple-page shell">
+        <div className="empty-state">
+          <p>Memuat riwayat pesanan...</p>
+        </div>
+      </main>
+    );
+  }
 
   if (!user) {
     return (

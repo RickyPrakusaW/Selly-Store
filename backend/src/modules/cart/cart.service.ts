@@ -79,10 +79,10 @@ export class CartService {
     if (dto.bookingEndDate)
       bookingEndDate = this.parseFutureDate(dto.bookingEndDate);
     if (bookingDate && !bookingEndDate)
-      bookingEndDate = this.nextDate(bookingDate);
-    if (bookingDate && bookingEndDate && bookingEndDate <= bookingDate)
+      bookingEndDate = bookingDate;
+    if (bookingDate && bookingEndDate && bookingEndDate < bookingDate)
       throw new BadRequestException(
-        'Tanggal selesai sewa harus setelah tanggal mulai sewa',
+        'Tanggal selesai sewa tidak boleh sebelum tanggal mulai sewa',
       );
     if (item.product.category.slug === BOARD_CATEGORY && !bookingDate)
       throw new BadRequestException(
@@ -152,11 +152,11 @@ export class CartService {
     const bookingEndDate = bookingDate
       ? dto.bookingEndDate
         ? this.parseFutureDate(dto.bookingEndDate)
-        : this.nextDate(bookingDate)
+        : bookingDate
       : null;
-    if (bookingDate && bookingEndDate && bookingEndDate <= bookingDate)
+    if (bookingDate && bookingEndDate && bookingEndDate < bookingDate)
       throw new BadRequestException(
-        'Tanggal selesai sewa harus setelah tanggal mulai sewa',
+        'Tanggal selesai sewa tidak boleh sebelum tanggal mulai sewa',
       );
     return {
       productId: dto.productId,

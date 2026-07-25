@@ -33,3 +33,8 @@ export class RefundDoneDto {
 export class ReassignBoardDto {
   @IsUUID() boardId!: string;
 }
+
+export class UpdateOrderStatusDto {
+  @IsEnum(OrderStatus) status!: OrderStatus;
+  @IsOptional() @IsString() @MaxLength(2000) note?: string;
+}

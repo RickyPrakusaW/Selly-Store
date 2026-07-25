@@ -8,7 +8,7 @@ import {
   TrendingUp,
   Wallet,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { exportReport, fetchChartData, fetchReportSummary } from "@/lib/api";
 import type { ChartDataPoint, ReportSummary } from "@/lib/types";
 
@@ -18,19 +18,33 @@ const rupiah = new Intl.NumberFormat("id-ID", {
   maximumFractionDigits: 0,
 });
 
-export default function AdminReportsPage() {
-  const today = new Date();
-  const firstDay = new Date(today.getFullYear(), today.getMonth(), 1)
-    .toISOString()
-    .slice(0, 10);
-  const lastDay = today.toISOString().slice(0, 10);
+const formatLocalDate = (d: Date) => {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
 
-  const [from, setFrom] = useState(firstDay);
-  const [to, setTo] = useState(lastDay);
+export default function AdminReportsPage() {
+  const [mounted, setMounted] = useState(false);
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+
+  useEffect(() => {
+    const today = new Date();
+    const firstDay = formatLocalDate(
+      new Date(today.getFullYear(), today.getMonth(), 1)
+    );
+    const lastDay = formatLocalDate(today);
+    setFrom(firstDay);
+    setTo(lastDay);
+    setMounted(true);
+  }, []);
 
   const { data: summary } = useQuery<ReportSummary>({
     queryKey: ["report-summary", from, to],
     queryFn: () => fetchReportSummary(from, to),
+    enabled: mounted && Boolean(from) && Boolean(to),
   });
 
   const { data: chartData = [], isLoading: loadingChart } = useQuery<
@@ -38,6 +52,7 @@ export default function AdminReportsPage() {
   >({
     queryKey: ["report-chart", from, to],
     queryFn: () => fetchChartData(from, to),
+    enabled: mounted && Boolean(from) && Boolean(to),
   });
 
   const handleExport = () => {
@@ -46,7 +61,10 @@ export default function AdminReportsPage() {
   };
 
   // Find max revenue for scaling chart bars
-  const maxVal = Math.max(...chartData.map((d) => d.revenue), 100000);
+  const maxVal = Math.max(
+    ...chartData.map((d) => Number(d.revenue ?? 0)),
+    100000
+  );
 
   return (
     <div className="admin-reports-page">
@@ -141,23 +159,28 @@ export default function AdminReportsPage() {
         ) : (
           <div className="chart-bar-container">
             {chartData.map((dp, idx) => {
-              const revPct = Math.round((dp.revenue / maxVal) * 100);
-              const profitPct = Math.round((dp.profit / maxVal) * 100);
+              const periodStr = dp.period || dp.date || "";
+              const revenueVal = Number(dp.revenue ?? 0);
+              const profitVal = Number(dp.profit ?? dp.grossProfit ?? 0);
+              const revPct = Math.round((revenueVal / maxVal) * 100);
+              const profitPct = Math.round((profitVal / maxVal) * 100);
               return (
                 <div key={idx} className="chart-bar-column">
                   <div className="chart-bars-wrap">
                     <div
                       className="chart-bar revenue-bar"
                       style={{ height: `${Math.max(5, revPct)}%` }}
-                      title={`Revenue: ${rupiah.format(dp.revenue)}`}
+                      title={`Revenue: ${rupiah.format(revenueVal)}`}
                     />
                     <div
                       className="chart-bar profit-bar"
                       style={{ height: `${Math.max(5, profitPct)}%` }}
-                      title={`Profit: ${rupiah.format(dp.profit)}`}
+                      title={`Profit: ${rupiah.format(profitVal)}`}
                     />
                   </div>
-                  <span className="chart-label">{dp.date.slice(5)}</span>
+                  <span className="chart-label">
+                    {periodStr.length > 5 ? periodStr.slice(5) : periodStr}
+                  </span>
                 </div>
               );
             })}

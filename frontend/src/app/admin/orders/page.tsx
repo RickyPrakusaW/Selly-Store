@@ -11,6 +11,7 @@ import {
   adminProcess,
   adminReassignBoard,
   adminReject,
+  adminUpdateStatus,
   adminVerifyDp,
   adminVerifyFinal,
   fetchBoards,
@@ -31,11 +32,13 @@ export default function AdminOrdersPage() {
   const [selectedStatus, setSelectedStatus] = useState<string>("");
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [actionModal, setActionModal] = useState<
-    "reject" | "cancel" | "reassign" | null
+    "reject" | "cancel" | "reassign" | "status" | null
   >(null);
   const [rejectReason, setRejectReason] = useState("");
   const [cancelReason, setCancelReason] = useState("");
   const [selectedBoardId, setSelectedBoardId] = useState("");
+  const [newStatus, setNewStatus] = useState("");
+  const [statusNote, setStatusNote] = useState("");
   const [processing, setProcessing] = useState(false);
 
   const {
@@ -189,6 +192,25 @@ export default function AdminOrdersPage() {
         err instanceof Error
           ? err.message
           : "Gagal mengalokasikan ulang unit papan",
+        "error",
+      );
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleConfirmUpdateStatus = async () => {
+    if (!selectedOrder || !newStatus) return;
+    setProcessing(true);
+    try {
+      await adminUpdateStatus(selectedOrder.id, newStatus, statusNote);
+      showToast("Status pesanan berhasil diubah!");
+      setActionModal(null);
+      handleOpenDetail(selectedOrder.id);
+      refetch();
+    } catch (err) {
+      showToast(
+        err instanceof Error ? err.message : "Gagal mengubah status pesanan",
         "error",
       );
     } finally {
@@ -560,17 +582,33 @@ export default function AdminOrdersPage() {
                 Alokasikan Ulang Unit Sewa
               </button>
 
-              {selectedOrder.status === "FULLY_PAID" && (
+              <button
+                className="secondary-button"
+                style={{ borderColor: "var(--rose)", color: "var(--rose)" }}
+                onClick={() => {
+                  setNewStatus(selectedOrder.status);
+                  setStatusNote("");
+                  setActionModal("status");
+                }}
+              >
+                Ubah Status Manual
+              </button>
+
+              {["DP_VERIFIED", "PENDING_FINAL_PAYMENT", "FULLY_PAID"].includes(
+                selectedOrder.status,
+              ) && (
                 <button
                   className="primary-button compact"
                   disabled={processing}
                   onClick={() => void handleProcessOrder(selectedOrder.id)}
                 >
-                  Mulai Proses
+                  Mulai Proses Pengerjaan
                 </button>
               )}
 
-              {selectedOrder.status === "PROCESSING" && (
+              {(selectedOrder.status === "FULLY_PAID" ||
+                (selectedOrder.status === "PROCESSING" &&
+                  Number(selectedOrder.remainingAmount ?? 0) === 0)) && (
                 <button
                   className="primary-button compact success"
                   disabled={processing}
@@ -684,6 +722,67 @@ export default function AdminOrdersPage() {
                 onClick={() => void handleConfirmReassign()}
               >
                 Simpan Alokasi Unit
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {actionModal === "status" && selectedOrder && (
+        <div className="modal-backdrop" onClick={() => setActionModal(null)}>
+          <div className="auth-card" onClick={(e) => e.stopPropagation()}>
+            <h3>Ubah Status Pesanan Manual</h3>
+            <p style={{ fontSize: "13px", color: "#666" }}>
+              Pilih status baru untuk pesanan <strong>#{selectedOrder.id.slice(0, 8).toUpperCase()}</strong> (Customer: {selectedOrder.customerName}):
+            </p>
+
+            <div style={{ marginTop: "12px" }}>
+              <label style={{ fontSize: "12px", fontWeight: 600, display: "block", marginBottom: "4px" }}>
+                Status Baru:
+              </label>
+              <select
+                className="admin-select"
+                style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #ccc" }}
+                value={newStatus}
+                onChange={(e) => setNewStatus(e.target.value)}
+              >
+                <option value="PENDING_PAYMENT">PENDING_PAYMENT (Menunggu DP)</option>
+                <option value="DP_VERIFIED">DP_VERIFIED (DP 50% Diverifikasi)</option>
+                <option value="PENDING_FINAL_PAYMENT">PENDING_FINAL_PAYMENT (Menunggu Pelunasan)</option>
+                <option value="FULLY_PAID">FULLY_PAID (Lunas 100%)</option>
+                <option value="PROCESSING">PROCESSING (Diproses)</option>
+                <option value="COMPLETED">COMPLETED (Selesai)</option>
+                <option value="CANCELLED">CANCELLED (Dibatalkan)</option>
+                <option value="REJECTED">REJECTED (Ditolak)</option>
+              </select>
+            </div>
+
+            <div style={{ marginTop: "12px" }}>
+              <label style={{ fontSize: "12px", fontWeight: 600, display: "block", marginBottom: "4px" }}>
+                Catatan Perubahan Admin (Opsional):
+              </label>
+              <input
+                type="text"
+                placeholder="Misal: Koreksi pesanan batal/tolak atas permintaan pembeli"
+                value={statusNote}
+                onChange={(e) => setStatusNote(e.target.value)}
+                style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #ccc" }}
+              />
+            </div>
+
+            <div className="modal-actions-row" style={{ marginTop: "16px", display: "flex", gap: "8px", justifyContent: "flex-end" }}>
+              <button
+                className="secondary-button"
+                onClick={() => setActionModal(null)}
+              >
+                Batal
+              </button>
+              <button
+                className="primary-button compact"
+                disabled={processing || !newStatus}
+                onClick={() => void handleConfirmUpdateStatus()}
+              >
+                Simpan Perubahan Status
               </button>
             </div>
           </div>

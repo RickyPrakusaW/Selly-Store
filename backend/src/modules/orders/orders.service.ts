@@ -28,6 +28,7 @@ import {
   OrderListQueryDto,
   ReassignBoardDto,
   RefundDoneDto,
+  UpdateOrderStatusDto,
 } from './dto/orders.dto';
 
 @Injectable()
@@ -371,12 +372,19 @@ export class OrdersService {
           where: { id: orderId },
           include: { items: { include: { product: true } } },
         });
-        const completable: OrderStatus[] = [
-          OrderStatus.FULLY_PAID,
-          OrderStatus.PROCESSING,
-        ];
-        if (!order || !completable.includes(order.status))
-          throw new ConflictException('Order cannot be completed');
+        if (!order) throw new ConflictException('Order not found');
+
+        const isFullyPaid =
+          order.status === OrderStatus.FULLY_PAID ||
+          (order.remainingAmount &&
+            new Prisma.Decimal(order.remainingAmount).equals(0));
+
+        if (!isFullyPaid) {
+          throw new ConflictException(
+            'Pesanan hanya dapat diselesaikan (COMPLETED) setelah pelunasan diverifikasi / lunas',
+          );
+        }
+
         if (!order.stockReservationClosed) {
           for (const item of order.items) {
             if (item.product.stockType === StockType.READY_STOCK) {
@@ -400,13 +408,18 @@ export class OrdersService {
   }
 
   async process(orderId: string) {
+    const processable: OrderStatus[] = [
+      OrderStatus.DP_VERIFIED,
+      OrderStatus.PENDING_FINAL_PAYMENT,
+      OrderStatus.FULLY_PAID,
+    ];
     const result = await this.prisma.order.updateMany({
-      where: { id: orderId, status: OrderStatus.FULLY_PAID },
+      where: { id: orderId, status: { in: processable } },
       data: { status: OrderStatus.PROCESSING },
     });
     if (!result.count) {
       throw new ConflictException(
-        'Pesanan hanya dapat diproses setelah pembayaran lunas',
+        'Pesanan hanya dapat diproses setelah DP (50%) atau pembayaran diverifikasi',
       );
     }
     return this.prisma.order.findUniqueOrThrow({ where: { id: orderId } });
@@ -478,6 +491,33 @@ export class OrdersService {
       `Refund for order ${orderId} has been transferred.`,
     );
     return result;
+  }
+
+  async updateStatus(orderId: string, dto: UpdateOrderStatusDto) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+    });
+    if (!order) throw new NotFoundException('Pesanan tidak ditemukan');
+
+    const isCancelledOrRejected =
+      dto.status === OrderStatus.CANCELLED || dto.status === OrderStatus.REJECTED;
+
+    const isCompleted = dto.status === OrderStatus.COMPLETED;
+
+    return this.prisma.order.update({
+      where: { id: orderId },
+      data: {
+        status: dto.status,
+        ...(isCancelledOrRejected
+          ? {
+              cancelledAt: new Date(),
+              cancelledBy: CancelledBy.ADMIN,
+              ...(dto.note ? { adminCancelNote: dto.note } : {}),
+            }
+          : {}),
+        ...(isCompleted ? { stockReservationClosed: true } : {}),
+      },
+    });
   }
 
   private sendMailInBackground(to: string, subject: string, text: string) {

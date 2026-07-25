@@ -271,6 +271,9 @@ export class CheckoutService {
         snapshot.product.category.slug === 'papan_ucapan' &&
         snapshot.item.bookingDate
       ) {
+        const bookingEndDay = new Date(
+          snapshot.item.bookingEndDate!.getTime() + 24 * 60 * 60 * 1000,
+        );
         for (let count = 0; count < snapshot.item.qty; count += 1) {
           const board = await tx.boardInventory.findFirst({
             where: {
@@ -278,7 +281,7 @@ export class CheckoutService {
               deletedAt: null,
               bookings: {
                 none: {
-                  bookingStart: { lt: snapshot.item.bookingEndDate! },
+                  bookingStart: { lt: bookingEndDay },
                   bookingEnd: { gt: snapshot.item.bookingDate },
                   status: {
                     in: [BookingStatus.SOFT_LOCKED, BookingStatus.CONFIRMED],
@@ -296,7 +299,7 @@ export class CheckoutService {
             data: {
               boardId: board.id,
               bookingStart: snapshot.item.bookingDate,
-              bookingEnd: snapshot.item.bookingEndDate!,
+              bookingEnd: bookingEndDay,
               status: BookingStatus.SOFT_LOCKED,
               userId,
               orderId: order.id,
@@ -319,16 +322,16 @@ export class CheckoutService {
       const bookingEndDate = bookingDate
         ? item.bookingEndDate
           ? new Date(`${item.bookingEndDate.slice(0, 10)}T00:00:00.000Z`)
-          : new Date(bookingDate.getTime() + 24 * 60 * 60 * 1000)
+          : bookingDate
         : null;
       if (
         bookingDate &&
         bookingDate < new Date(new Date().toISOString().slice(0, 10))
       )
         throw new BadRequestException('Booking date cannot be in the past');
-      if (bookingDate && bookingEndDate && bookingEndDate <= bookingDate)
+      if (bookingDate && bookingEndDate && bookingEndDate < bookingDate)
         throw new BadRequestException(
-          'bookingEndDate must be after bookingDate',
+          'bookingEndDate cannot be before bookingDate',
         );
       const key = `${item.productId}:${item.variantId ?? ''}:${bookingDate?.toISOString() ?? ''}:${bookingEndDate?.toISOString() ?? ''}`;
       if (keys.has(key))

@@ -303,9 +303,12 @@ export type ReportSummary = {
 };
 
 export type ChartDataPoint = {
-  date: string;
+  date?: string;
+  period?: string;
   revenue: number;
-  cost: number;
-  profit: number;
+  cost?: number;
+  hpp?: number;
+  profit?: number;
+  grossProfit?: number;
   orders: number;
 };

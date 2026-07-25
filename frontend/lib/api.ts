@@ -395,6 +395,13 @@ export function adminReassignBoard(id: string, boardId: string) {
   });
 }
 
+export function adminUpdateStatus(id: string, status: string, note?: string) {
+  return apiRequest(`/admin/orders/${id}/status`, {
+    method: "PUT",
+    body: JSON.stringify({ status, note }),
+  });
+}
+
 /* ═══════════════════════════════════════════
    BOOKING
    ═══════════════════════════════════════════ */

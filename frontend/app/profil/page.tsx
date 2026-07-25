@@ -14,6 +14,7 @@ import { useSeliStore } from "@/lib/store";
 
 export default function ProfilePage() {
   const router = useRouter();
+  const [mounted, setMounted] = useState(false);
   const user = useSeliStore((state) => state.user);
   const setUser = useSeliStore((state) => state.setUser);
   const logoutUser = useSeliStore((state) => state.logoutUser);
@@ -25,6 +26,10 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   /* eslint-disable react-hooks/set-state-in-effect -- synchronize editable form when the authenticated user loads */
   useEffect(() => {
     if (user) {
@@ -33,6 +38,16 @@ export default function ProfilePage() {
     }
   }, [user]);
   /* eslint-enable react-hooks/set-state-in-effect */
+
+  if (!mounted) {
+    return (
+      <main className="simple-page shell">
+        <div className="empty-state">
+          <p>Memuat profil...</p>
+        </div>
+      </main>
+    );
+  }
 
   if (!user) {
     return (
