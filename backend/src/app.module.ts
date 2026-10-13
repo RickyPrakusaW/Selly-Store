@@ -27,6 +27,7 @@ import { BlacklistModule } from './modules/blacklist/blacklist.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { JobsModule } from './jobs/jobs.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { PaymentsModule } from './modules/payments/payments.module';
 
 function validateConfig(config: Record<string, unknown>) {
   const required = [
@@ -77,6 +78,7 @@ function validateConfig(config: Record<string, unknown>) {
     NotificationsModule,
     AdminModule,
     JobsModule,
+    PaymentsModule,
   ],
   controllers: [AppController],
   providers: [

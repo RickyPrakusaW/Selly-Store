@@ -45,13 +45,14 @@ async function bootstrap() {
         !origin ||
         process.env.NODE_ENV !== 'production' ||
         allowedOrigins.has(origin) ||
-        /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)(:\d+)?$/.test(origin)
+        /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)(:\d+)?$/.test(
+          origin,
+        )
       ) {
         return callback(null, true);
       }
       return callback(new Error('Origin is not allowed by CORS'), false);
     },
-
   });
   app.useGlobalPipes(
     new SanitizationPipe(),
@@ -68,7 +69,9 @@ async function bootstrap() {
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Seli Florist API')
-    .setDescription('Structural API contracts for the Seli Florist storefront and admin portal.')
+    .setDescription(
+      'Structural API contracts for the Seli Florist storefront and admin portal.',
+    )
     .setVersion('1.0')
     .addBearerAuth()
     .build();

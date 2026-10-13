@@ -1,10 +1,9 @@
 import { Body, Controller, Post } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
-import { ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { VerifiedOnly } from '../../common/decorators/verified-only.decorator';
 import type { JwtUser } from '../../common/guards/jwt-user.interface';
-import { StubEntityDto, stubEntity } from '../../common/dto/api-contract.dto';
 import { CheckoutService } from './checkout.service';
 import { CheckoutDto, EstimateShippingDto } from './dto/checkout.dto';
 
@@ -23,10 +22,7 @@ export class CheckoutController {
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post()
   @ApiOperation({ summary: 'Create checkout order' })
-  checkout(
-    @CurrentUser() user: JwtUser,
-    @Body() dto: CheckoutDto,
-  ) {
+  checkout(@CurrentUser() user: JwtUser, @Body() dto: CheckoutDto) {
     return this.checkoutService.checkout(user.id, dto);
   }
 }

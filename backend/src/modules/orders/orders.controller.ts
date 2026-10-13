@@ -7,10 +7,9 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
-import { ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import type { JwtUser } from '../../common/guards/jwt-user.interface';
-import { StubEntityDto, StubListDto, stubEntity, stubList } from '../../common/dto/api-contract.dto';
 import { OrdersService } from './orders.service';
 import { CancelOrderDto, OrderListQueryDto } from './dto/orders.dto';
 
@@ -21,19 +20,13 @@ export class OrdersController {
 
   @Get('orders/my')
   @ApiOperation({ summary: 'List current customer orders' })
-  mine(
-    @CurrentUser() user: JwtUser,
-    @Query() query: OrderListQueryDto,
-  ) {
+  mine(@CurrentUser() user: JwtUser, @Query() query: OrderListQueryDto) {
     return this.orders.listMine(user.id, query);
   }
 
   @Get('orders/my/:id')
   @ApiOperation({ summary: 'Get customer order detail' })
-  detail(
-    @CurrentUser() user: JwtUser,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  detail(@CurrentUser() user: JwtUser, @Param('id', ParseUUIDPipe) id: string) {
     return this.orders.getMine(user.id, id);
   }
 
@@ -54,5 +47,4 @@ export class OrdersController {
   ) {
     return this.orders.cancelByCustomer(user.id, id, dto.reason);
   }
-
 }

@@ -8,13 +8,22 @@ import {
   UserRound,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useState, useSyncExternalStore } from "react";
 import { updateProfile } from "@/lib/api";
 import { useSeliStore } from "@/lib/store";
 
+const emptySubscribe = () => () => {};
+function useMounted() {
+  return useSyncExternalStore(
+    emptySubscribe,
+    () => true,
+    () => false,
+  );
+}
+
 export default function ProfilePage() {
   const router = useRouter();
-  const [mounted, setMounted] = useState(false);
+  const mounted = useMounted();
   const user = useSeliStore((state) => state.user);
   const setUser = useSeliStore((state) => state.setUser);
   const logoutUser = useSeliStore((state) => state.logoutUser);
@@ -25,10 +34,6 @@ export default function ProfilePage() {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   /* eslint-disable react-hooks/set-state-in-effect -- synchronize editable form when the authenticated user loads */
   useEffect(() => {

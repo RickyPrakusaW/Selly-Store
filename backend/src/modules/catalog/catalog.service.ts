@@ -55,7 +55,6 @@ export class CatalogService implements OnModuleInit {
     }
   }
 
-
   async listCategories() {
     return this.prisma.category.findMany({
       where: { deletedAt: null, isActive: true },

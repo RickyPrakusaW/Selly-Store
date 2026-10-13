@@ -4,7 +4,10 @@ import type { ApiEnvelope, Category, Product } from "@/lib/types";
 
 async function catalog<T>(path: string): Promise<T[]> {
   try {
-    const response = await fetch(`${API_URL}${path}`, { cache: "no-store" });
+    const response = await fetch(`${API_URL}${path}`, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(3000),
+    });
     if (!response.ok) return [];
     const body = (await response.json()) as ApiEnvelope<T[]>;
     return body.data;

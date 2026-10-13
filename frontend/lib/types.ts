@@ -128,6 +128,7 @@ export type CheckoutPayload = EstimateOngkirPayload & {
   recipientPhone: string;
   customTextRequest?: string;
   items?: CheckoutItemPayload[];
+  replacePending?: boolean;
 };
 
 export type EstimateOngkirResult = {

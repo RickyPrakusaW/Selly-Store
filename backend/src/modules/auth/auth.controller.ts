@@ -73,7 +73,11 @@ export class AuthController {
         </body>
         </html>
       `);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : 'Akun Anda sudah aktif atau tautan tidak dapat digunakan lagi.';
       return res.type('text/html').send(`
         <!DOCTYPE html>
         <html lang="id">
@@ -92,7 +96,7 @@ export class AuthController {
         <body>
           <div class="card">
             <h1>Informasi Verifikasi</h1>
-            <p>${err.message || 'Akun Anda sudah aktif atau tautan tidak dapat digunakan lagi.'}</p>
+            <p>${message}</p>
             <a href="${process.env.FRONTEND_URL ?? 'http://localhost:3001'}" class="btn">Kembali ke Seli Florist</a>
           </div>
         </body>

@@ -2,21 +2,20 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  AlertTriangle,
   Eye,
-  Grid,
-  ImagePlus,
-  List,
-  Package,
-  PenLine,
+  FloppyDisk,
+  ImageSquare,
+  MagnifyingGlass,
+  PencilSimple,
   Plus,
-  Save,
-  Search,
-  Tags,
-  Trash2,
-  Upload,
+  Rows,
+  SquaresFour,
+  Tag,
+  Trash,
+  UploadSimple,
+  Warning,
   X,
-} from "lucide-react";
+} from "@phosphor-icons/react";
 import Link from "next/link";
 import { FormEvent, useState } from "react";
 import {
@@ -32,7 +31,6 @@ import {
   resolveImageUrl,
 } from "@/lib/api";
 import { announceCatalogChange } from "@/lib/catalog-events";
-
 import { useSeliStore } from "@/lib/store";
 import type { Category, Product } from "@/lib/types";
 
@@ -88,7 +86,7 @@ export default function AdminCatalogPage() {
     queryKey: ["admin-categories"],
     queryFn: fetchCategories,
     staleTime: 0,
-    refetchInterval: 3000,
+    refetchInterval: 5000,
   });
 
   const { data: products = [], refetch: refetchProducts } = useQuery<Product[]>(
@@ -96,7 +94,7 @@ export default function AdminCatalogPage() {
       queryKey: ["admin-products"],
       queryFn: () => fetchProducts(),
       staleTime: 0,
-      refetchInterval: 3000,
+      refetchInterval: 5000,
     },
   );
 
@@ -215,7 +213,7 @@ export default function AdminCatalogPage() {
     setLoading(true);
     try {
       await adminUploadProductImage(productId, uploadFile, true);
-      showToast("Gambar produk berhasil diunggah");
+      showToast("Foto produk berhasil diunggah");
       setUploadFile(null);
       await queryClient.invalidateQueries({ queryKey: ["admin-products"] });
       await queryClient.invalidateQueries({ queryKey: ["products"] });
@@ -227,7 +225,7 @@ export default function AdminCatalogPage() {
       announceCatalogChange();
     } catch (err) {
       showToast(
-        err instanceof Error ? err.message : "Gagal mengunggah gambar",
+        err instanceof Error ? err.message : "Gagal mengunggah foto",
         "error",
       );
     } finally {
@@ -236,10 +234,10 @@ export default function AdminCatalogPage() {
   };
 
   const handleDeleteImage = async (productId: string, imageId: string) => {
-    if (!confirm("Hapus gambar produk ini?")) return;
+    if (!confirm("Hapus foto produk ini?")) return;
     try {
       await adminDeleteProductImage(productId, imageId);
-      showToast("Gambar dihapus");
+      showToast("Foto produk dihapus");
       await queryClient.invalidateQueries({ queryKey: ["admin-products"] });
       await queryClient.invalidateQueries({ queryKey: ["products"] });
       const refreshed = await refetchProducts();
@@ -250,7 +248,7 @@ export default function AdminCatalogPage() {
       announceCatalogChange();
     } catch (err) {
       showToast(
-        err instanceof Error ? err.message : "Gagal menghapus gambar",
+        err instanceof Error ? err.message : "Gagal menghapus foto",
         "error",
       );
     }
@@ -266,7 +264,7 @@ export default function AdminCatalogPage() {
         slug: catSlug.toLowerCase().replace(/\s+/g, "_"),
         ...(catDesc ? { description: catDesc } : {}),
       });
-      showToast("Kategori baru berhasil dibuat");
+      showToast("Kategori baru berhasil ditambahkan");
       setCatName("");
       setCatSlug("");
       setCatDesc("");
@@ -282,10 +280,10 @@ export default function AdminCatalogPage() {
   };
 
   const handleDeleteCategory = async (id: string) => {
-    if (!confirm("Hapus kategori ini?")) return;
+    if (!confirm("Hapus kategori ini? Pastikan tidak ada produk terkait.")) return;
     try {
       await adminDeleteCategory(id);
-      showToast("Kategori dihapus");
+      showToast("Kategori berhasil dihapus");
       refetchCategories();
     } catch (err) {
       showToast(
@@ -296,404 +294,467 @@ export default function AdminCatalogPage() {
   };
 
   return (
-    <div className="admin-catalog-page">
+    <div className="admin-page-wrap">
+      {/* ─── Header ─── */}
       <header className="admin-page-header">
         <div>
-          <h1>Kelola Katalog &amp; Stok Produk</h1>
+          <h1>Katalog Bunga &amp; Manajemen Stok</h1>
           <p>
-            Kelola daftar produk, ubah stok, atur gambar produk, dan kelola
-            kategori.
+            Kelola inventaris buket bunga, papan ucapan, stok siap kirim, foto etalase, dan kategori produk.
           </p>
         </div>
-        <Link href="/admin/catalog/new" className="primary-button">
-          <Plus size={18} /> Tambah Produk Baru
-        </Link>
+        <div className="admin-header-actions">
+          <Link href="/admin/catalog/new" className="atelier-btn-primary">
+            <Plus size={16} weight="bold" />
+            <span>Tambah Produk Baru</span>
+          </Link>
+        </div>
       </header>
 
-      {/* Tabs */}
-      <div className="category-strip filter-tabs">
-        <button
-          className={activeTab === "products" ? "active" : ""}
-          onClick={() => setActiveTab("products")}
-        >
-          <Package size={16} /> Kelola Produk ({products.length})
-        </button>
-        <button
-          className={activeTab === "categories" ? "active" : ""}
-          onClick={() => setActiveTab("categories")}
-        >
-          <Tags size={16} /> Kelola Kategori ({categories.length})
-        </button>
-      </div>
+      {/* ─── Segmented Tabs: Produk vs Kategori ─── */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
+        <div className="atelier-segmented-tabs">
+          <button
+            type="button"
+            className={`atelier-tab-btn ${activeTab === "products" ? "active" : ""}`}
+            onClick={() => setActiveTab("products")}
+          >
+            Koleksi Produk ({products.length})
+          </button>
+          <button
+            type="button"
+            className={`atelier-tab-btn ${activeTab === "categories" ? "active" : ""}`}
+            onClick={() => setActiveTab("categories")}
+          >
+            Kategori ({categories.length})
+          </button>
+        </div>
 
-      {/* PRODUCTS TAB */}
-      {activeTab === "products" && (
-        <div className="admin-table-card full-width">
-          <div className="table-header-toolbar">
-            <h3>Daftar Seluruh Produk ({filteredProducts.length})</h3>
-            <div style={{ display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
-              <div className="filter-tabs" style={{ margin: 0 }}>
-                <button
-                  className={viewMode === "cards" ? "active" : ""}
-                  onClick={() => setViewMode("cards")}
-                >
-                  <Grid size={15} /> Card View
-                </button>
-                <button
-                  className={viewMode === "table" ? "active" : ""}
-                  onClick={() => setViewMode("table")}
-                >
-                  <List size={15} /> Table View
-                </button>
-              </div>
+        {activeTab === "products" && (
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <div className="atelier-segmented-tabs">
+              <button
+                type="button"
+                className={`atelier-tab-btn ${viewMode === "cards" ? "active" : ""}`}
+                onClick={() => setViewMode("cards")}
+                title="Tampilan Galeri Kartu"
+              >
+                <SquaresFour size={16} weight="regular" />
+              </button>
+              <button
+                type="button"
+                className={`atelier-tab-btn ${viewMode === "table" ? "active" : ""}`}
+                onClick={() => setViewMode("table")}
+                title="Tampilan Tabel Rinci"
+              >
+                <Rows size={16} weight="regular" />
+              </button>
+            </div>
 
-              <label className="header-search compact">
-                <Search size={16} />
-                <input
-                  type="text"
-                  placeholder="Cari nama produk / kategori..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </label>
+            <div className="atelier-search-box">
+              <MagnifyingGlass size={16} weight="regular" />
+              <input
+                type="text"
+                className="atelier-search-input"
+                placeholder="Cari nama produk / kategori..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
             </div>
           </div>
+        )}
+      </div>
 
-          {viewMode === "cards" ? (
-            <div className="product-cards-grid">
+      {/* ─── TAB 1: PRODUK ─── */}
+      {activeTab === "products" && (
+        <>
+          {filteredProducts.length === 0 ? (
+            <div className="atelier-panel">
+              <div style={{ padding: "56px 20px", textAlign: "center", color: "var(--admin-muted)" }}>
+                <Tag size={36} weight="light" style={{ margin: "0 auto 8px", color: "var(--admin-border)" }} />
+                <strong style={{ display: "block", color: "var(--admin-ink)", fontSize: "14px" }}>
+                  Tidak ada produk ditemukan
+                </strong>
+                <p style={{ margin: "4px 0 0", fontSize: "12px" }}>
+                  Ganti kata kunci pencarian atau klik &quot;Tambah Produk Baru&quot;.
+                </p>
+              </div>
+            </div>
+          ) : viewMode === "cards" ? (
+            /* Cards View */
+            <div className="admin-products-grid">
               {filteredProducts.map((prod) => {
                 const rawImg =
                   prod.images?.find((i) => i.isPrimary)?.imageUrl ??
                   prod.images?.[0]?.imageUrl;
                 const imgUrl = resolveImageUrl(rawImg);
+
                 return (
                   <div
                     key={prod.id}
-                    className="product-admin-card"
+                    className="admin-product-card"
                     onClick={() => openViewProduct(prod)}
+                    style={{ cursor: "pointer" }}
                   >
-                    <div className="card-image-wrap">
+                    <div className="admin-prod-img-wrap">
                       {imgUrl ? (
                         /* eslint-disable-next-line @next/next/no-img-element */
                         <img
                           src={imgUrl}
                           alt={prod.name}
-                          className="card-thumb"
                           onError={(e) => {
                             e.currentTarget.onerror = null;
                             e.currentTarget.style.display = "none";
                           }}
                         />
                       ) : (
-                        <div className="card-no-img">No Image</div>
+                        <div style={{ width: "100%", height: "100%", display: "grid", placeItems: "center", color: "var(--admin-muted)", fontSize: "12px", background: "var(--admin-surface-muted)" }}>
+                          Tanpa Foto
+                        </div>
                       )}
-                      <span className="stock-type-tag floating-badge">
-                        {prod.stockType === "READY_STOCK" && "Ready"}
-                        {prod.stockType === "PRE_ORDER" &&
-                          `PO (${prod.poDays ?? 3}d)`}
+                      <span
+                        className={`status-badge-pill ${
+                          prod.stockType === "READY_STOCK"
+                            ? "badge-green"
+                            : prod.stockType === "PRE_ORDER"
+                            ? "badge-orange"
+                            : "badge-blue"
+                        }`}
+                        style={{
+                          position: "absolute",
+                          top: "10px",
+                          right: "10px",
+                          boxShadow: "0 2px 6px rgba(0,0,0,0.06)",
+                          fontSize: "10px",
+                        }}
+                      >
+                        {prod.stockType === "READY_STOCK" && "Ready Stock"}
+                        {prod.stockType === "PRE_ORDER" && `PO (${prod.poDays ?? 3}h)`}
                         {prod.stockType === "RENTAL_UNIT" && "Rental"}
                       </span>
                     </div>
 
-                    <div className="card-body">
-                      <span className="card-category">
-                        {prod.category?.name ?? "Tanpa Kategori"}
+                    <div className="admin-prod-body">
+                      <span style={{ fontSize: "11px", color: "var(--admin-muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                        {prod.category?.name ?? "Koleksi Toko"}
                       </span>
-                      <h4 className="card-title">{prod.name}</h4>
+                      <strong className="admin-prod-title">{prod.name}</strong>
 
-                      <div className="card-price-row">
-                        <span className="card-price">
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "2px" }}>
+                        <span className="admin-prod-price">
                           {rupiah.format(Number(prod.basePrice))}
                         </span>
-                        <span className="card-stock">
-                          {prod.availableQty ?? 0} unit
-                        </span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void handleUpdateStock(prod.id, prod.availableQty ?? 0);
+                          }}
+                          className="atelier-btn-secondary compact"
+                          style={{
+                            padding: "3px 8px",
+                            fontSize: "11px",
+                            color: (prod.availableQty ?? 0) <= 5 ? "#991b2b" : "var(--admin-ink)",
+                            borderColor: (prod.availableQty ?? 0) <= 5 ? "#facbcf" : "var(--admin-border)",
+                            background: (prod.availableQty ?? 0) <= 5 ? "#fdf2f2" : "#ffffff",
+                          }}
+                          title="Klik untuk ubah stok cepat"
+                        >
+                          <span>{prod.availableQty ?? 0} unit</span>
+                          <PencilSimple size={11} weight="bold" />
+                        </button>
                       </div>
-                    </div>
 
-                    <div
-                      className="card-footer-actions"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <button
-                        className="table-action-btn compact"
-                        onClick={() => openViewProduct(prod)}
-                        title="Lihat Detail"
-                      >
-                        <Eye size={13} /> Lihat
-                      </button>
-                      <button
-                        className="table-action-btn compact"
-                        onClick={() => openViewProduct(prod, true)}
-                        title="Edit Produk"
-                      >
-                        <PenLine size={13} /> Edit
-                      </button>
-                      <button
-                        className="table-action-btn compact"
-                        onClick={() => setSelectedProduct(prod)}
-                        title="Kelola Foto"
-                      >
-                        <ImagePlus size={13} /> Foto
-                      </button>
-                      <button
-                        className="table-action-btn compact danger"
-                        onClick={() => confirmDeleteProduct(prod)}
-                        title="Hapus Produk"
-                      >
-                        <Trash2 size={13} /> Hapus
-                      </button>
+                      <div className="admin-prod-footer" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          className="atelier-btn-secondary compact"
+                          onClick={() => openViewProduct(prod, true)}
+                          title="Edit Produk"
+                        >
+                          <PencilSimple size={13} weight="bold" />
+                          <span>Edit</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="atelier-btn-secondary compact"
+                          onClick={() => setSelectedProduct(prod)}
+                          title="Kelola Foto"
+                        >
+                          <ImageSquare size={13} weight="bold" />
+                          <span>Foto</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="atelier-btn-danger compact"
+                          onClick={() => confirmDeleteProduct(prod)}
+                          title="Hapus Produk"
+                        >
+                          <Trash size={13} weight="bold" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );
               })}
             </div>
           ) : (
-            <table className="admin-table">
-              <thead>
-                <tr>
-                  <th>Gambar</th>
-                  <th>Produk &amp; Kategori</th>
-                  <th>Tipe Stok</th>
-                  <th>Harga Jual</th>
-                  <th>Stok Tersedia</th>
-                  <th>Aksi</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredProducts.map((prod) => {
-                  const rawImg =
-                    prod.images?.find((i) => i.isPrimary)?.imageUrl ??
-                    prod.images?.[0]?.imageUrl;
-                  const imgUrl = resolveImageUrl(rawImg);
-                  return (
-                    <tr key={prod.id}>
-                      <td>
-                        {imgUrl ? (
-                          /* eslint-disable-next-line @next/next/no-img-element */
-                          <img
-                            src={imgUrl}
-                            alt={prod.name}
-                            className="admin-table-thumb"
-                            onError={(e) => {
-                              e.currentTarget.onerror = null;
-                              e.currentTarget.style.display = "none";
-                            }}
-                          />
-                        ) : (
-                          <span className="text-muted">No Image</span>
-                        )}
-                      </td>
+            /* Table View */
+            <div className="atelier-table-wrap">
+              <table className="atelier-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: "64px" }}>Foto</th>
+                    <th>Nama Produk &amp; Kategori</th>
+                    <th>Tipe Stok</th>
+                    <th>Harga Jual</th>
+                    <th>Stok Tersedia</th>
+                    <th style={{ textAlign: "right" }}>Aksi</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredProducts.map((prod) => {
+                    const rawImg =
+                      prod.images?.find((i) => i.isPrimary)?.imageUrl ??
+                      prod.images?.[0]?.imageUrl;
+                    const imgUrl = resolveImageUrl(rawImg);
 
-                      <td>
-                        <strong
-                          style={{ cursor: "pointer", color: "var(--rose)" }}
-                          onClick={() => openViewProduct(prod)}
-                        >
-                          {prod.name}
-                        </strong>
-                        <br />
-                        <small className="text-muted">
-                          {prod.category?.name ?? "Tanpa Kategori"}
-                        </small>
-                      </td>
-                      <td>
-                        <span className="stock-type-tag">
-                          {prod.stockType === "READY_STOCK" && "Ready Stock"}
-                          {prod.stockType === "PRE_ORDER" &&
-                            `PO (${prod.poDays ?? 3} hr)`}
-                          {prod.stockType === "RENTAL_UNIT" && "Papan Rental"}
-                        </span>
-                      </td>
-                      <td>
-                        <strong>{rupiah.format(Number(prod.basePrice))}</strong>
-                      </td>
-                      <td>
-                        <button
-                          className="text-btn"
-                          onClick={() =>
-                            void handleUpdateStock(
-                              prod.id,
-                              prod.availableQty ?? 0,
-                            )
-                          }
-                          title="Klik untuk ubah stok"
-                        >
-                          {prod.availableQty ?? 0} unit{" "}
-                          <PenLine size={13} aria-hidden="true" />
-                        </button>
-                      </td>
-                      <td>
-                        <div className="action-buttons-cell">
-                          <button
-                            className="table-action-btn"
+                    return (
+                      <tr key={prod.id}>
+                        <td>
+                          {imgUrl ? (
+                            /* eslint-disable-next-line @next/next/no-img-element */
+                            <img
+                              src={imgUrl}
+                              alt={prod.name}
+                              style={{ width: "48px", height: "48px", objectFit: "cover", borderRadius: "8px", border: "1px solid var(--admin-border)" }}
+                              onError={(e) => {
+                                e.currentTarget.onerror = null;
+                                e.currentTarget.style.display = "none";
+                              }}
+                            />
+                          ) : (
+                            <div style={{ width: "48px", height: "48px", borderRadius: "8px", background: "var(--admin-surface-muted)", display: "grid", placeItems: "center", fontSize: "10px", color: "var(--admin-muted)" }}>
+                              N/A
+                            </div>
+                          )}
+                        </td>
+                        <td>
+                          <strong
+                            style={{ color: "var(--admin-rose)", cursor: "pointer", fontSize: "13px" }}
                             onClick={() => openViewProduct(prod)}
                           >
-                            <Eye size={14} /> Lihat
-                          </button>
+                            {prod.name}
+                          </strong>
+                          <small style={{ display: "block", color: "var(--admin-muted)", fontSize: "11px" }}>
+                            {prod.category?.name ?? "Tanpa Kategori"}
+                          </small>
+                        </td>
+                        <td>
+                          <span className="status-badge-pill tag-neutral">
+                            {prod.stockType === "READY_STOCK" && "Ready Stock"}
+                            {prod.stockType === "PRE_ORDER" && `PO (${prod.poDays ?? 3} hari)`}
+                            {prod.stockType === "RENTAL_UNIT" && "Rental Papan"}
+                          </span>
+                        </td>
+                        <td>
+                          <strong style={{ fontVariantNumeric: "tabular-nums" }}>
+                            {rupiah.format(Number(prod.basePrice))}
+                          </strong>
+                        </td>
+                        <td>
                           <button
-                            className="table-action-btn"
-                            onClick={() => openViewProduct(prod, true)}
+                            type="button"
+                            className="atelier-btn-secondary compact"
+                            onClick={() => void handleUpdateStock(prod.id, prod.availableQty ?? 0)}
+                            title="Klik untuk ubah stok cepat"
                           >
-                            <PenLine size={14} /> Edit
+                            <span>{prod.availableQty ?? 0} unit</span>
+                            <PencilSimple size={12} weight="bold" />
                           </button>
-                          <button
-                            className="table-action-btn"
-                            onClick={() => setSelectedProduct(prod)}
-                          >
-                            <ImagePlus size={14} /> Foto
-                          </button>
-                          <button
-                            className="table-action-btn danger"
-                            onClick={() => confirmDeleteProduct(prod)}
-                          >
-                            <Trash2 size={14} /> Hapus
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                        </td>
+                        <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                          <div style={{ display: "inline-flex", gap: "6px" }}>
+                            <button
+                              type="button"
+                              className="atelier-btn-secondary compact"
+                              onClick={() => openViewProduct(prod, true)}
+                            >
+                              <PencilSimple size={13} weight="bold" />
+                              <span>Edit</span>
+                            </button>
+                            <button
+                              type="button"
+                              className="atelier-btn-secondary compact"
+                              onClick={() => setSelectedProduct(prod)}
+                            >
+                              <ImageSquare size={13} weight="bold" />
+                              <span>Foto</span>
+                            </button>
+                            <button
+                              type="button"
+                              className="atelier-btn-danger compact"
+                              onClick={() => confirmDeleteProduct(prod)}
+                            >
+                              <Trash size={13} weight="bold" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           )}
-        </div>
+        </>
       )}
 
-      {/* CATEGORIES TAB */}
+      {/* ─── TAB 2: KATEGORI ─── */}
       {activeTab === "categories" && (
-        <div className="admin-two-cols">
-          <form
-            className="admin-card-form"
-            onSubmit={(e) => void handleCreateCategory(e)}
-          >
-            <h3>Buat Kategori Baru</h3>
-            <label>
-              Nama Kategori *
-              <input
-                required
-                value={catName}
-                onChange={(e) => {
-                  setCatName(e.target.value);
-                  setCatSlug(e.target.value.toLowerCase().replace(/\s+/g, "_"));
-                }}
-                placeholder="Buket Bunga Segar"
-              />
-            </label>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1.3fr", gap: "20px" }}>
+          {/* Add Category Form */}
+          <div className="atelier-panel">
+            <div className="atelier-panel-header">
+              <h2 className="atelier-panel-title">Tambah Kategori Baru</h2>
+            </div>
+            <form onSubmit={(e) => void handleCreateCategory(e)} style={{ padding: "20px", display: "flex", flexDirection: "column", gap: "14px" }}>
+              <div className="atelier-form-group">
+                <label className="atelier-form-label">Nama Kategori *</label>
+                <input
+                  required
+                  className="atelier-form-input"
+                  value={catName}
+                  onChange={(e) => {
+                    setCatName(e.target.value);
+                    setCatSlug(e.target.value.toLowerCase().replace(/\s+/g, "_"));
+                  }}
+                  placeholder="Contoh: Buket Bunga Meja"
+                />
+              </div>
 
-            <label>
-              Slug Kategori *
-              <input
-                required
-                value={catSlug}
-                onChange={(e) => setCatSlug(e.target.value)}
-                placeholder="buket_bunga"
-              />
-            </label>
+              <div className="atelier-form-group">
+                <label className="atelier-form-label">Slug Sistem *</label>
+                <input
+                  required
+                  className="atelier-form-input"
+                  value={catSlug}
+                  onChange={(e) => setCatSlug(e.target.value)}
+                  placeholder="buket_bunga_meja"
+                />
+              </div>
 
-            <label>
-              Deskripsi Kategori
-              <textarea
-                rows={2}
-                value={catDesc}
-                onChange={(e) => setCatDesc(e.target.value)}
-              />
-            </label>
+              <div className="atelier-form-group">
+                <label className="atelier-form-label">Deskripsi Singkat</label>
+                <textarea
+                  rows={2}
+                  className="atelier-form-textarea"
+                  value={catDesc}
+                  onChange={(e) => setCatDesc(e.target.value)}
+                  placeholder="Koleksi rangkaian bunga segar untuk hiasan meja..."
+                />
+              </div>
 
-            <button type="submit" className="primary-button" disabled={loading}>
-              <Plus size={16} /> {loading ? "Membuat…" : "Tambah Kategori"}
-            </button>
-          </form>
+              <button
+                type="submit"
+                className="atelier-btn-primary"
+                disabled={loading}
+                style={{ alignSelf: "flex-start", marginTop: "4px" }}
+              >
+                <Plus size={16} weight="bold" />
+                <span>{loading ? "Menyimpan…" : "Simpan Kategori"}</span>
+              </button>
+            </form>
+          </div>
 
-          <div className="admin-table-card">
-            <h3>Daftar Kategori</h3>
-            <table className="admin-table">
-              <thead>
-                <tr>
-                  <th>Nama Kategori</th>
-                  <th>Slug</th>
-                  <th>Aksi</th>
-                </tr>
-              </thead>
-              <tbody>
-                {categories.map((c) => (
-                  <tr key={c.id}>
-                    <td>
-                      <strong>{c.name}</strong>
-                    </td>
-                    <td>
-                      <code>{c.slug}</code>
-                    </td>
-                    <td>
-                      <button
-                        className="table-action-btn danger"
-                        onClick={() => void handleDeleteCategory(c.id)}
-                      >
-                        <Trash2 size={14} /> Hapus
-                      </button>
-                    </td>
+          {/* Categories List */}
+          <div className="atelier-panel">
+            <div className="atelier-panel-header">
+              <h2 className="atelier-panel-title">Daftar Kategori Aktif</h2>
+            </div>
+            <div className="atelier-table-wrap" style={{ border: "none", borderRadius: 0 }}>
+              <table className="atelier-table">
+                <thead>
+                  <tr>
+                    <th>Nama</th>
+                    <th>Slug</th>
+                    <th style={{ textAlign: "right" }}>Aksi</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {categories.map((c) => (
+                    <tr key={c.id}>
+                      <td>
+                        <strong>{c.name}</strong>
+                      </td>
+                      <td>
+                        <code style={{ fontSize: "11.5px", color: "var(--admin-muted)" }}>{c.slug}</code>
+                      </td>
+                      <td style={{ textAlign: "right" }}>
+                        <button
+                          type="button"
+                          className="atelier-btn-danger compact"
+                          onClick={() => void handleDeleteCategory(c.id)}
+                        >
+                          <Trash size={13} weight="bold" />
+                          <span>Hapus</span>
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}
 
-      {/* View & Edit Product Modal */}
+      {/* ─── MODAL: View & Edit Product ─── */}
       {viewProduct && (
         <div
-          className="modal-backdrop"
+          className="admin-modal-backdrop"
           onClick={() => {
             if (!savingEdit) setViewProduct(null);
           }}
+          aria-modal="true"
+          role="dialog"
         >
-          <section
-            className="catalog-image-modal"
-            style={{ maxWidth: "600px", width: "92%" }}
-            role="dialog"
-            aria-modal="true"
+          <div
+            className="admin-modal-card"
+            style={{ maxWidth: "580px" }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="catalog-modal-header">
+            <div className="admin-modal-header">
               <div>
-                <h2>{isEditing ? "Edit Data Produk" : "Detail Produk"}</h2>
-                <p>{viewProduct.name}</p>
+                <h3 style={{ margin: 0 }}>{isEditing ? "Edit Rincian Produk" : "Pratinjau Produk"}</h3>
+                <small style={{ color: "var(--admin-muted)", fontSize: "12px" }}>{viewProduct.name}</small>
               </div>
               <button
                 type="button"
-                className="catalog-modal-close"
+                className="admin-modal-close-btn"
                 onClick={() => setViewProduct(null)}
               >
-                <X size={19} />
+                <X size={18} weight="bold" />
               </button>
             </div>
 
             {isEditing ? (
-              <form
-                onSubmit={(e) => void handleSaveProductEdit(e)}
-                className="admin-card-form"
-                style={{ padding: 0, border: "none", boxShadow: "none" }}
-              >
-                <label>
-                  Nama Produk *
+              <form onSubmit={(e) => void handleSaveProductEdit(e)} className="admin-modal-body">
+                <div className="atelier-form-group">
+                  <label className="atelier-form-label">Nama Produk *</label>
                   <input
                     required
+                    className="atelier-form-input"
                     value={editName}
                     onChange={(e) => setEditName(e.target.value)}
                   />
-                </label>
+                </div>
 
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gap: "12px",
-                  }}
-                >
-                  <label>
-                    Kategori
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                  <div className="atelier-form-group">
+                    <label className="atelier-form-label">Kategori</label>
                     <select
+                      className="atelier-form-select"
                       value={editCategoryId}
                       onChange={(e) => setEditCategoryId(e.target.value)}
                     >
@@ -704,86 +765,79 @@ export default function AdminCatalogPage() {
                         </option>
                       ))}
                     </select>
-                  </label>
+                  </div>
 
-                  <label>
-                    Tipe Stok *
+                  <div className="atelier-form-group">
+                    <label className="atelier-form-label">Tipe Stok *</label>
                     <select
+                      className="atelier-form-select"
                       value={editStockType}
                       onChange={(e) =>
                         setEditStockType(
-                          e.target.value as
-                            | "READY_STOCK"
-                            | "PRE_ORDER"
-                            | "RENTAL_UNIT",
+                          e.target.value as "READY_STOCK" | "PRE_ORDER" | "RENTAL_UNIT",
                         )
                       }
                     >
                       <option value="READY_STOCK">Ready Stock</option>
                       <option value="PRE_ORDER">Pre Order (PO)</option>
-                      <option value="RENTAL_UNIT">Unit Rental / Sewa</option>
+                      <option value="RENTAL_UNIT">Rental Unit</option>
                     </select>
-                  </label>
+                  </div>
                 </div>
 
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gap: "12px",
-                  }}
-                >
-                  <label>
-                    Harga Jual (IDR) *
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                  <div className="atelier-form-group">
+                    <label className="atelier-form-label">Harga Jual (IDR) *</label>
                     <input
                       type="number"
                       required
                       min={0}
+                      className="atelier-form-input"
                       value={editBasePrice}
                       onChange={(e) => setEditBasePrice(e.target.value)}
                     />
-                  </label>
+                  </div>
 
-                  <label>
-                    Jumlah Stok Tersedia *
+                  <div className="atelier-form-group">
+                    <label className="atelier-form-label">Jumlah Stok *</label>
                     <input
                       type="number"
                       required
                       min={0}
+                      className="atelier-form-input"
                       value={editStockQty}
                       onChange={(e) => setEditStockQty(e.target.value)}
                     />
-                  </label>
+                  </div>
                 </div>
 
                 {editStockType === "PRE_ORDER" && (
-                  <label>
-                    Estimasi Pengerjaan PO (Hari)
+                  <div className="atelier-form-group">
+                    <label className="atelier-form-label">Estimasi Pengerjaan PO (Hari)</label>
                     <input
                       type="number"
                       min={1}
+                      className="atelier-form-input"
                       value={editPoDays}
                       onChange={(e) => setEditPoDays(e.target.value)}
                     />
-                  </label>
+                  </div>
                 )}
 
-                <label>
-                  Deskripsi Produk
+                <div className="atelier-form-group">
+                  <label className="atelier-form-label">Deskripsi Rangkaian Bunga</label>
                   <textarea
                     rows={3}
+                    className="atelier-form-textarea"
                     value={editDescription}
                     onChange={(e) => setEditDescription(e.target.value)}
                   />
-                </label>
+                </div>
 
-                <div
-                  className="modal-actions-row"
-                  style={{ marginTop: "16px" }}
-                >
+                <div className="admin-modal-footer" style={{ margin: "8px -20px -20px -20px" }}>
                   <button
                     type="button"
-                    className="btn-secondary-flat"
+                    className="atelier-btn-secondary compact"
                     onClick={() => setIsEditing(false)}
                     disabled={savingEdit}
                   >
@@ -791,312 +845,260 @@ export default function AdminCatalogPage() {
                   </button>
                   <button
                     type="submit"
-                    className="btn-primary-maroon"
+                    className="atelier-btn-primary compact"
                     disabled={savingEdit}
                   >
-                    <Save size={16} />{" "}
-                    {savingEdit ? "Menyimpan…" : "Simpan Perubahan"}
+                    <FloppyDisk size={14} weight="bold" />
+                    <span>{savingEdit ? "Menyimpan…" : "Simpan Perubahan"}</span>
                   </button>
                 </div>
               </form>
             ) : (
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "16px",
-                }}
-              >
-                <div
-                  style={{ display: "flex", gap: "16px", alignItems: "center" }}
-                >
+              <div className="admin-modal-body">
+                <div style={{ display: "flex", gap: "16px", alignItems: "center" }}>
                   {viewProduct.images?.length ? (
                     /* eslint-disable-next-line @next/next/no-img-element */
                     <img
                       src={resolveImageUrl(
                         viewProduct.images.find((i) => i.isPrimary)?.imageUrl ??
-                          viewProduct.images[0].imageUrl,
+                          viewProduct.images[0]?.imageUrl,
                       )}
                       alt={viewProduct.name}
                       style={{
-                        width: "90px",
-                        height: "90px",
+                        width: "88px",
+                        height: "88px",
                         objectFit: "cover",
-                        borderRadius: "14px",
-                        border: "1px solid var(--line, #eee)",
+                        borderRadius: "10px",
+                        border: "1px solid var(--admin-border)",
                       }}
                     />
                   ) : (
-                    <div
-                      style={{
-                        width: "90px",
-                        height: "90px",
-                        background: "#f5f5f5",
-                        borderRadius: "14px",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: "12px",
-                        color: "#888",
-                      }}
-                    >
-                      No Image
+                    <div style={{ width: "88px", height: "88px", background: "var(--admin-surface-muted)", borderRadius: "10px", display: "grid", placeItems: "center", fontSize: "11px", color: "var(--admin-muted)" }}>
+                      Tanpa Foto
                     </div>
                   )}
 
                   <div>
-                    <h3
-                      style={{
-                        margin: "0 0 4px",
-                        fontSize: "18px",
-                        color: "var(--rose, #801b38)",
-                      }}
-                    >
+                    <h4 style={{ margin: "0 0 4px", fontSize: "17px", color: "var(--admin-rose)" }}>
                       {viewProduct.name}
-                    </h3>
-                    <p
-                      style={{
-                        margin: "0 0 6px",
-                        fontSize: "13px",
-                        color: "var(--muted, #666)",
-                      }}
-                    >
+                    </h4>
+                    <p style={{ margin: "0 0 6px", fontSize: "12.5px", color: "var(--admin-muted)" }}>
                       Kategori: {viewProduct.category?.name ?? "Tanpa Kategori"}
                     </p>
-                    <div
-                      style={{
-                        display: "flex",
-                        gap: "10px",
-                        alignItems: "center",
-                        flexWrap: "wrap",
-                      }}
-                    >
-                      <span className="stock-type-tag">
-                        {viewProduct.stockType === "READY_STOCK" &&
-                          "Ready Stock"}
-                        {viewProduct.stockType === "PRE_ORDER" &&
-                          `PO (${viewProduct.poDays ?? 3} hr)`}
-                        {viewProduct.stockType === "RENTAL_UNIT" &&
-                          "Papan Rental"}
-                      </span>
-                      <strong
-                        style={{
-                          fontSize: "16px",
-                          color: "var(--rose, #801b38)",
-                        }}
-                      >
-                        {rupiah.format(Number(viewProduct.basePrice))}
-                      </strong>
-                    </div>
+                    <strong style={{ fontSize: "16px", color: "var(--admin-ink)" }}>
+                      {rupiah.format(Number(viewProduct.basePrice))}
+                    </strong>
                   </div>
                 </div>
 
-                <div
-                  style={{
-                    background: "#faf5f6",
-                    padding: "14px 16px",
-                    borderRadius: "14px",
-                    fontSize: "13px",
-                    lineHeight: "1.5",
-                  }}
-                >
-                  <div>
-                    <strong>Stok Tersedia:</strong>{" "}
-                    {viewProduct.availableQty ?? 0} unit
-                  </div>
+                <div style={{ background: "var(--admin-surface-muted)", padding: "12px 14px", borderRadius: "10px", fontSize: "13px" }}>
+                  <div><strong>Stok:</strong> {viewProduct.availableQty ?? 0} unit</div>
                   {viewProduct.description && (
-                    <div style={{ marginTop: "8px" }}>
-                      <strong>Deskripsi Produk:</strong>
-                      <p
-                        style={{
-                          margin: "4px 0 0",
-                          color: "#444",
-                          whiteSpace: "pre-line",
-                        }}
-                      >
-                        {viewProduct.description}
-                      </p>
-                    </div>
+                    <p style={{ margin: "8px 0 0", color: "var(--admin-muted)", fontSize: "12.5px" }}>
+                      {viewProduct.description}
+                    </p>
                   )}
                 </div>
 
-                <div
-                  className="modal-actions-row"
-                  style={{ marginTop: "12px", gap: "8px" }}
-                >
+                <div className="admin-modal-footer" style={{ margin: "8px -20px -20px -20px" }}>
                   <button
                     type="button"
-                    className="table-action-btn danger"
-                    onClick={() => {
-                      const prod = viewProduct;
-                      setViewProduct(null);
-                      confirmDeleteProduct(prod);
-                    }}
-                  >
-                    <Trash2 size={15} /> Hapus
-                  </button>
-                  <button
-                    type="button"
-                    className="table-action-btn"
+                    className="atelier-btn-secondary compact"
                     onClick={() => {
                       const prod = viewProduct;
                       setViewProduct(null);
                       setSelectedProduct(prod);
                     }}
                   >
-                    <ImagePlus size={15} /> Kelola Foto
+                    <ImageSquare size={14} weight="bold" />
+                    <span>Kelola Foto</span>
                   </button>
                   <button
                     type="button"
-                    className="btn-primary-maroon"
+                    className="atelier-btn-primary compact"
                     onClick={() => setIsEditing(true)}
                   >
-                    <PenLine size={15} /> Edit Data Produk
+                    <PencilSimple size={14} weight="bold" />
+                    <span>Edit Data</span>
                   </button>
                 </div>
               </div>
             )}
-          </section>
+          </div>
         </div>
       )}
 
-      {/* Image Upload Modal */}
+      {/* ─── MODAL: Foto Produk ─── */}
       {selectedProduct && (
         <div
-          className="modal-backdrop"
+          className="admin-modal-backdrop"
           onClick={() => setSelectedProduct(null)}
+          aria-modal="true"
+          role="dialog"
         >
-          <section
-            className="catalog-image-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="image-modal-title"
+          <div
+            className="admin-modal-card"
+            style={{ maxWidth: "540px" }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="catalog-modal-header">
+            <div className="admin-modal-header">
               <div>
-                <h2 id="image-modal-title">Foto Produk</h2>
-                <p>{selectedProduct.name}</p>
+                <h3 style={{ margin: 0 }}>Galeri Foto Produk</h3>
+                <small style={{ color: "var(--admin-muted)", fontSize: "12px" }}>{selectedProduct.name}</small>
               </div>
               <button
                 type="button"
-                className="catalog-modal-close"
-                aria-label="Tutup pengelola foto"
+                className="admin-modal-close-btn"
                 onClick={() => setSelectedProduct(null)}
               >
-                <X size={19} />
+                <X size={18} weight="bold" />
               </button>
             </div>
 
-            <div className="existing-images-grid">
-              {selectedProduct.images?.map((img) => (
-                <div key={img.id} className="image-preview-chip">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={resolveImageUrl(img.imageUrl)}
-                    alt="Produk"
-                    className="admin-modal-thumb"
-                  />
-                  <button
-                    className="delete-chip-btn"
-                    aria-label={`Hapus foto ${selectedProduct.name}`}
-                    onClick={() =>
-                      void handleDeleteImage(selectedProduct.id, img.id)
-                    }
+            <div className="admin-modal-body">
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(100px, 1fr))", gap: "10px" }}>
+                {selectedProduct.images?.map((img) => (
+                  <div
+                    key={img.id}
+                    style={{
+                      position: "relative",
+                      aspectRatio: "1",
+                      borderRadius: "10px",
+                      overflow: "hidden",
+                      border: "1px solid var(--admin-border)",
+                    }}
                   >
-                    <Trash2 size={16} />
-                  </button>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={resolveImageUrl(img.imageUrl)}
+                      alt="Produk"
+                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                    />
+                    <button
+                      type="button"
+                      aria-label="Hapus foto"
+                      style={{
+                        position: "absolute",
+                        top: "5px",
+                        right: "5px",
+                        width: "24px",
+                        height: "24px",
+                        borderRadius: "50%",
+                        background: "rgba(153, 27, 43, 0.9)",
+                        color: "#fff",
+                        border: "none",
+                        display: "grid",
+                        placeItems: "center",
+                        cursor: "pointer",
+                      }}
+                      onClick={() => void handleDeleteImage(selectedProduct.id, img.id)}
+                    >
+                      <Trash size={12} weight="bold" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              {(!selectedProduct.images || selectedProduct.images.length === 0) && (
+                <div style={{ padding: "24px", textAlign: "center", color: "var(--admin-muted)", background: "var(--admin-surface-muted)", borderRadius: "8px", fontSize: "12.5px" }}>
+                  Belum ada foto yang diunggah untuk produk ini.
                 </div>
-              ))}
-              {!selectedProduct.images?.length && (
-                <p className="clean-empty-note">
-                  Produk ini belum memiliki foto.
-                </p>
               )}
+
+              <div style={{ borderTop: "1px solid var(--admin-border)", paddingTop: "14px" }}>
+                <label className="atelier-form-label" style={{ marginBottom: "6px", display: "block" }}>
+                  Unggah Foto Baru
+                </label>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
+                  style={{ fontSize: "12.5px" }}
+                />
+                <small style={{ display: "block", color: "var(--admin-muted)", fontSize: "11px", marginTop: "4px" }}>
+                  Format JPG, PNG, atau WEBP (Maksimal 5MB)
+                </small>
+              </div>
             </div>
 
-            <label className="file-input-label catalog-file-input">
-              <Upload size={20} aria-hidden="true" />
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
-              />
-              <span>{uploadFile ? uploadFile.name : "Pilih Foto Baru"}</span>
-              <small>JPG, PNG, atau WEBP, maksimal 5MB</small>
-            </label>
-
-            <div className="modal-actions-row">
+            <div className="admin-modal-footer">
               <button
-                className="btn-secondary-flat"
+                type="button"
+                className="atelier-btn-secondary compact"
                 onClick={() => setSelectedProduct(null)}
               >
                 Tutup
               </button>
               <button
-                className="btn-primary-maroon"
+                type="button"
+                className="atelier-btn-primary compact"
                 disabled={loading || !uploadFile}
                 onClick={() => void handleUploadImage(selectedProduct.id)}
               >
-                <Upload size={16} /> {loading ? "Mengunggah..." : "Unggah Foto"}
+                <UploadSimple size={14} weight="bold" />
+                <span>{loading ? "Mengunggah…" : "Unggah Foto"}</span>
               </button>
             </div>
-          </section>
+          </div>
         </div>
       )}
 
+      {/* ─── MODAL: Hapus Produk ─── */}
       {productToDelete && (
         <div
-          className="modal-backdrop"
+          className="admin-modal-backdrop"
           onClick={() => {
             if (!deletingProduct) setProductToDelete(null);
           }}
+          aria-modal="true"
+          role="dialog"
         >
-          <section
-            className="catalog-image-modal catalog-delete-modal"
-            role="alertdialog"
-            aria-modal="true"
-            aria-labelledby="delete-product-title"
-            aria-describedby="delete-product-description"
-            onClick={(event) => event.stopPropagation()}
+          <div
+            className="admin-modal-card"
+            style={{ maxWidth: "460px" }}
+            onClick={(e) => e.stopPropagation()}
           >
-            <div className="delete-modal-icon" aria-hidden="true">
-              <AlertTriangle size={22} />
-            </div>
-            <div>
-              <h2 id="delete-product-title">Hapus produk?</h2>
-              <p className="delete-product-name">{productToDelete.name}</p>
-            </div>
-            <div
-              id="delete-product-description"
-              className="delete-policy-note"
-            >
-              <strong>Pembersihan aman otomatis</strong>
-              <p>
-                Produk tanpa riwayat transaksi akan dihapus permanen. Produk yang memiliki riwayat
-                transaksi akan diarsipkan agar laporan tetap akurat.
-              </p>
-            </div>
-
-            <div className="delete-confirm-box">
-              <label htmlFor="delete-confirm-input">
-                Untuk konfirmasi penghapusan, ketik kata <strong>delete</strong> di bawah ini:
-              </label>
-              <input
-                id="delete-confirm-input"
-                type="text"
-                placeholder="Ketik 'delete'"
-                value={deleteConfirmText}
-                onChange={(e) => setDeleteConfirmText(e.target.value)}
-                disabled={deletingProduct}
-                autoComplete="off"
-              />
-            </div>
-
-            <div className="modal-actions-row">
+            <div className="admin-modal-header">
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <Warning size={20} weight="fill" style={{ color: "#b91c1c" }} />
+                <h3 style={{ margin: 0, color: "#991b2b" }}>Hapus Produk</h3>
+              </div>
               <button
                 type="button"
-                className="btn-secondary-flat"
+                className="admin-modal-close-btn"
+                onClick={() => setProductToDelete(null)}
+              >
+                <X size={18} weight="bold" />
+              </button>
+            </div>
+
+            <div className="admin-modal-body">
+              <p style={{ margin: 0, fontSize: "13px" }}>
+                Apakah Anda yakin ingin menghapus produk <strong>{productToDelete.name}</strong>?
+              </p>
+              <div style={{ padding: "10px 12px", background: "var(--admin-surface-muted)", borderRadius: "8px", fontSize: "12px", color: "var(--admin-muted)" }}>
+                Produk tanpa riwayat transaksi akan dihapus permanen. Produk yang memiliki transaksi akan diarsipkan agar rekap pembukuan tetap valid.
+              </div>
+
+              <div className="atelier-form-group">
+                <label className="atelier-form-label">
+                  Ketik <strong>delete</strong> untuk konfirmasi:
+                </label>
+                <input
+                  type="text"
+                  className="atelier-form-input"
+                  placeholder="Ketik 'delete'"
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  disabled={deletingProduct}
+                />
+              </div>
+            </div>
+
+            <div className="admin-modal-footer">
+              <button
+                type="button"
+                className="atelier-btn-secondary compact"
                 disabled={deletingProduct}
                 onClick={() => setProductToDelete(null)}
               >
@@ -1104,18 +1106,18 @@ export default function AdminCatalogPage() {
               </button>
               <button
                 type="button"
-                className="btn-danger-solid"
+                className="atelier-btn-danger compact"
                 disabled={
                   deletingProduct ||
                   deleteConfirmText.trim().toLowerCase() !== "delete"
                 }
                 onClick={() => void handleDeleteProduct()}
               >
-                <Trash2 size={16} />
-                {deletingProduct ? "Memproses..." : "Hapus Produk"}
+                <Trash size={14} weight="bold" />
+                <span>{deletingProduct ? "Menghapus…" : "Hapus Produk"}</span>
               </button>
             </div>
-          </section>
+          </div>
         </div>
       )}
     </div>

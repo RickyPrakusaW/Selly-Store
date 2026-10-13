@@ -1,7 +1,13 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Check, Plus, Trash2, Upload } from "lucide-react";
+import {
+  ArrowLeft,
+  Check,
+  Plus,
+  Trash,
+  UploadSimple,
+} from "@phosphor-icons/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
@@ -164,331 +170,342 @@ export default function AdminNewProductPage() {
   };
 
   return (
-    <div className="admin-page-container">
-      {/* Header Bar */}
-      <header className="admin-page-header flex-between">
+    <div className="admin-page-wrap">
+      {/* ─── Header ─── */}
+      <header className="admin-page-header">
         <div>
-          <Link href="/admin/catalog" className="back-link-btn">
-            <ArrowLeft size={15} /> Kembali ke Katalog
+          <Link
+            href="/admin/catalog"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              color: "var(--admin-muted)",
+              fontSize: "12.5px",
+              fontWeight: 600,
+              marginBottom: "8px",
+            }}
+          >
+            <ArrowLeft size={14} weight="bold" />
+            <span>Kembali ke Katalog</span>
           </Link>
-          <h1 className="page-title-text">Tambah Produk Baru</h1>
+          <h1>Tambah Produk Baru</h1>
+          <p>
+            Daftarkan buket bunga, papan ucapan, atau item hampers baru ke dalam katalog toko online Seli Florist.
+          </p>
         </div>
-        <div className="header-actions">
-          <Link href="/admin/catalog" className="btn-secondary-flat">
+        <div className="admin-header-actions">
+          <Link href="/admin/catalog" className="atelier-btn-secondary">
             Batal
           </Link>
           <button
             type="submit"
             form="new-product-form"
-            className="btn-primary-maroon"
+            className="atelier-btn-primary"
             disabled={submitting}
           >
-            {submitting ? "Menyimpan..." : "Simpan & Publikasikan"}
+            <Check size={16} weight="bold" />
+            <span>{submitting ? "Menyimpan…" : "Simpan & Publikasikan"}</span>
           </button>
         </div>
       </header>
 
+      {/* ─── Two-Column Layout ─── */}
       <form
         id="new-product-form"
         onSubmit={(e) => void handleSubmit(e)}
-        className="admin-two-col-layout"
+        style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr", gap: "24px", alignItems: "start" }}
       >
-        {/* LEFT COLUMN */}
-        <div className="admin-left-col">
-          {/* Card 1: Main Info */}
-          <div className="admin-panel-card">
-            <div className="card-header-clean">
-              <h2>Informasi Produk</h2>
-              <p>Rincian dasar produk yang akan dilihat pembeli di toko.</p>
+        {/* Left Column: Product Details & Pricing */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+          {/* Section 1: Basic Information */}
+          <section className="atelier-panel">
+            <div className="atelier-panel-header">
+              <h2 className="atelier-panel-title">Informasi Dasar Produk</h2>
             </div>
+            <div className="atelier-panel-body" style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+              <div className="atelier-form-group">
+                <label className="atelier-form-label">Nama Produk *</label>
+                <input
+                  type="text"
+                  required
+                  className="atelier-form-input"
+                  placeholder="Contoh: Buket Mawar Merah Passionate 10 Tangkai"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
+              </div>
 
-            <div className="form-group">
-              <label className="form-label">
-                Nama Produk <span className="required-star">*</span>
-              </label>
-              <input
-                type="text"
-                className="form-control-clean"
-                required
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="misal: Buket Mawar Merah Passionate"
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">
-                Kategori <span className="required-star">*</span>
-              </label>
-              <select
-                required
-                className="form-control-clean select-clean"
-                value={categoryId}
-                onChange={(e) => setCategoryId(e.target.value)}
-              >
-                <option value="">-- Pilih Kategori --</option>
-                {categories.map((cat) => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Deskripsi Produk</label>
-              <textarea
-                className="form-control-clean textarea-clean"
-                rows={4}
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Tuliskan deskripsi lengkap, jenis bunga, ukuran, dan saran perawatan..."
-              />
-            </div>
-          </div>
-
-          {/* Card 2: Pricing & Inventory */}
-          <div className="admin-panel-card">
-            <div className="card-header-clean">
-              <h2>Harga &amp; Persediaan</h2>
-              <p>
-                Atur harga jual, tipe pengelolaan stok, dan durasi pengerjaan.
-              </p>
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">
-                Harga Jual Dasar (Rp) <span className="required-star">*</span>
-              </label>
-              <input
-                type="number"
-                className="form-control-clean"
-                required
-                min="0"
-                value={basePrice}
-                onChange={(e) => setBasePrice(e.target.value)}
-                placeholder="250000"
-              />
-            </div>
-
-            <div className="form-row-2">
-              <div className="form-group">
-                <label className="form-label">
-                  Tipe Stok <span className="required-star">*</span>
-                </label>
+              <div className="atelier-form-group">
+                <label className="atelier-form-label">Kategori *</label>
                 <select
-                  className="form-control-clean select-clean"
-                  value={stockType}
-                  onChange={(e) =>
-                    setStockType(
-                      e.target.value as
-                        "READY_STOCK" | "PRE_ORDER" | "RENTAL_UNIT",
-                    )
-                  }
+                  required
+                  className="atelier-form-select"
+                  value={categoryId}
+                  onChange={(e) => setCategoryId(e.target.value)}
                 >
-                  <option value="READY_STOCK">Ready Stock (Siap Kirim)</option>
-                  <option value="PRE_ORDER">Pre-Order (PO / Pesan Dulu)</option>
-                  <option value="RENTAL_UNIT">
-                    Unit Rental (Papan Ucapan)
-                  </option>
+                  <option value="">-- Pilih Kategori --</option>
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.name}
+                    </option>
+                  ))}
                 </select>
               </div>
 
-              <div className="form-group">
-                <label className="form-label">
-                  Stok Awal <span className="required-star">*</span>
-                </label>
+              <div className="atelier-form-group">
+                <label className="atelier-form-label">Deskripsi Rangkaian Bunga</label>
+                <textarea
+                  rows={4}
+                  className="atelier-form-textarea"
+                  placeholder="Jelaskan jenis bunga, nuansa warna pembungkus (wrapping), ukuran, dan pesan bunga..."
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                />
+              </div>
+            </div>
+          </section>
+
+          {/* Section 2: Pricing & Stock Model */}
+          <section className="atelier-panel">
+            <div className="atelier-panel-header">
+              <h2 className="atelier-panel-title">Harga &amp; Skema Persediaan</h2>
+            </div>
+            <div className="atelier-panel-body" style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+              <div className="atelier-form-group">
+                <label className="atelier-form-label">Harga Jual Dasar (IDR) *</label>
                 <input
                   type="number"
-                  className="form-control-clean"
                   required
                   min="0"
-                  value={stockQty}
-                  onChange={(e) => setStockQty(e.target.value)}
+                  className="atelier-form-input"
+                  placeholder="Contoh: 350000"
+                  value={basePrice}
+                  onChange={(e) => setBasePrice(e.target.value)}
                 />
               </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" }}>
+                <div className="atelier-form-group">
+                  <label className="atelier-form-label">Model Stok *</label>
+                  <select
+                    className="atelier-form-select"
+                    value={stockType}
+                    onChange={(e) =>
+                      setStockType(
+                        e.target.value as "READY_STOCK" | "PRE_ORDER" | "RENTAL_UNIT",
+                      )
+                    }
+                  >
+                    <option value="READY_STOCK">Ready Stock (Siap Kirim)</option>
+                    <option value="PRE_ORDER">Pre-Order (PO / Dirangkai Dulu)</option>
+                    <option value="RENTAL_UNIT">Unit Rental (Papan Ucapan)</option>
+                  </select>
+                </div>
+
+                <div className="atelier-form-group">
+                  <label className="atelier-form-label">Jumlah Stok Awal *</label>
+                  <input
+                    type="number"
+                    required
+                    min="0"
+                    className="atelier-form-input"
+                    value={stockQty}
+                    onChange={(e) => setStockQty(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              {stockType === "PRE_ORDER" && (
+                <div className="atelier-form-group">
+                  <label className="atelier-form-label">Estimasi Pengerjaan PO (Hari)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    className="atelier-form-input"
+                    value={poDays}
+                    onChange={(e) => setPoDays(e.target.value)}
+                  />
+                </div>
+              )}
             </div>
+          </section>
 
-            {stockType === "PRE_ORDER" && (
-              <div className="form-group">
-                <label className="form-label">
-                  Estimasi Pengerjaan PO (Hari)
-                </label>
-                <input
-                  type="number"
-                  className="form-control-clean"
-                  min="1"
-                  value={poDays}
-                  onChange={(e) => setPoDays(e.target.value)}
-                />
-              </div>
-            )}
-          </div>
-
-          {/* Card 3: Variants */}
-          <div className="admin-panel-card">
-            <div className="card-header-clean">
-              <h2>Varian Produk (Opsional)</h2>
-              <p>
-                Opsi tambahan seperti isi tangkai, warna bouquet, atau ukuran
-                hampers.
+          {/* Section 3: Optional Variants */}
+          <section className="atelier-panel">
+            <div className="atelier-panel-header">
+              <h2 className="atelier-panel-title">Varian Produk (Opsional)</h2>
+            </div>
+            <div className="atelier-panel-body" style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+              <p style={{ margin: 0, fontSize: "12.5px", color: "var(--admin-muted)" }}>
+                Tambahkan pilihan ukuran buket, warna kertas pembungkus, atau tambahan tangkai bunga.
               </p>
-            </div>
 
-            <div className="variant-box-clean">
-              <div className="variant-input-row">
-                <div className="form-group flex-2">
-                  <label className="form-label">Nama Varian</label>
+              <div style={{ display: "grid", gridTemplateColumns: "2fr 1.2fr auto", gap: "10px", alignItems: "flex-end" }}>
+                <div className="atelier-form-group">
+                  <label className="atelier-form-label">Nama Varian</label>
                   <input
                     type="text"
-                    className="form-control-clean"
-                    placeholder="misal: 10 Tangkai / Soft Pink"
+                    className="atelier-form-input"
+                    placeholder="Misal: Ukuran Jumbo / Tambah Cokelat"
                     value={variantName}
                     onChange={(e) => setVariantName(e.target.value)}
                   />
                 </div>
-                <div className="form-group flex-1">
-                  <label className="form-label">Biaya Tambahan (Rp)</label>
+                <div className="atelier-form-group">
+                  <label className="atelier-form-label">Selisih Harga (+ IDR)</label>
                   <input
                     type="number"
-                    className="form-control-clean"
+                    className="atelier-form-input"
                     placeholder="0"
                     value={variantDelta}
                     onChange={(e) => setVariantDelta(e.target.value)}
                   />
                 </div>
-                <div className="form-group flex-auto">
-                  <label className="form-label">&nbsp;</label>
-                  <button
-                    type="button"
-                    className="btn-secondary-flat"
-                    onClick={handleAddVariant}
-                  >
-                    <Plus size={15} /> Tambah
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  className="atelier-btn-secondary"
+                  onClick={handleAddVariant}
+                  style={{ height: "38px" }}
+                >
+                  <Plus size={14} weight="bold" />
+                  <span>Tambah</span>
+                </button>
               </div>
 
-              {variants.length > 0 ? (
-                <table className="clean-table variant-table">
-                  <thead>
-                    <tr>
-                      <th>Varian</th>
-                      <th>Biaya Tambahan</th>
-                      <th style={{ width: "60px", textAlign: "center" }}>
-                        Aksi
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {variants.map((v, idx) => (
-                      <tr key={idx}>
-                        <td>
-                          <strong>{v.name}</strong>
-                        </td>
-                        <td>
-                          <span
-                            className={
-                              v.priceDelta > 0
-                                ? "badge-price-extra"
-                                : "badge-price-free"
-                            }
-                          >
-                            {v.priceDelta > 0
-                              ? `+ Rp ${v.priceDelta.toLocaleString("id-ID")}`
-                              : "Gratis"}
-                          </span>
-                        </td>
-                        <td style={{ textAlign: "center" }}>
-                          <button
-                            type="button"
-                            className="btn-icon-danger"
-                            onClick={() => handleRemoveVariant(idx)}
-                            title="Hapus varian"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </td>
+              {variants.length > 0 && (
+                <div className="atelier-table-wrap">
+                  <table className="atelier-table">
+                    <thead>
+                      <tr>
+                        <th>Nama Varian</th>
+                        <th>Biaya Tambahan</th>
+                        <th style={{ textAlign: "right" }}>Aksi</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : (
-                <p className="clean-empty-note">
-                  Belum ada varian. Isi bidang di atas lalu klik Tambah.
-                </p>
+                    </thead>
+                    <tbody>
+                      {variants.map((v, idx) => (
+                        <tr key={idx}>
+                          <td><strong>{v.name}</strong></td>
+                          <td>
+                            {v.priceDelta > 0 ? (
+                              <span style={{ color: "#166437", fontWeight: 600 }}>
+                                + Rp {v.priceDelta.toLocaleString("id-ID")}
+                              </span>
+                            ) : (
+                              <span style={{ color: "var(--admin-muted)" }}>Tanpa biaya tambahan</span>
+                            )}
+                          </td>
+                          <td style={{ textAlign: "right" }}>
+                            <button
+                              type="button"
+                              className="atelier-btn-danger compact"
+                              onClick={() => handleRemoveVariant(idx)}
+                            >
+                              <Trash size={13} weight="bold" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </div>
-          </div>
+          </section>
         </div>
 
-        {/* RIGHT COLUMN */}
-        <div className="admin-right-col">
-          {/* Card 4: Product Image */}
-          <div className="admin-panel-card">
-            <div className="card-header-clean">
-              <h2>Foto Utama Produk</h2>
-              <p>Pilih foto produk berkualitas tinggi.</p>
+        {/* Right Column: Photo Upload & Publish Action */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+          {/* Photo Upload Section */}
+          <section className="atelier-panel">
+            <div className="atelier-panel-header">
+              <h2 className="atelier-panel-title">Foto Utama Produk</h2>
             </div>
-
-            <div className="dropzone-clean">
+            <div className="atelier-panel-body" style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
               {previewUrl ? (
-                <div className="preview-wrap-clean">
+                <div style={{ display: "flex", flexDirection: "column", gap: "10px", alignItems: "center" }}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={previewUrl}
-                    alt="Preview"
-                    className="dropzone-preview-thumb"
+                    alt="Preview Produk"
+                    style={{
+                      width: "100%",
+                      aspectRatio: "4/3",
+                      objectFit: "cover",
+                      borderRadius: "10px",
+                      border: "1px solid var(--admin-border)",
+                    }}
                   />
                   <button
                     type="button"
-                    className="btn-secondary-flat compact"
+                    className="atelier-btn-secondary compact"
                     onClick={() => handleFileChange(null)}
                   >
                     Ganti Foto
                   </button>
                 </div>
               ) : (
-                <label className="dropzone-label-clean">
-                  <Upload size={32} style={{ color: "#701a35" }} />
-                  <strong>Pilih Foto Produk</strong>
-                  <small>JPG, PNG, atau WEBP (Maks. 5MB)</small>
+                <label
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "8px",
+                    padding: "36px 16px",
+                    border: "2px dashed var(--admin-border)",
+                    borderRadius: "12px",
+                    background: "var(--admin-surface-muted)",
+                    cursor: "pointer",
+                    textAlign: "center",
+                  }}
+                >
+                  <UploadSimple size={28} weight="regular" style={{ color: "var(--admin-rose)" }} />
+                  <strong style={{ fontSize: "13px", color: "var(--admin-ink)" }}>
+                    Pilih Foto Produk
+                  </strong>
+                  <small style={{ color: "var(--admin-muted)", fontSize: "11px" }}>
+                    Format JPG, PNG, atau WEBP (Maksimal 5MB)
+                  </small>
                   <input
                     type="file"
+                    style={{ display: "none" }}
                     accept="image/jpeg,image/png,image/webp"
-                    onChange={(e) =>
-                      handleFileChange(e.target.files?.[0] ?? null)
-                    }
+                    onChange={(e) => handleFileChange(e.target.files?.[0] ?? null)}
                   />
                 </label>
               )}
             </div>
-          </div>
+          </section>
 
-          {/* Publication Box */}
-          <div className="admin-panel-card sticky-panel">
-            <div className="card-header-clean">
-              <h2>Status Publikasi</h2>
-              <p>Simpan dan langsung tampilkan produk di toko.</p>
+          {/* Publishing Card */}
+          <section className="atelier-panel">
+            <div className="atelier-panel-header">
+              <h2 className="atelier-panel-title">Publikasi</h2>
             </div>
-
-            <div className="panel-actions-col">
+            <div className="atelier-panel-body" style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              <p style={{ margin: 0, fontSize: "12.5px", color: "var(--admin-muted)" }}>
+                Setelah disimpan, produk akan langsung tampil di etalase toko dan siap dipesan pelanggan.
+              </p>
               <button
                 type="submit"
-                className="btn-primary-maroon full-btn"
+                className="atelier-btn-primary"
+                style={{ width: "100%", padding: "10px" }}
                 disabled={submitting}
               >
-                <Check size={16} />
-                {submitting ? "Menyimpan..." : "Simpan & Publikasikan"}
+                <Check size={16} weight="bold" />
+                <span>{submitting ? "Menyimpan Produk…" : "Simpan & Publikasikan"}</span>
               </button>
               <Link
                 href="/admin/catalog"
-                className="btn-secondary-flat full-btn center-text"
+                className="atelier-btn-secondary"
+                style={{ width: "100%", padding: "10px", textAlign: "center" }}
               >
                 Batal
               </Link>
             </div>
-          </div>
+          </section>
         </div>
       </form>
     </div>

@@ -78,8 +78,7 @@ export class CartService {
     if (dto.bookingDate) bookingDate = this.parseFutureDate(dto.bookingDate);
     if (dto.bookingEndDate)
       bookingEndDate = this.parseFutureDate(dto.bookingEndDate);
-    if (bookingDate && !bookingEndDate)
-      bookingEndDate = bookingDate;
+    if (bookingDate && !bookingEndDate) bookingEndDate = bookingDate;
     if (bookingDate && bookingEndDate && bookingEndDate < bookingDate)
       throw new BadRequestException(
         'Tanggal selesai sewa tidak boleh sebelum tanggal mulai sewa',
@@ -104,7 +103,8 @@ export class CartService {
     const deleted = await this.prisma.cartItem.deleteMany({
       where: { id: itemId, userId },
     });
-    if (!deleted.count) throw new NotFoundException('Item keranjang tidak ditemukan');
+    if (!deleted.count)
+      throw new NotFoundException('Item keranjang tidak ditemukan');
     return this.get(userId);
   }
 

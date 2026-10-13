@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Heart,
   Home,
   PackageCheck,
   ShieldCheck,
@@ -21,6 +22,8 @@ export function BottomNav() {
 
   const user = useSeliStore((state) => state.user);
   const cartCount = useSeliStore((state) => state.cartCount);
+  const wishlistCount = useSeliStore((state) => state.wishlistCount);
+  const setWishlistOpen = useSeliStore((state) => state.setWishlistOpen);
   const setAuthOpen = useSeliStore((state) => state.setAuthOpen);
 
   // Hide BottomNav on all admin portal routes
@@ -30,6 +33,7 @@ export function BottomNav() {
 
   const currentUser = mounted ? user : null;
   const currentCartCount = mounted ? cartCount : 0;
+  const currentWishlistCount = mounted && currentUser ? wishlistCount : 0;
   const isAdmin =
     currentUser &&
     (currentUser.role === "OWNER" ||
@@ -42,6 +46,23 @@ export function BottomNav() {
         <Home />
         <span>Beranda</span>
       </Link>
+      <button
+        type="button"
+        className="badge-button"
+        onClick={() => {
+          if (!currentUser) {
+            setAuthOpen(true);
+            return;
+          }
+          setWishlistOpen(true);
+        }}
+        aria-label={`Favorit, ${currentWishlistCount} produk`}
+        suppressHydrationWarning
+      >
+        <Heart />
+        {currentWishlistCount > 0 && <b>{currentWishlistCount}</b>}
+        <span>Favorit</span>
+      </button>
       <Link href="/keranjang" className="badge-button" suppressHydrationWarning>
         <ShoppingBag />
         {currentCartCount > 0 && <b>{currentCartCount}</b>}

@@ -8,10 +8,9 @@ import {
   Post,
   Put,
 } from '@nestjs/common';
-import { ApiCreatedResponse, ApiNoContentResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import type { JwtUser } from '../../common/guards/jwt-user.interface';
-import { StubEntityDto, StubListDto, stubEntity, stubList } from '../../common/dto/api-contract.dto';
 import { CartService } from './cart.service';
 import { AddCartItemDto, SyncCartDto, UpdateCartItemDto } from './dto/cart.dto';
 
@@ -28,10 +27,7 @@ export class CartController {
 
   @Post('items')
   @ApiOperation({ summary: 'Add cart item' })
-  add(
-    @CurrentUser() user: JwtUser,
-    @Body() dto: AddCartItemDto,
-  ) {
+  add(@CurrentUser() user: JwtUser, @Body() dto: AddCartItemDto) {
     return this.cart.add(user.id, dto);
   }
 
@@ -46,10 +42,7 @@ export class CartController {
 
   @Delete('items/:id')
   @ApiOperation({ summary: 'Delete cart item' })
-  remove(
-    @CurrentUser() user: JwtUser,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  remove(@CurrentUser() user: JwtUser, @Param('id', ParseUUIDPipe) id: string) {
     return this.cart.remove(user.id, id);
   }
   @Delete() clear(@CurrentUser() user: JwtUser) {

@@ -32,7 +32,7 @@ export class WaService {
         }),
       });
 
-      const data: any = await response.json();
+      const data = (await response.json()) as { status?: boolean } | null;
 
       if (response.ok && data?.status) {
         this.logger.log(`[FONNTE WA SUCCESS] Sent WhatsApp to ${target}`);
@@ -43,9 +43,10 @@ export class WaService {
         );
         return false;
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errMsg = error instanceof Error ? error.message : String(error);
       this.logger.error(
-        `[FONNTE WA FAILED] Could not send to ${target}: ${error?.message || error}`,
+        `[FONNTE WA FAILED] Could not send to ${target}: ${errMsg}`,
       );
       return false;
     }

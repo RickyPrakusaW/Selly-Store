@@ -43,9 +43,10 @@ export class MailService {
         text,
         html,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errMsg = error instanceof Error ? error.message : String(error);
       this.logger.error(
-        `[DEV MAIL ERROR] Failed to send email to ${to}: ${error?.message || error}`,
+        `[DEV MAIL ERROR] Failed to send email to ${to}: ${errMsg}`,
       );
       this.logger.warn(`[DEV MAIL FALLBACK] Content for ${to}: ${text}`);
       throw error;

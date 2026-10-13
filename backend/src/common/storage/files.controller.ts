@@ -1,10 +1,8 @@
 import { Controller, Get, NotFoundException, Param, Res } from '@nestjs/common';
-import { UserRole } from '@prisma/client';
 import type { Response } from 'express';
 import { existsSync } from 'fs';
 import { resolve } from 'path';
 import { Public } from '../decorators/public.decorator';
-import { Roles } from '../decorators/roles.decorator';
 
 function validName(name: string): string {
   if (!/^[a-z0-9][a-z0-9_-]{0,100}\.(jpg|jpeg|png|webp)$/i.test(name))
@@ -17,7 +15,12 @@ export class PublicFilesController {
   @Public()
   @Get(':name')
   get(@Param('name') name: string, @Res() response: Response): void {
-    const filePath = resolve(process.cwd(), 'uploads', 'product-images', validName(name));
+    const filePath = resolve(
+      process.cwd(),
+      'uploads',
+      'product-images',
+      validName(name),
+    );
     if (!existsSync(filePath)) {
       throw new NotFoundException('Gambar produk tidak ditemukan');
     }
@@ -33,7 +36,12 @@ export class ProtectedFilesController {
   @Public()
   @Get(':name')
   get(@Param('name') name: string, @Res() response: Response): void {
-    const filePath = resolve(process.cwd(), 'uploads', 'payment-proofs', validName(name));
+    const filePath = resolve(
+      process.cwd(),
+      'uploads',
+      'payment-proofs',
+      validName(name),
+    );
     if (!existsSync(filePath)) {
       throw new NotFoundException('Bukti pembayaran tidak ditemukan');
     }

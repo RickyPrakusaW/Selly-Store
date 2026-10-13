@@ -4,20 +4,18 @@ import {
   Injectable,
   NestInterceptor,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { Observable, map } from 'rxjs';
 
 @Injectable()
 export class ResponseInterceptor implements NestInterceptor {
-  intercept(
-    context: ExecutionContext,
-    next: CallHandler,
-  ): Observable<unknown> {
+  intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const http = context.switchToHttp();
-    const res = http.getResponse();
+    const res = http.getResponse<Response>();
 
     return next.handle().pipe(
       map((result: unknown) => {
-        if (res && res.headersSent) {
+        if (res?.headersSent) {
           return result;
         }
         if (

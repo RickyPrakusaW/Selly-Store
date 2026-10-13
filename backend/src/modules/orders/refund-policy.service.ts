@@ -12,16 +12,17 @@ export class RefundPolicyService {
     cancelledAt = new Date(),
   ) {
     const ageHours = (cancelledAt.getTime() - createdAt.getTime()) / 3_600_000;
-    const tier1 = this.config.get<number>('REFUND_TIER1_HOURS', 12);
-    const tier2 = this.config.get<number>('REFUND_TIER2_HOURS', 24);
-    const deduction =
+    const tier1 = Number(this.config.get('REFUND_TIER1_HOURS') ?? 12);
+    const tier2 = Number(this.config.get('REFUND_TIER2_HOURS') ?? 24);
+    const rawDeduction =
       ageHours < tier1
-        ? this.config.get<number>('REFUND_TIER1_DEDUCTION', 0)
+        ? (this.config.get('REFUND_TIER1_DEDUCTION') ?? 0)
         : ageHours <= tier2
-          ? this.config.get<number>('REFUND_TIER2_DEDUCTION', 25)
-          : this.config.get<number>('REFUND_TIER3_DEDUCTION', 50);
+          ? (this.config.get('REFUND_TIER2_DEDUCTION') ?? 25)
+          : (this.config.get('REFUND_TIER3_DEDUCTION') ?? 50);
+    const deduction = Number(rawDeduction);
     return {
-      deductionPct: deduction,
+      deductionPct: Math.round(deduction),
       refundAmount: dpAmount
         .mul(new Prisma.Decimal(100 - deduction).div(100))
         .toDecimalPlaces(2),

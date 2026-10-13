@@ -14,7 +14,9 @@ export class StubEntityDto {
   @ApiProperty({ example: 'scaffold' })
   status!: string;
 
-  @ApiPropertyOptional({ example: 'Structural stub; business behavior is pending.' })
+  @ApiPropertyOptional({
+    example: 'Structural stub; business behavior is pending.',
+  })
   note?: string;
 }
 

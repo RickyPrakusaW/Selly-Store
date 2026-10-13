@@ -1,107 +1,223 @@
-'use client';
+"use client";
 
-import { AlertCircle, ClipboardList, Crown, Lightbulb, Lock, Mail, ShieldCheck } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import { FormEvent, useState } from 'react';
-import { adminLogin, setAccessToken } from '@/lib/api';
-import { useSeliStore } from '@/lib/store';
+import {
+  EnvelopeSimple,
+  LockSimple,
+  ShieldCheck,
+  UserGear,
+  WarningCircle,
+} from "@phosphor-icons/react";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { FormEvent, useState } from "react";
+import { adminLogin, setAccessToken } from "@/lib/api";
+import { useSeliStore } from "@/lib/store";
 
 export default function AdminLoginPage() {
   const router = useRouter();
   const setUser = useSeliStore((state) => state.setUser);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
 
   const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
-    setError('');
+    setError("");
     setLoading(true);
     try {
       const res = await adminLogin(email, password);
       setAccessToken(res.accessToken);
       setUser(res.user);
-      router.push('/admin/orders');
+      router.push("/admin/orders");
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login admin gagal. Periksa kembali email dan password.');
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Login admin gagal. Periksa kembali email dan password.",
+      );
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <main className="admin-login-page">
-      <div className="admin-login-card">
-        <div className="brand-mark large">S</div>
-        <h2>Portal Staf &amp; Management</h2>
-        <p>Silakan masuk menggunakan kredensial akun admin Seli Florist.</p>
+    <main
+      style={{
+        minHeight: "100vh",
+        display: "grid",
+        placeItems: "center",
+        background: "var(--admin-bg, #faf6f8)",
+        padding: "24px 16px",
+      }}
+    >
+      <div
+        className="atelier-panel"
+        style={{
+          width: "min(420px, 100%)",
+          padding: "36px 32px",
+          borderRadius: "18px",
+          boxShadow: "0 12px 32px rgba(43, 29, 35, 0.06)",
+        }}
+      >
+        <div style={{ textAlign: "center", marginBottom: "24px" }}>
+          <Image
+            src="/logo.jpeg"
+            alt="Logo Seli Florist"
+            width={56}
+            height={56}
+            className="brand-logo-img"
+            style={{ margin: "0 auto 12px" }}
+            priority
+          />
+          <h1
+            style={{
+              margin: "0 0 6px",
+              fontFamily: "var(--font-playfair), Georgia, serif",
+              color: "var(--admin-rose, #701a35)",
+              fontSize: "22px",
+              fontWeight: 700,
+            }}
+          >
+            Portal Manajemen Staf
+          </h1>
+          <p
+            style={{
+              margin: 0,
+              color: "var(--admin-muted, #736269)",
+              fontSize: "12.5px",
+              lineHeight: 1.5,
+            }}
+          >
+            Masuk dengan akun terverifikasi Seli Florist untuk mengelola pesanan dan operasional toko.
+          </p>
+        </div>
 
         {error && (
-          <div className="inline-error" role="alert">
-            <AlertCircle size={18} />
+          <div
+            className="inline-error"
+            role="alert"
+            style={{ marginBottom: "18px" }}
+          >
+            <WarningCircle size={18} weight="fill" style={{ flexShrink: 0 }} />
             <span>{error}</span>
           </div>
         )}
 
-        <form onSubmit={(e) => void handleLogin(e)}>
-          <label>
-            Email Admin
-            <div className="input-with-icon">
-              <Mail size={18} />
+        <form
+          onSubmit={(e) => void handleLogin(e)}
+          style={{ display: "flex", flexDirection: "column", gap: "16px" }}
+        >
+          <div className="atelier-form-group">
+            <label className="atelier-form-label">Email Admin</label>
+            <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+              <EnvelopeSimple
+                size={16}
+                weight="regular"
+                style={{
+                  position: "absolute",
+                  left: "12px",
+                  color: "var(--admin-muted)",
+                  pointerEvents: "none",
+                }}
+              />
               <input
                 type="email"
                 required
+                className="atelier-form-input"
+                style={{ paddingLeft: "36px" }}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="admin@seliflorist.com"
               />
             </div>
-          </label>
+          </div>
 
-          <label>
-            Password
-            <div className="input-with-icon">
-              <Lock size={18} />
+          <div className="atelier-form-group">
+            <label className="atelier-form-label">Password</label>
+            <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+              <LockSimple
+                size={16}
+                weight="regular"
+                style={{
+                  position: "absolute",
+                  left: "12px",
+                  color: "var(--admin-muted)",
+                  pointerEvents: "none",
+                }}
+              />
               <input
                 type="password"
                 required
+                className="atelier-form-input"
+                style={{ paddingLeft: "36px" }}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
               />
             </div>
-          </label>
+          </div>
 
-          <button type="submit" className="primary-button full-width" disabled={loading}>
-            <ShieldCheck size={18} />
-            {loading ? 'Memverifikasi…' : 'Masuk Portal Admin'}
+          <button
+            type="submit"
+            className="atelier-btn-primary"
+            style={{ width: "100%", padding: "10px", marginTop: "4px" }}
+            disabled={loading}
+          >
+            <ShieldCheck size={16} weight="bold" />
+            <span>{loading ? "Memverifikasi Kredensial…" : "Masuk ke Panel Operasional"}</span>
           </button>
         </form>
 
-        <div style={{ marginTop: '20px', padding: '14px', background: 'var(--surface-color, #fff5f8)', border: '1px dashed #e8b4c5', borderRadius: '12px', fontSize: '13px', textAlign: 'left', lineHeight: '1.6' }}>
-          <strong style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px', color: '#701a35' }}><Lightbulb size={16} /> Akun Demo Admin:</strong>
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '6px' }}>
+        {/* Demo Credentials Quick-Fill */}
+        <div
+          style={{
+            marginTop: "24px",
+            padding: "14px",
+            background: "var(--admin-surface-muted, #f6eff3)",
+            borderRadius: "10px",
+            border: "1px solid var(--admin-border, #ebdbe2)",
+            fontSize: "12px",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              color: "var(--admin-rose, #701a35)",
+              fontWeight: 700,
+              marginBottom: "8px",
+            }}
+          >
+            <UserGear size={15} weight="bold" />
+            <span>Kredensial Cepat (Demo):</span>
+          </div>
+
+          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
             <button
               type="button"
-              className="ghost-button compact"
-              style={{ fontSize: '12px', padding: '4px 10px' }}
-              onClick={() => { setEmail('owner@seliflorist.com'); setPassword('PasswordKuat123!'); }}
+              className="atelier-btn-secondary compact"
+              onClick={() => {
+                setEmail("owner@seliflorist.com");
+                setPassword("PasswordKuat123!");
+              }}
             >
-              <Crown size={14} /> Isi Owner (owner@seliflorist.com)
+              Pemilik (owner)
             </button>
             <button
               type="button"
-              className="ghost-button compact"
-              style={{ fontSize: '12px', padding: '4px 10px' }}
-              onClick={() => { setEmail('staff@seliflorist.com'); setPassword('PasswordKuat123!'); }}
+              className="atelier-btn-secondary compact"
+              onClick={() => {
+                setEmail("staff@seliflorist.com");
+                setPassword("PasswordKuat123!");
+              }}
             >
-              <ClipboardList size={14} /> Isi Staff (staff@seliflorist.com)
+              Staf Verifikasi
             </button>
           </div>
         </div>
       </div>
     </main>
-
   );
 }

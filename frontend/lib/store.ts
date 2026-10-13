@@ -51,6 +51,16 @@ type Store = {
   clearCart: () => Promise<void>;
   syncGuestCart: () => Promise<void>;
 
+  /* ── Wishlist (localStorage persisted) ── */
+  wishlist: Product[];
+  wishlistCount: number;
+  wishlistOpen: boolean;
+  setWishlistOpen: (open: boolean) => void;
+  toggleWishlist: (product: Product) => boolean;
+  removeFromWishlist: (productId: string) => void;
+  clearWishlist: () => void;
+  isWishlisted: (productId: string) => boolean;
+
   /* ── UI ── */
   searchOpen: boolean;
   authOpen: boolean;
@@ -77,6 +87,25 @@ const getInitialUser = (): User | null => {
   return null;
 };
 
+const getInitialWishlist = (): Product[] => {
+  if (typeof window !== "undefined") {
+    // Clear legacy unauthenticated wishlist to prevent phantom items
+    localStorage.removeItem("seli_wishlist");
+    const user = getInitialUser();
+    if (user?.id) {
+      const stored = localStorage.getItem(`seli_wishlist_${user.id}`);
+      if (stored) {
+        try {
+          return JSON.parse(stored);
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+  }
+  return [];
+};
+
 export const useSeliStore = create<Store>((set, get) => ({
   /* ── Auth ── */
   user: getInitialUser(),
@@ -88,7 +117,22 @@ export const useSeliStore = create<Store>((set, get) => ({
         localStorage.removeItem("seli_user");
       }
     }
-    set({ user });
+    let userWishlist: Product[] = [];
+    if (user?.id && typeof window !== "undefined") {
+      const stored = localStorage.getItem(`seli_wishlist_${user.id}`);
+      if (stored) {
+        try {
+          userWishlist = JSON.parse(stored);
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+    set({
+      user,
+      wishlist: userWishlist,
+      wishlistCount: userWishlist.length,
+    });
   },
   logoutUser: async () => {
     try {
@@ -99,8 +143,17 @@ export const useSeliStore = create<Store>((set, get) => ({
     setAccessToken(null);
     if (typeof window !== "undefined") {
       localStorage.removeItem("seli_user");
+      localStorage.removeItem("seli_wishlist");
     }
-    set({ user: null, cartItems: [], cartCount: 0 });
+    set({
+      user: null,
+      cartItems: [],
+      cartCount: 0,
+      guestCart: [],
+      wishlist: [],
+      wishlistCount: 0,
+      wishlistOpen: false,
+    });
   },
 
   /* ── Cart ── */
@@ -240,6 +293,59 @@ export const useSeliStore = create<Store>((set, get) => ({
     } catch {
       /* ignore sync errors */
     }
+  },
+
+  /* ── Wishlist ── */
+  wishlist: getInitialWishlist(),
+  wishlistCount: getInitialWishlist().length,
+  wishlistOpen: false,
+  setWishlistOpen: (wishlistOpen) => set({ wishlistOpen }),
+  toggleWishlist: (product) => {
+    const user = get().user;
+    if (!user) {
+      get().showToast(
+        "Silakan masuk terlebih dahulu untuk menyimpan ke favorit",
+        "info",
+      );
+      get().setAuthOpen(true);
+      return false;
+    }
+    const current = get().wishlist;
+    const exists = current.some((p) => p.id === product.id);
+    let next: Product[];
+    if (exists) {
+      next = current.filter((p) => p.id !== product.id);
+      get().showToast(`Dihapus dari favorit: ${product.name}`, "info");
+    } else {
+      next = [product, ...current];
+      get().showToast(`Disimpan ke favorit: ${product.name}`, "success");
+    }
+    if (typeof window !== "undefined") {
+      localStorage.setItem(`seli_wishlist_${user.id}`, JSON.stringify(next));
+    }
+    set({ wishlist: next, wishlistCount: next.length });
+    return !exists;
+  },
+  removeFromWishlist: (productId) => {
+    const user = get().user;
+    const next = get().wishlist.filter((p) => p.id !== productId);
+    if (typeof window !== "undefined" && user?.id) {
+      localStorage.setItem(`seli_wishlist_${user.id}`, JSON.stringify(next));
+    }
+    set({ wishlist: next, wishlistCount: next.length });
+    get().showToast("Dihapus dari favorit", "info");
+  },
+  clearWishlist: () => {
+    const user = get().user;
+    if (typeof window !== "undefined" && user?.id) {
+      localStorage.removeItem(`seli_wishlist_${user.id}`);
+    }
+    set({ wishlist: [], wishlistCount: 0 });
+    get().showToast("Daftar favorit dikosongkan", "info");
+  },
+  isWishlisted: (productId) => {
+    if (!get().user) return false;
+    return get().wishlist.some((p) => p.id === productId);
   },
 
   /* ── UI ── */

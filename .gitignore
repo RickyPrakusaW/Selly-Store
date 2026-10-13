@@ -1,0 +1,61 @@
+# Dependencies
+node_modules/
+*/node_modules/
+/.pnp
+.pnp.js
+
+# Build and Production outputs
+dist/
+*/dist/
+build/
+*/build/
+.next/
+*/.next/
+out/
+*/out/
+coverage/
+*/coverage/
+*.tsbuildinfo
+
+# Environment variables & secrets (CRITICAL: Do not commit secrets)
+.env
+.env.*
+.env*.local
+!.env.example
+!.env.*.example
+*.pem
+*.key
+
+# Uploads directory (dynamic file storage)
+backend/uploads/
+uploads/
+*/uploads/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS and Editor files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# AI Agent & Local Tooling configs
+.agent/
+.agents
+.gemini/
+.codex/
+.impeccable/
+.claude/

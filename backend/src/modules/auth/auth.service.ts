@@ -76,19 +76,16 @@ export class AuthService implements OnModuleInit {
     }
   }
 
-
   private hashToken(token: string): string {
     return createHash('sha256').update(token).digest('hex');
   }
 
-  private publicUser(user: Record<string, any>) {
-    const {
-      passwordHash: _p,
-      verificationTokenHash: _v,
-      resetTokenHash: _r,
-      ...rest
-    } = user;
-    return rest;
+  private publicUser(user: Record<string, unknown>) {
+    const copy = { ...user };
+    delete copy.passwordHash;
+    delete copy.verificationTokenHash;
+    delete copy.resetTokenHash;
+    return copy;
   }
 
   async register(dto: RegisterDto) {
@@ -96,7 +93,9 @@ export class AuthService implements OnModuleInit {
       where: { type_value: { type: BlacklistType.EMAIL, value: dto.email } },
     });
     if (blocked)
-      throw new ForbiddenException('Email ini tidak diizinkan untuk mendaftar akun');
+      throw new ForbiddenException(
+        'Email ini tidak diizinkan untuk mendaftar akun',
+      );
     const existing = await this.prisma.user.findUnique({
       where: { email: dto.email },
     });
@@ -149,11 +148,17 @@ export class AuthService implements OnModuleInit {
     }
 
     if (user.isVerified) {
-      return { message: 'Akun Anda sudah aktif dan terverifikasi. Silakan masuk (login).', data: null };
+      return {
+        message:
+          'Akun Anda sudah aktif dan terverifikasi. Silakan masuk (login).',
+        data: null,
+      };
     }
 
     if (user.tokenExpiresAt && user.tokenExpiresAt < new Date()) {
-      throw new BadRequestException('Tautan verifikasi sudah kadaluarsa. Silakan minta kirim ulang email verifikasi.');
+      throw new BadRequestException(
+        'Tautan verifikasi sudah kadaluarsa. Silakan minta kirim ulang email verifikasi.',
+      );
     }
 
     await this.prisma.user.update({
@@ -165,7 +170,11 @@ export class AuthService implements OnModuleInit {
       },
     });
 
-    return { message: 'Email berhasil diverifikasi! Akun Anda kini sudah aktif dan siap digunakan.', data: null };
+    return {
+      message:
+        'Email berhasil diverifikasi! Akun Anda kini sudah aktif dan siap digunakan.',
+      data: null,
+    };
   }
 
   async resendVerification(dto: EmailDto) {
@@ -188,7 +197,8 @@ export class AuthService implements OnModuleInit {
     });
     await this.sendVerification(user.email, token);
     return {
-      message: 'Email verifikasi telah dikirim ulang. Silakan periksa inbox Anda.',
+      message:
+        'Email verifikasi telah dikirim ulang. Silakan periksa inbox Anda.',
       data: null,
     };
   }
@@ -201,16 +211,23 @@ export class AuthService implements OnModuleInit {
       ? await bcrypt.compare(dto.password, user.passwordHash)
       : await bcrypt.compare(dto.password, DUMMY_PASSWORD_HASH);
     if (!user || !valid)
-      throw new UnauthorizedException('Email atau password yang Anda masukkan salah');
+      throw new UnauthorizedException(
+        'Email atau password yang Anda masukkan salah',
+      );
     if (adminOnly && user.role === UserRole.CUSTOMER)
       throw new UnauthorizedException('Kredensial login admin tidak valid');
     if (!adminOnly && user.role !== UserRole.CUSTOMER)
-      throw new UnauthorizedException('Silakan gunakan portal login khusus admin');
+      throw new UnauthorizedException(
+        'Silakan gunakan portal login khusus admin',
+      );
     const blocked = await this.prisma.blacklist.findUnique({
       where: { type_value: { type: BlacklistType.EMAIL, value: user.email } },
     });
     if (blocked) throw new ForbiddenException('Akses akun Anda telah diblokir');
-    if (!user.isVerified) throw new ForbiddenException('Email Anda belum diverifikasi. Silakan periksa email Anda.');
+    if (!user.isVerified)
+      throw new ForbiddenException(
+        'Email Anda belum diverifikasi. Silakan periksa email Anda.',
+      );
     return { user: this.publicUser(user), ...(await this.issueTokens(user)) };
   }
 
@@ -223,20 +240,32 @@ export class AuthService implements OnModuleInit {
         secret: this.config.getOrThrow<string>('JWT_REFRESH_SECRET'),
       });
     } catch {
-      throw new UnauthorizedException('Refresh token tidak valid atau sudah kadaluwarsa');
+      throw new UnauthorizedException(
+        'Refresh token tidak valid atau sudah kadaluwarsa',
+      );
     }
-    if (
-      payload.tokenType !== 'refresh' ||
-      (await this.redis.exists(`revoked:refresh:${payload.jti}`)) ||
-      !(await this.redis.exists(`session:refresh:${payload.jti}`))
-    ) {
-      throw new UnauthorizedException('Refresh token sudah tidak berlaku (revoked)');
+    if (payload.tokenType !== 'refresh') {
+      throw new UnauthorizedException('Token bukan refresh token');
     }
-    await this.revoke(payload);
+
+    const redisConnected = await this.redis.isConnected();
+    if (redisConnected) {
+      const isRevoked = await this.redis.exists(`revoked:refresh:${payload.jti}`);
+      const sessionExists = await this.redis.exists(`session:refresh:${payload.jti}`);
+      if (isRevoked || !sessionExists) {
+        throw new UnauthorizedException(
+          'Refresh token sudah tidak berlaku (revoked)',
+        );
+      }
+      await this.revoke(payload);
+    }
     const user = await this.prisma.user.findFirst({
       where: { id: payload.sub, deletedAt: null, isActive: true },
     });
-    if (!user) throw new UnauthorizedException('Akun tidak tersedia atau telah nonaktif');
+    if (!user)
+      throw new UnauthorizedException(
+        'Akun tidak tersedia atau telah nonaktif',
+      );
     return this.issueTokens(user);
   }
 
@@ -334,7 +363,9 @@ export class AuthService implements OnModuleInit {
       },
     });
     if (!user)
-      throw new BadRequestException('Token reset password tidak valid atau sudah kadaluwarsa');
+      throw new BadRequestException(
+        'Token reset password tidak valid atau sudah kadaluwarsa',
+      );
     await this.prisma.user.update({
       where: { id: user.id },
       data: {

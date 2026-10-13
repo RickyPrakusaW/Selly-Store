@@ -15,7 +15,10 @@ export class OrderListQueryDto extends PaginationDto {
 
 export class CancelOrderDto {
   @ApiPropertyOptional({ maxLength: 1000 })
-  @IsOptional() @IsString() @MaxLength(1000) reason?: string;
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  reason?: string;
 }
 
 export class AdminReasonDto {

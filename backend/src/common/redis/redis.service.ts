@@ -1,8 +1,4 @@
-import {
-  Injectable,
-  OnModuleDestroy,
-  ServiceUnavailableException,
-} from '@nestjs/common';
+import { Injectable, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
 
@@ -22,7 +18,7 @@ export class RedisService implements OnModuleDestroy {
     this.client.on('error', () => undefined);
   }
 
-  private async isConnected(): Promise<boolean> {
+  async isConnected(): Promise<boolean> {
     try {
       if (this.client.status === 'wait') await this.client.connect();
       if (this.client.status !== 'ready') await this.client.ping();

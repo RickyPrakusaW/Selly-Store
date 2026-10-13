@@ -13,17 +13,11 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { UserRole } from '@prisma/client';
-import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Public } from '../../common/decorators/public.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { ImageUploadPipe } from '../../common/storage/image-upload.pipe';
 import type { UploadedImage } from '../../common/storage/image-upload.pipe';
-import {
-  StubEntityDto,
-  StubListDto,
-  stubEntity,
-  stubList,
-} from '../../common/dto/api-contract.dto';
 import { CatalogService } from './catalog.service';
 import {
   CatalogQueryDto,

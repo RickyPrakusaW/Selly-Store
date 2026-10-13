@@ -6,10 +6,8 @@ import {
   ArrowLeft,
   Calendar,
   Clock,
-  FileCheck,
   MapPin,
   MessageCircle,
-  Upload,
 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -18,11 +16,9 @@ import {
   ApiError,
   cancelOrder,
   fetchOrderDetail,
-  retractDpProof,
-  retractFinalProof,
-  uploadDpProof,
-  uploadFinalProof,
 } from "@/lib/api";
+import { QrisPaymentBox } from "@/components/qris-payment-box";
+import { useMounted } from "@/lib/use-mounted";
 import { useSeliStore } from "@/lib/store";
 import { formatBookingDate, type Order } from "@/lib/types";
 
@@ -35,12 +31,11 @@ const rupiah = new Intl.NumberFormat("id-ID", {
 export default function OrderDetailPage() {
   const params = useParams();
   const orderId = params?.id as string;
+  const mounted = useMounted();
   const user = useSeliStore((state) => state.user);
+  const setAuthOpen = useSeliStore((state) => state.setAuthOpen);
   const showToast = useSeliStore((state) => state.showToast);
 
-  const [dpFile, setDpFile] = useState<File | null>(null);
-  const [finalFile, setFinalFile] = useState<File | null>(null);
-  const [uploading, setUploading] = useState(false);
   const [cancelReasonText, setCancelReasonText] = useState("");
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelling, setCancelling] = useState(false);
@@ -56,22 +51,30 @@ export default function OrderDetailPage() {
     enabled: !!orderId && !!user,
   });
 
+  if (!mounted || isLoading) {
+    return (
+      <main className="simple-page shell">
+        <div className="empty-state">
+          <p>Memuat detail pesanan…</p>
+        </div>
+      </main>
+    );
+  }
+
   if (!user) {
     return (
       <main className="simple-page shell">
         <div className="empty-state">
           <h2>Akses Terbatas</h2>
           <p>Silakan masuk ke akun Anda untuk melihat detail pesanan.</p>
-        </div>
-      </main>
-    );
-  }
-
-  if (isLoading) {
-    return (
-      <main className="simple-page shell">
-        <div className="empty-state">
-          <p>Memuat detail pesanan…</p>
+          <button
+            type="button"
+            className="primary-button"
+            style={{ marginTop: 14 }}
+            onClick={() => setAuthOpen(true)}
+          >
+            Masuk ke Akun
+          </button>
         </div>
       </main>
     );
@@ -89,82 +92,6 @@ export default function OrderDetailPage() {
       </main>
     );
   }
-
-  const handleUploadDp = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!dpFile) return;
-    setUploading(true);
-    setError("");
-    try {
-      await uploadDpProof(orderId, dpFile);
-      setDpFile(null);
-      showToast("Bukti DP 50% berhasil diunggah!");
-      await refetch();
-    } catch (err) {
-      setError(
-        err instanceof ApiError ? err.message : "Gagal mengunggah bukti DP.",
-      );
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const handleUploadFinal = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!finalFile) return;
-    setUploading(true);
-    setError("");
-    try {
-      await uploadFinalProof(orderId, finalFile);
-      setFinalFile(null);
-      showToast("Bukti Pelunasan berhasil diunggah!");
-      await refetch();
-    } catch (err) {
-      setError(
-        err instanceof ApiError
-          ? err.message
-          : "Gagal mengunggah bukti pelunasan.",
-      );
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const handleRetractDp = async () => {
-    if (
-      !confirm("Apakah Anda yakin ingin menarik bukti DP yang sedang ditinjau?")
-    )
-      return;
-    try {
-      await retractDpProof(orderId);
-      showToast("Bukti DP berhasil ditarik");
-      await refetch();
-    } catch (err) {
-      setError(
-        err instanceof ApiError ? err.message : "Gagal menarik bukti DP.",
-      );
-    }
-  };
-
-  const handleRetractFinal = async () => {
-    if (
-      !confirm(
-        "Apakah Anda yakin ingin menarik bukti pelunasan yang sedang ditinjau?",
-      )
-    )
-      return;
-    try {
-      await retractFinalProof(orderId);
-      showToast("Bukti pelunasan berhasil ditarik");
-      await refetch();
-    } catch (err) {
-      setError(
-        err instanceof ApiError
-          ? err.message
-          : "Gagal menarik bukti pelunasan.",
-      );
-    }
-  };
 
   const handleCancelOrder = async (e: FormEvent) => {
     e.preventDefault();
@@ -220,16 +147,16 @@ export default function OrderDetailPage() {
         <div className="header-info">
           <span className="order-category-tag">
             {order.status === "PENDING_PAYMENT" || order.status === "REJECTED"
-              ? "Instruksi Pembayaran DP"
+              ? "Pembayaran DP 50% (QRIS)"
               : order.status === "PENDING_FINAL_PAYMENT"
-                ? "Instruksi Pelunasan Final"
+                ? "Pelunasan Final (QRIS)"
                 : "Detail Transaksi"}
           </span>
           <h1>
             {order.status === "PENDING_PAYMENT" || order.status === "REJECTED"
-              ? "Pembayaran DP 50% & Unggah Bukti"
+              ? "Pembayaran DP 50% via QRIS"
               : order.status === "PENDING_FINAL_PAYMENT"
-                ? "Pelunasan Final & Unggah Bukti"
+                ? "Pelunasan Final via QRIS"
                 : `#ORDER-${order.id.slice(0, 8).toUpperCase()}`}
           </h1>
           <div className="created-time" suppressHydrationWarning>
@@ -378,149 +305,32 @@ export default function OrderDetailPage() {
 
         {/* Right Column: Financials & Upload Payment Proof */}
         <div className="detail-right">
-          {/* Upload DP Proof Section */}
+          {/* QRIS Payment Section for DP */}
           {["PENDING_PAYMENT", "REJECTED"].includes(order.status) && (
-            <section className="proof-upload-card">
-              <div className="card-header-with-icon">
-                <Upload size={22} />
-                <div>
-                  <h3>Unggah Bukti DP 50%</h3>
-                  <small>
-                    Batas Waktu: <strong>{dpDeadlineText}</strong>
-                  </small>
-                </div>
-              </div>
-
-              <div className="bank-account-info">
-                <p>Transfer ke Rekening Resmi Seli Florist:</p>
-                <strong>BCA 123-456-7890 a.n. Seli Florist</strong>
-                <p>
-                  Nominal DP:{" "}
-                  <strong>{rupiah.format(Number(order.dpAmount))}</strong>
-                </p>
-              </div>
-
-              {dpProof && (
-                <div
-                  className={`proof-status-box ${dpProof.verificationStatus.toLowerCase()}`}
-                >
-                  <FileCheck size={18} />
-                  <div>
-                    <strong>Bukti DP: {dpProof.verificationStatus}</strong>
-                    {dpProof.rejectedReason && (
-                      <p className="text-red">
-                        Alasan Penolakan: {dpProof.rejectedReason}
-                      </p>
-                    )}
-                    {dpProof.verificationStatus === "PENDING" && (
-                      <button
-                        className="text-btn"
-                        onClick={() => void handleRetractDp()}
-                      >
-                        Tarik Bukti
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              <form onSubmit={(e) => void handleUploadDp(e)}>
-                <label className="file-input-label">
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    required
-                    onChange={(e) => setDpFile(e.target.files?.[0] ?? null)}
-                  />
-                  <span>
-                    {dpFile
-                      ? dpFile.name
-                      : "Pilih Foto Bukti Transfer DP (JPG/PNG/WEBP, Max 2MB)"}
-                  </span>
-                </label>
-
-                <button
-                  type="submit"
-                  className="primary-button full-width"
-                  disabled={uploading || !dpFile}
-                >
-                  {uploading ? "Mengunggah…" : "Kirim Bukti DP"}
-                </button>
-              </form>
-            </section>
+            <QrisPaymentBox
+              orderId={order.id}
+              orderNumber={`#ORDER-${order.id.slice(0, 8).toUpperCase()}`}
+              paymentType="DP"
+              amount={Number(order.dpAmount)}
+              onPaymentSuccess={() => {
+                showToast("Pembayaran DP berhasil diverifikasi otomatis!");
+                void refetch();
+              }}
+            />
           )}
 
-          {/* Upload Final Payment Proof Section */}
-          {["DP_VERIFIED", "PENDING_FINAL_PAYMENT"].includes(order.status) && (
-            <section className="proof-upload-card">
-              <div className="card-header-with-icon">
-                <Upload size={22} />
-                <div>
-                  <h3>Unggah Bukti Pelunasan Final</h3>
-                  <small>
-                    Nominal Pelunasan:{" "}
-                    <strong>
-                      {rupiah.format(Number(order.remainingAmount))}
-                    </strong>
-                  </small>
-                </div>
-              </div>
-
-              <div className="bank-account-info">
-                <p>Transfer Pelunasan ke Rekening Resmi:</p>
-                <strong>BCA 123-456-7890 a.n. Seli Florist</strong>
-              </div>
-
-              {finalProof && (
-                <div
-                  className={`proof-status-box ${finalProof.verificationStatus.toLowerCase()}`}
-                >
-                  <FileCheck size={18} />
-                  <div>
-                    <strong>
-                      Bukti Pelunasan: {finalProof.verificationStatus}
-                    </strong>
-                    {finalProof.rejectedReason && (
-                      <p className="text-red">
-                        Alasan Penolakan: {finalProof.rejectedReason}
-                      </p>
-                    )}
-                    {finalProof.verificationStatus === "PENDING" && (
-                      <button
-                        className="text-btn"
-                        onClick={() => void handleRetractFinal()}
-                      >
-                        Tarik Bukti
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              <form onSubmit={(e) => void handleUploadFinal(e)}>
-                <label className="file-input-label">
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    required
-                    onChange={(e) => setFinalFile(e.target.files?.[0] ?? null)}
-                  />
-                  <span>
-                    {finalFile
-                      ? finalFile.name
-                      : "Pilih Foto Bukti Pelunasan (JPG/PNG/WEBP, Max 2MB)"}
-                  </span>
-                </label>
-
-                <button
-                  type="submit"
-                  className="primary-button full-width"
-                  disabled={uploading || !finalFile}
-                >
-                  {uploading ? "Mengunggah…" : "Kirim Bukti Pelunasan"}
-                </button>
-              </form>
-            </section>
+          {/* QRIS Payment Section for Final Pelunasan */}
+          {["PENDING_FINAL_PAYMENT"].includes(order.status) && (
+            <QrisPaymentBox
+              orderId={order.id}
+              orderNumber={`#ORDER-${order.id.slice(0, 8).toUpperCase()}`}
+              paymentType="FINAL"
+              amount={Number(order.remainingAmount)}
+              onPaymentSuccess={() => {
+                showToast("Pelunasan final berhasil diverifikasi otomatis!");
+                void refetch();
+              }}
+            />
           )}
 
           {/* Financial Summary */}

@@ -8,8 +8,10 @@ import {
 import {
   BlacklistType,
   BookingStatus,
+  CancelledBy,
   DeliveryType,
   OrderStatus,
+  PaymentStatus,
   Prisma,
   StockType,
 } from '@prisma/client';
@@ -59,13 +61,16 @@ export class CheckoutService {
       },
     });
     if (blocked)
-      throw new ForbiddenException('Proses checkout diblokir untuk akun atau nomor WA ini');
+      throw new ForbiddenException(
+        'Proses checkout diblokir untuk akun atau nomor WA ini',
+      );
 
     const shipping = await this.shipping.estimate(dto);
     const requestedItems = dto.items?.length
       ? dto.items
       : await this.itemsFromCart(userId);
-    if (!requestedItems.length) throw new BadRequestException('Keranjang belanja Anda masih kosong');
+    if (!requestedItems.length)
+      throw new BadRequestException('Keranjang belanja Anda masih kosong');
 
     let lastError: unknown;
     for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -130,7 +135,38 @@ export class CheckoutService {
     const pending = await tx.order.findFirst({
       where: { userId, status: OrderStatus.PENDING_PAYMENT },
     });
-    if (pending) throw new ConflictException('Anda masih memiliki pesanan yang belum dibayar (menunggu DP)');
+    if (pending) {
+      const now = new Date();
+      const isExpired = pending.dpDeadline < now;
+      if (isExpired || dto.replacePending) {
+        await tx.downPayment.updateMany({
+          where: { orderId: pending.id },
+          data: { status: PaymentStatus.EXPIRED, expiredAt: now },
+        });
+        await tx.boardBooking.updateMany({
+          where: { orderId: pending.id, status: BookingStatus.SOFT_LOCKED },
+          data: { status: BookingStatus.CANCELLED },
+        });
+        await tx.order.update({
+          where: { id: pending.id },
+          data: {
+            status: OrderStatus.CANCELLED,
+            cancelledAt: now,
+            cancelledBy: isExpired ? CancelledBy.SYSTEM : CancelledBy.CUSTOMER,
+            cancelReason: isExpired
+              ? 'Waktu pembayaran DP habis (expired)'
+              : 'Dibatalkan customer untuk membuat pesanan baru',
+          },
+        });
+      } else {
+        throw new ConflictException({
+          message: 'Anda masih memiliki pesanan yang belum dibayar (menunggu DP)',
+          pendingOrderId: pending.id,
+          orderNumber: `#ORDER-${pending.id.slice(0, 8).toUpperCase()}`,
+          dpAmount: Number(pending.dpAmount),
+        });
+      }
+    }
     const resolved = this.resolveItems(requested);
     const now = new Date();
     const dpDeadline = new Date(
@@ -157,20 +193,28 @@ export class CheckoutService {
         },
       });
       if (!product)
-        throw new NotFoundException(`Produk ${item.productId} tidak tersedia atau telah dihapus`);
+        throw new NotFoundException(
+          `Produk ${item.productId} tidak tersedia atau telah dihapus`,
+        );
       const variant = item.variantId
         ? product.variants.find((entry) => entry.id === item.variantId)
         : undefined;
       if (item.variantId && !variant)
-        throw new BadRequestException('Varian produk yang dipilih tidak tersedia');
+        throw new BadRequestException(
+          'Varian produk yang dipilih tidak tersedia',
+        );
       if (
         product.stockType === StockType.READY_STOCK &&
         product.stockQty - product.reservedQty < item.qty
       ) {
-        throw new ConflictException(`Stok produk ${product.name} tidak mencukupi`);
+        throw new ConflictException(
+          `Stok produk ${product.name} tidak mencukupi`,
+        );
       }
       if (product.category.slug === 'papan_ucapan' && !item.bookingDate)
-        throw new BadRequestException('Produk papan ucapan membutuhkan tanggal sewa (bookingDate)');
+        throw new BadRequestException(
+          'Produk papan ucapan membutuhkan tanggal sewa (bookingDate)',
+        );
       if (
         product.category.slug !== 'papan_ucapan' &&
         (item.bookingDate || item.bookingEndDate)

@@ -41,6 +41,7 @@ export class ApiError extends Error {
   constructor(
     message: string,
     public readonly status: number,
+    public readonly data?: any,
   ) {
     super(message);
   }
@@ -66,13 +67,15 @@ export function getAccessToken(): string | null {
 
 async function read<T>(response: Response): Promise<T> {
   const body = (await response.json().catch(() => null)) as
-    ApiEnvelope<T> | { message?: string } | null;
+    | ApiEnvelope<T>
+    | { message?: string; [key: string]: any }
+    | null;
   if (!response.ok) {
     const msg =
       response.status === 429
         ? "Terlalu banyak permintaan. Silakan tunggu beberapa saat."
         : (body?.message ?? "Permintaan tidak dapat diproses.");
-    throw new ApiError(msg, response.status);
+    throw new ApiError(msg, response.status, body);
   }
   return (body as ApiEnvelope<T>).data;
 }
@@ -600,3 +603,54 @@ export function adminDeleteProductImage(productId: string, imageId: string) {
     method: "DELETE",
   });
 }
+
+export interface QrisPaymentData {
+  orderId: string;
+  orderNumber: string;
+  invoiceNumber: string;
+  amount: number;
+  qrContent: string;
+  paymentUrl?: string;
+  expiresAt: string;
+  isSimulation: boolean;
+  paymentType: "DP" | "FINAL";
+}
+
+export interface QrisStatusData {
+  orderId: string;
+  orderStatus: string;
+  dpStatus?: string;
+  isDpPaid: boolean;
+  isFullyPaid: boolean;
+  remainingAmount: number;
+}
+
+export function generateQrisPayment(
+  orderId: string,
+  paymentType?: "DP" | "FINAL",
+) {
+  return apiRequest<QrisPaymentData>("/payments/qris/generate", {
+    method: "POST",
+    body: JSON.stringify({ orderId, paymentType }),
+  });
+}
+
+export function fetchQrisPaymentStatus(orderId: string) {
+  return apiRequest<QrisStatusData>(`/payments/qris/status/${orderId}`, {
+    method: "GET",
+  });
+}
+
+export function simulateQrisPaymentSuccess(
+  orderId: string,
+  paymentType?: "DP" | "FINAL",
+) {
+  return apiRequest<{ status: string; message: string; transactionId: string }>(
+    "/payments/qris/simulate-success",
+    {
+      method: "POST",
+      body: JSON.stringify({ orderId, paymentType }),
+    },
+  );
+}
+

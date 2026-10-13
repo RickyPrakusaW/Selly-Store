@@ -134,7 +134,10 @@ export class OrdersService {
             cancelledBy: CancelledBy.CUSTOMER,
             cancelReason: reason,
             refundAmount: refund?.refundAmount,
-            refundDeductionPct: refund?.deductionPct,
+            refundDeductionPct:
+              refund?.deductionPct !== undefined
+                ? Math.round(Number(refund.deductionPct))
+                : undefined,
             refundStatus: refund ? RefundStatus.PENDING_REFUND : undefined,
           },
           include: { user: true },
@@ -296,6 +299,132 @@ export class OrdersService {
       'Seli Florist payment complete',
       `Order ${orderId} is fully paid.`,
     );
+    return result;
+  }
+
+  async markDpPaidByGateway(
+    orderId: string,
+    referenceId: string,
+    gatewayName = 'DOKU',
+  ) {
+    const deadlineDays = Number(process.env.PELUNASAN_DEADLINE_DAYS ?? 3);
+    const deadline = new Date(Date.now() + deadlineDays * 24 * 60 * 60 * 1000);
+    const result = await this.prisma.$transaction(
+      async (tx) => {
+        const order = await tx.order.findUnique({
+          where: { id: orderId },
+          include: { user: true },
+        });
+        if (
+          !order ||
+          (order.status !== OrderStatus.PENDING_PAYMENT &&
+            order.status !== OrderStatus.REJECTED)
+        ) {
+          return order;
+        }
+
+        await tx.paymentProof.create({
+          data: {
+            orderId,
+            proofType: ProofType.DP,
+            fileUrl: `gateway:${gatewayName.toLowerCase()}:${referenceId}`,
+            storageKey: `gateway-${gatewayName.toLowerCase()}-${referenceId}`,
+            originalFilename: `${gatewayName} QRIS DP (${referenceId})`,
+            fileSize: 0,
+            mimeType: 'application/json',
+            verificationStatus: VerificationStatus.APPROVED,
+            verifiedAt: new Date(),
+          },
+        });
+
+        await tx.downPayment.update({
+          where: { orderId },
+          data: { status: PaymentStatus.VERIFIED, verifiedAt: new Date() },
+        });
+
+        await tx.boardBooking.updateMany({
+          where: { orderId, status: BookingStatus.SOFT_LOCKED },
+          data: { expiresAt: deadline },
+        });
+
+        const isRemainingZero = Number(order.remainingAmount ?? 0) <= 0;
+        return tx.order.update({
+          where: { id: orderId },
+          data: {
+            status: isRemainingZero
+              ? OrderStatus.FULLY_PAID
+              : OrderStatus.PENDING_FINAL_PAYMENT,
+            dpVerifiedAt: new Date(),
+            finalPaymentDeadline: isRemainingZero ? null : deadline,
+          },
+          include: { user: true },
+        });
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    );
+
+    if (result && result.user) {
+      this.notifications.admin('dp_verified', { orderId });
+      this.sendMailInBackground(
+        result.user.email,
+        'Seli Florist Pembayaran DP Berhasil',
+        `Pembayaran DP pesanan #${orderId.slice(0, 8).toUpperCase()} melalui ${gatewayName} QRIS telah berhasil diverifikasi secara otomatis.`,
+      );
+    }
+    return result;
+  }
+
+  async markFinalPaidByGateway(
+    orderId: string,
+    referenceId: string,
+    gatewayName = 'DOKU',
+  ) {
+    const result = await this.prisma.$transaction(
+      async (tx) => {
+        const order = await tx.order.findUnique({
+          where: { id: orderId },
+          include: { user: true },
+        });
+        if (!order || order.status !== OrderStatus.PENDING_FINAL_PAYMENT) {
+          return order;
+        }
+
+        await tx.paymentProof.create({
+          data: {
+            orderId,
+            proofType: ProofType.FINAL,
+            fileUrl: `gateway:${gatewayName.toLowerCase()}:${referenceId}`,
+            storageKey: `gateway-${gatewayName.toLowerCase()}-${referenceId}`,
+            originalFilename: `${gatewayName} QRIS Pelunasan (${referenceId})`,
+            fileSize: 0,
+            mimeType: 'application/json',
+            verificationStatus: VerificationStatus.APPROVED,
+            verifiedAt: new Date(),
+          },
+        });
+
+        await tx.boardBooking.updateMany({
+          where: { orderId, status: BookingStatus.SOFT_LOCKED },
+          data: { status: BookingStatus.CONFIRMED, expiresAt: null },
+        });
+
+        return tx.order.update({
+          where: { id: orderId },
+          data: { status: OrderStatus.FULLY_PAID },
+          include: { user: true },
+        });
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    );
+
+    if (result && result.user) {
+      this.notifications.admin('final_payment_verified', { orderId });
+      this.sendMailInBackground(
+        result.user.email,
+        'Seli Florist Pelunasan Berhasil',
+        `Pelunasan pesanan #${orderId.slice(0, 8).toUpperCase()} melalui ${gatewayName} QRIS telah lunas. Rangkaian bunga Anda segera kami kirimkan!`,
+      );
+    }
     return result;
   }
 
@@ -500,7 +629,8 @@ export class OrdersService {
     if (!order) throw new NotFoundException('Pesanan tidak ditemukan');
 
     const isCancelledOrRejected =
-      dto.status === OrderStatus.CANCELLED || dto.status === OrderStatus.REJECTED;
+      dto.status === OrderStatus.CANCELLED ||
+      dto.status === OrderStatus.REJECTED;
 
     const isCompleted = dto.status === OrderStatus.COMPLETED;
 
@@ -618,7 +748,7 @@ export class OrdersService {
           finalPayment && order.downPayment?.status === PaymentStatus.VERIFIED
             ? this.refundPolicy.calculate(order.dpAmount, order.createdAt)
             : null;
-        if (!finalPayment)
+        if (!finalPayment && order.downPayment)
           await tx.downPayment.update({
             where: { orderId },
             data: { status: PaymentStatus.EXPIRED, expiredAt: new Date() },
@@ -633,13 +763,19 @@ export class OrdersService {
               ? 'Final payment deadline expired'
               : 'DP deadline expired',
             refundAmount: refund?.refundAmount,
-            refundDeductionPct: refund?.deductionPct,
+            refundDeductionPct:
+              refund?.deductionPct !== undefined
+                ? Math.round(Number(refund.deductionPct))
+                : undefined,
             refundStatus: refund ? RefundStatus.PENDING_REFUND : undefined,
           },
           include: { user: true },
         });
       },
-      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      {
+        maxWait: 10000,
+        timeout: 20000,
+      },
     );
   }
 

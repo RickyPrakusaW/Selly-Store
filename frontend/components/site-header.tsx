@@ -1,9 +1,10 @@
 'use client';
 
 import { ChevronDown, Heart, LogOut, PackageCheck, Search, Settings, ShoppingBag, UserRound } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useState, useSyncExternalStore } from 'react';
 import type { Category } from '@/lib/types';
 import { useSeliStore } from '@/lib/store';
 
@@ -13,15 +14,23 @@ const defaultCategories: Category[] = [
   { id: 'cat-3', name: 'Sewa Papan Ucapan', slug: 'papan_ucapan', description: '' },
 ];
 
+const emptySubscribe = () => () => {};
+function useMounted() {
+  return useSyncExternalStore(
+    emptySubscribe,
+    () => true,
+    () => false,
+  );
+}
+
 export function SiteHeader({ categories }: Readonly<{ categories?: Category[] }>) {
   const pathname = usePathname();
-  const [mounted, setMounted] = useState(false);
-  // Client-only persisted session data is intentionally revealed after hydration.
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => setMounted(true), []);
+  const mounted = useMounted();
 
   const user = useSeliStore((state) => state.user);
   const cartCount = useSeliStore((state) => state.cartCount);
+  const wishlistCount = useSeliStore((state) => state.wishlistCount);
+  const setWishlistOpen = useSeliStore((state) => state.setWishlistOpen);
   const logoutUser = useSeliStore((state) => state.logoutUser);
   const setAuthOpen = useSeliStore((state) => state.setAuthOpen);
   const setSearchOpen = useSeliStore((state) => state.setSearchOpen);
@@ -33,6 +42,7 @@ export function SiteHeader({ categories }: Readonly<{ categories?: Category[] }>
 
   const currentUser = mounted ? user : null;
   const currentCartCount = mounted ? cartCount : 0;
+  const currentWishlistCount = mounted && currentUser ? wishlistCount : 0;
   const firstName = currentUser?.fullName?.trim().split(/\s+/)[0];
   const catList = categories && categories.length > 0 ? categories : defaultCategories;
 
@@ -40,7 +50,14 @@ export function SiteHeader({ categories }: Readonly<{ categories?: Category[] }>
     <header className="site-header" suppressHydrationWarning>
       <div className="header-inner">
         <Link href="/" className="brand" aria-label="Seli Florist — Beranda">
-          <span className="brand-mark">S</span>
+          <Image
+            src="/logo.jpeg"
+            alt="Logo Seli Florist"
+            width={44}
+            height={44}
+            className="brand-logo-img"
+            priority
+          />
           <span className="brand-text">
             Seli Florist
             <small>Flowers &amp; Gifts</small>
@@ -71,8 +88,23 @@ export function SiteHeader({ categories }: Readonly<{ categories?: Category[] }>
             </div>
           </div>
 
-          <button className="icon-button" aria-label="Wishlist" title="Wishlist">
+          <button
+            className="icon-button badge-button"
+            onClick={() => {
+              if (!currentUser) {
+                setAuthOpen(true);
+                return;
+              }
+              setWishlistOpen(true);
+            }}
+            aria-label={`Wishlist, ${currentWishlistCount} produk`}
+            title="Wishlist & Favorit Saya"
+            suppressHydrationWarning
+          >
             <Heart size={19} />
+            {currentWishlistCount > 0 && (
+              <b className="wishlist-badge">{currentWishlistCount}</b>
+            )}
           </button>
 
           <Link
