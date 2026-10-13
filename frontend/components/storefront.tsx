@@ -4,9 +4,20 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowRight,
   Award,
+  Camera,
+  Check,
+  CheckCircle2,
+  Clock,
+  Copy,
+  Edit3,
   Gift,
+  Info,
+  Lock,
+  Mail,
+  MapPin,
   MessageCircle,
   Palette,
+  Phone,
   Search,
   ShieldCheck,
   Sparkles,
@@ -43,6 +54,22 @@ export function Storefront({
   const searchOpen = useSeliStore((state) => state.searchOpen);
   const setSearchOpen = useSeliStore((state) => state.setSearchOpen);
 
+  // ─── Interactive Section States (No AI Slop) ───
+  const [selectedDate, setSelectedDate] = useState<string>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 3);
+    return d.toISOString().split("T")[0] ?? "2025-05-18";
+  });
+  const [selectedBoardType, setSelectedBoardType] = useState(
+    "Akrilik Transparan Elegan (Ukuran 120x80)"
+  );
+  const [simulatorResult, setSimulatorResult] = useState<{
+    date: string;
+    type: string;
+  } | null>(null);
+  const [copiedCoupon, setCopiedCoupon] = useState(false);
+  const [legalModal, setLegalModal] = useState<"privacy" | "terms" | "faq" | null>(null);
+
   const { data = initialProducts, isFetching } = useQuery({
     queryKey: ["products", deferredSearch, category],
     queryFn: () => fetchProducts(deferredSearch, category),
@@ -78,6 +105,41 @@ export function Storefront({
   const handleOccasionClick = (query: string) => {
     setSearch(query);
     document.getElementById("koleksi")?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const formatIndoDate = (dateStr: string) => {
+    if (!dateStr) return "";
+    try {
+      const d = new Date(dateStr + "T00:00:00");
+      return d.toLocaleDateString("id-ID", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      });
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const handleCopyCoupon = async () => {
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard) {
+        await navigator.clipboard.writeText("SELIBLOOM");
+      }
+    } catch {
+      // ignore fallback
+    }
+    setCopiedCoupon(true);
+    setTimeout(() => setCopiedCoupon(false), 2500);
+  };
+
+  const handleLockSimulator = (e: React.FormEvent) => {
+    e.preventDefault();
+    setSimulatorResult({
+      date: selectedDate,
+      type: selectedBoardType,
+    });
   };
 
   return (
@@ -424,166 +486,684 @@ export function Storefront({
           )}
         </section>
 
-        {/* ─── The Boutique Difference (Features) ─── */}
-        <section className="features-section shell" aria-label="Keunggulan Kami">
-          <div className="features-header">
-            <h2>Mengapa Memilih Selly Florist?</h2>
-            <p>
-              Kami berkomitmen menghadirkan kualitas terbaik pada setiap tangkai
-              bunga dan kemasan hadiah yang Anda percayakan.
-            </p>
-          </div>
+        {/* ─── SECTION 4: INOVASI KHUSUS RENTAL PAPAN UCAPAN MODERN ─── */}
+        <section
+          className="rental-showcase-section"
+          id="rental-board-showcase"
+          aria-label="Rental Papan Ucapan Modern"
+        >
+          <div className="rental-ambient-glow" aria-hidden="true" />
+          <div className="shell">
+            <div className="rental-showcase-card">
+              <div className="rental-grid">
+                {/* Left Column: Rental Feature Overview & Simulator */}
+                <div>
+                  <div className="rental-pill-badge">
+                    <ShieldCheck size={16} />
+                    <span>Solusi Papan Bunga Estetik Tanpa Limbah Gabus</span>
+                  </div>
 
-          <div className="features-grid">
-            <div className="feature-box">
-              <div className="feature-box-head">
-                <div className="feature-icon-wrap">
-                  <Sparkles size={20} />
-                </div>
-                <h3>100% Bunga Segar Pilihan</h3>
-              </div>
-              <p>
-                Bunga dipetik langsung dari perkebunan terbaik setiap pagi,
-                menjamin keharuman dan kesegaran lebih lama.
-              </p>
-            </div>
+                  <h2 className="rental-title">
+                    Sewa Papan Ucapan Elegan Tanpa Khawatir{" "}
+                    <span className="accent-italic">Bentrok Tanggal</span>
+                  </h2>
 
-            <div className="feature-box">
-              <div className="feature-box-head">
-                <div className="feature-icon-wrap">
-                  <Palette size={20} />
-                </div>
-                <h3>Desain Custom & Personal</h3>
-              </div>
-              <p>
-                Bebas memilih tema warna bunga, jenis wrapping kertas premium,
-                hingga pita sesuai konsep yang Anda inginkan.
-              </p>
-            </div>
+                  <p className="rental-desc">
+                    Teknologi <strong>Soft-Locking 2 Jam</strong> kami menjamin
+                    unit papan akrilik mewah yang Anda pilih tidak akan direbut
+                    pelanggan lain selama proses pembayaran DP berlangsung.
+                  </p>
 
-            <div className="feature-box">
-              <div className="feature-box-head">
-                <div className="feature-icon-wrap">
-                  <Gift size={20} />
-                </div>
-                <h3>Gratis Kartu Ucapan Eksklusif</h3>
-              </div>
-              <p>
-                Setiap pembelian disertai greeting card elegan dengan pesan
-                pribadi yang dicetak rapi dan dimasukkan amplop segel.
-              </p>
-            </div>
+                  {/* Interactive Date Checker Simulator Card */}
+                  <div className="simulator-box">
+                    <div className="simulator-header">
+                      <h3>Cek Ketersediaan Soft-Lock</h3>
+                      <span className="avail-badge">
+                        <span className="relative flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                        </span>
+                        Tersedia 8 Unit untuk Akhir Pekan Ini
+                      </span>
+                    </div>
 
-            <div className="feature-box">
-              <div className="feature-box-head">
-                <div className="feature-icon-wrap">
-                  <Truck size={20} />
+                    <form
+                      onSubmit={handleLockSimulator}
+                      className="simulator-form-grid"
+                    >
+                      <div className="form-field-group">
+                        <label htmlFor="sim-event-date">Pilih Tanggal Acara</label>
+                        <input
+                          id="sim-event-date"
+                          type="date"
+                          value={selectedDate}
+                          onChange={(e) => {
+                            setSelectedDate(e.target.value);
+                            setSimulatorResult(null);
+                          }}
+                          className="simulator-input"
+                          required
+                        />
+                      </div>
+
+                      <div className="form-field-group">
+                        <label htmlFor="sim-board-type">Tipe Desain</label>
+                        <select
+                          id="sim-board-type"
+                          value={selectedBoardType}
+                          onChange={(e) => {
+                            setSelectedBoardType(e.target.value);
+                            setSimulatorResult(null);
+                          }}
+                          className="simulator-select"
+                        >
+                          <option value="Akrilik Transparan Elegan (Ukuran 120x80)">
+                            Akrilik Transparan Elegan (Ukuran 120x80)
+                          </option>
+                          <option value="Arch Modern Wooden Frame (Ukuran 180x90)">
+                            Arch Modern Wooden Frame (Ukuran 180x90)
+                          </option>
+                          <option value="Velvet Stand Kembar (VIP Dual Board)">
+                            Velvet Stand Kembar (VIP Dual Board)
+                          </option>
+                        </select>
+                      </div>
+
+                      <button type="submit" className="btn-lock-unit">
+                        <CheckCircle2 size={16} />
+                        <span>Amankan Unit</span>
+                      </button>
+                    </form>
+
+                    {/* Interactive Feedback State */}
+                    {simulatorResult && (
+                      <div className="simulator-feedback">
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                            fontWeight: 750,
+                          }}
+                        >
+                          <CheckCircle2 size={18} className="text-emerald-600" />
+                          <span>
+                            Slot Siap Diamankan untuk{" "}
+                            {formatIndoDate(simulatorResult.date)}!
+                          </span>
+                        </div>
+                        <p
+                          style={{
+                            margin: "4px 0 10px",
+                            fontSize: 12.5,
+                            color: "#166534",
+                          }}
+                        >
+                          Unit: <strong>{simulatorResult.type}</strong>. Sistem
+                          soft-lock 2 jam akan otomatis mengunci slot begitu
+                          checkout dikonfirmasi.
+                        </p>
+                        <div className="simulator-feedback-actions">
+                          <a
+                            href={`https://wa.me/${waNumber}?text=${encodeURIComponent(
+                              `Halo Seli Florist, saya ingin amankan rental ${simulatorResult.type} untuk tanggal acara ${simulatorResult.date} (${formatIndoDate(simulatorResult.date)}). Mohon info prosedur soft-lock 2 jam & DP 50%-nya ya.`
+                            )}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="btn-fb-wa"
+                          >
+                            <MessageCircle size={14} /> Amankan via WhatsApp Florist
+                          </a>
+                          <button
+                            type="button"
+                            className="btn-fb-catalog"
+                            onClick={() => {
+                              setCategory("papan-ucapan");
+                              document
+                                .getElementById("koleksi")
+                                ?.scrollIntoView({ behavior: "smooth" });
+                            }}
+                          >
+                            Lihat Katalog Papan
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    <p className="simulator-footer-note">
+                      <Info size={14} className="text-[#a94065] shrink-0" />
+                      Harga sewa sudah termasuk kustom nama/tulisan, standing
+                      kayu kokoh, dan bongkar-pasang tim Seli Florist.
+                    </p>
+                  </div>
+
+                  {/* 3 Langkah Sewa */}
+                  <div className="rental-steps-row">
+                    <div className="rental-step-col">
+                      <span className="step-num-big">01</span>
+                      <span className="step-heading">Pilih Jadwal</span>
+                      <span className="step-subtext">
+                        Tentukan tipe standing &amp; tanggal resepsi / acara.
+                      </span>
+                    </div>
+                    <div className="rental-step-col">
+                      <span className="step-num-big">02</span>
+                      <span className="step-heading">Kunci DP 50%</span>
+                      <span className="step-subtext">
+                        Sistem mengunci unit otomatis bebas double booking.
+                      </span>
+                    </div>
+                    <div className="rental-step-col">
+                      <span className="step-num-big">03</span>
+                      <span className="step-heading">Bebas Repot</span>
+                      <span className="step-subtext">
+                        Pelunasan H-1. Tim kami antar, pasang, dan jemput kembali.
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                <h3>Pengiriman Aman & Tepat Waktu</h3>
+
+                {/* Right Column: Visual Demonstration & Floating Soft-Lock Badge */}
+                <div>
+                  <div className="visual-showcase-box">
+                    <Image
+                      src="/images/products/papan-ucapan-akrilik.jpg"
+                      alt="Chic transparent wedding welcome board with white calligraphy and blooming pastel garden roses, stood on an art easel at an indoor luxury hotel foyer"
+                      fill
+                      sizes="(max-width: 1024px) 100vw, 40vw"
+                      className="object-cover"
+                    />
+
+                    {/* Floating Soft-Lock Status Badge UI */}
+                    <div className="floating-softlock-badge">
+                      <div className="badge-top-row">
+                        <div className="badge-status-title">
+                          <Lock size={16} className="text-emerald-600" />
+                          <span>Slot Terkunci Aman</span>
+                        </div>
+                        <span className="badge-tag-pill">Unit Terproteksi</span>
+                      </div>
+                      <div className="softlock-progress-track">
+                        <div className="softlock-progress-bar" />
+                      </div>
+                      <p>
+                        Soft-lock aktif selama 2 jam setelah checkout untuk
+                        menyelesaikan transfer DP.
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <p>
-                Kurir berpengalaman dengan kotak pelindung khusus memastikan
-                bunga tiba dalam kondisi segar tanpa cacat.
-              </p>
             </div>
           </div>
         </section>
 
-        {/* ─── Custom Order WhatsApp Banner ─── */}
-        <section className="shell" aria-label="Pesanan Khusus">
-          <div className="custom-order-banner">
-            <div className="custom-banner-text">
-              <h3>Punya Rangkaian Impian atau Konsep Khusus?</h3>
+        {/* ─── SECTION 5: CARA KERJA & SISTEM PEMBAYARAN 2 TAHAP ─── */}
+        <section
+          className="workflow-section"
+          aria-label="Cara Kerja dan Sistem Pembayaran"
+        >
+          <div className="shell">
+            <div className="workflow-header">
+              <span className="workflow-eyebrow">Transparansi Layanan</span>
+              <h2>Cara Kerja &amp; Sistem Pembayaran 2 Tahap</h2>
               <p>
-                Konsultasikan budget, preferensi bunga favorit, atau kebutuhan
-                dekorasi acara Anda langsung bersama tim florist ahli kami. Kami
-                siap mewujudkan buket impian Anda.
+                Pesan bunga dan rental tanpa cemas. Transaksi transparan dengan
+                bukti foto sebelum pesanan diberangkatkan.
               </p>
             </div>
-            <a
-              href={waHeroLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="custom-banner-btn"
-            >
-              <MessageCircle size={20} />
-              Chat WhatsApp Florist
-            </a>
-          </div>
-        </section>
 
-        {/* ─── Customer Testimonials ─── */}
-        <section className="testimonials-section shell" aria-label="Ulasan Pelanggan">
-          <div className="testimonials-header">
-            <h2>Apa Kata Pelanggan Kami</h2>
-            <p>
-              Kepuasan Anda dan senyum penerima adalah kebahagiaan terbesar kami.
-            </p>
-          </div>
-
-          <div className="testimonials-grid">
-            <div className="testimonial-card">
-              <div className="testi-stars">
-                {[...Array(5)].map((_, i) => (
-                  <Star key={i} size={15} fill="currentColor" />
-                ))}
-              </div>
-              <p className="testi-text">
-                &ldquo;Buket bunganya beneran wangi dan segerr banget!
-                Wrapping-nya rapi dan keliatan mewah. Teman-teman wisuda pada
-                muji buketnya. Pengiriman pagi-pagi sampai tepat waktu!&rdquo;
-              </p>
-              <div className="testi-author">
-                <div className="testi-avatar">CS</div>
-                <div className="testi-author-info">
-                  <strong>Clarissa S.</strong>
-                  <small>Wisuda UI • Buket Mawar Segar</small>
+            {/* 4 Stepper Cards */}
+            <div className="workflow-grid">
+              {/* Step 1 */}
+              <div className="workflow-card">
+                <div>
+                  <div className="step-num-circle">1</div>
+                  <h3>Pilih Bunga &amp; Kustomisasi Pesan</h3>
+                  <p>
+                    Tentukan buket atau jenis papan. Tulis kartu ucapan khusus dan
+                    pilih warna pita satin sesuai selera Anda.
+                  </p>
+                </div>
+                <div className="workflow-card-tag">
+                  <Edit3 size={15} />
+                  <span>Kustomisasi Gratis</span>
                 </div>
               </div>
-            </div>
 
-            <div className="testimonial-card">
-              <div className="testi-stars">
-                {[...Array(5)].map((_, i) => (
-                  <Star key={i} size={15} fill="currentColor" />
-                ))}
-              </div>
-              <p className="testi-text">
-                &ldquo;Sewa papan ucapan akriliknya modern banget, beda sama papan
-                biasa yang jadul. Tulisan rapi dan standing flower-nya megah.
-                Klien kantor kami sangat terkesan.&rdquo;
-              </p>
-              <div className="testi-author">
-                <div className="testi-avatar">DP</div>
-                <div className="testi-author-info">
-                  <strong>Dimas Pratama</strong>
-                  <small>Grand Opening Cafe • Sewa Papan Ucapan</small>
+              {/* Step 2 */}
+              <div className="workflow-card">
+                <div>
+                  <div className="step-num-circle">2</div>
+                  <h3>Bayar DP 50% (Batas Waktu 2 Jam)</h3>
+                  <p>
+                    Cukup bayar setengahnya via Virtual Account (BCA/Mandiri)
+                    atau QRIS DOKU terverifikasi otomatis.
+                  </p>
+                </div>
+                <div className="workflow-card-tag">
+                  <Clock size={15} />
+                  <span>Batas Waktu 2 Jam</span>
                 </div>
               </div>
-            </div>
 
-            <div className="testimonial-card">
-              <div className="testi-stars">
-                {[...Array(5)].map((_, i) => (
-                  <Star key={i} size={15} fill="currentColor" />
-                ))}
+              {/* Step 3 */}
+              <div className="workflow-card">
+                <div>
+                  <div className="step-num-circle">3</div>
+                  <h3>Proses Perangkaian &amp; Foto Hasil</h3>
+                  <p>
+                    Florist merangkai dengan teliti. Sebelum dikirim, admin
+                    mengirimkan foto pratinjau melalui WhatsApp.
+                  </p>
+                </div>
+                <div className="workflow-card-tag success">
+                  <Camera size={15} />
+                  <span>Konfirmasi Pratinjau</span>
+                </div>
               </div>
-              <p className="testi-text">
-                &ldquo;Pelayanan ramah banget dan floristnya sabar kasih
-                rekomendasi paduan warna yang cocok buat anniversary. Pasanganku
-                suka banget hampersnya. Makasih Selly Florist!&rdquo;
-              </p>
-              <div className="testi-author">
-                <div className="testi-avatar">JN</div>
-                <div className="testi-author-info">
-                  <strong>Jessica N.</strong>
-                  <small>Anniversary • Hampers & Buket Lili</small>
+
+              {/* Step 4 */}
+              <div className="workflow-card">
+                <div>
+                  <div className="step-num-circle">4</div>
+                  <h3>Pelunasan 50% &amp; Pengiriman</h3>
+                  <p>
+                    Selesaikan sisa pembayaran, lalu kurir khusus florist mobil
+                    ber-AC mengantar aman sampai di tujuan.
+                  </p>
+                </div>
+                <div className="workflow-card-tag">
+                  <Truck size={15} />
+                  <span>Kurir Berpendingin</span>
                 </div>
               </div>
             </div>
           </div>
         </section>
+
+        {/* ─── SECTION 6: BANNER PROMO & TESTIMONI PELANGGAN ─── */}
+        <section
+          className="promo-testimonials-section"
+          aria-label="Promo dan Ulasan Pelanggan"
+        >
+          <div className="shell">
+            {/* Interactive Voucher Promo Banner */}
+            <div className="promo-banner-card">
+              {/* Petals SVG backdrop */}
+              <svg
+                className="promo-petals-svg"
+                fill="currentColor"
+                height="320"
+                viewBox="0 0 200 200"
+                width="320"
+                aria-hidden="true"
+              >
+                <circle cx="100" cy="40" r="35" />
+                <circle cx="160" cy="100" r="35" />
+                <circle cx="100" cy="160" r="35" />
+                <circle cx="40" cy="100" r="35" />
+                <circle cx="100" cy="100" r="25" />
+              </svg>
+
+              <div className="promo-banner-inner">
+                <div className="promo-text-content">
+                  <span className="promo-pill-label">
+                    Penawaran Musim Wisuda &amp; Hari Spesial
+                  </span>
+                  <h2>Diskon 10% untuk Pre-Order Wisuda &amp; Hari Ibu</h2>
+                  <p>
+                    Pesan lebih awal untuk mengamankan slot perangkai utama kami
+                    serta menjamin kesegaran bunga mawar pilihan.
+                  </p>
+                </div>
+
+                {/* Promo Code Card */}
+                <div className="promo-code-card">
+                  <small>Gunakan Kode Kupon</small>
+                  <div className="coupon-display-code">SELIBLOOM</div>
+                  <button
+                    type="button"
+                    onClick={handleCopyCoupon}
+                    className={`btn-copy-code ${copiedCoupon ? "copied" : ""}`}
+                  >
+                    {copiedCoupon ? (
+                      <>
+                        <Check size={16} />
+                        <span>Tersalin!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy size={16} />
+                        <span>Salin Kode</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Testimoni Pelanggan */}
+            <div>
+              <div className="testimonials-luxury-header">
+                <span className="testi-eyebrow">Ulasan Terverifikasi</span>
+                <h2>Kisah Manis Pelanggan Seli</h2>
+              </div>
+
+              <div className="testimonials-luxury-grid">
+                {/* Review 1 */}
+                <div className="testimonial-luxury-card">
+                  <div>
+                    <div className="testi-stars-row">
+                      {[...Array(5)].map((_, i) => (
+                        <Star key={i} size={15} fill="currentColor" />
+                      ))}
+                    </div>
+                    <p className="testi-quote-body">
+                      &ldquo;Bunganya wangi dan segarnya awet sampai 5 hari di vas!
+                      Sistem DP 50%-nya sangat meringankan saat persiapan
+                      tunangan saya. Foto preview via WA juga sangat jelas.&rdquo;
+                    </p>
+                  </div>
+                  <div className="testi-author-row">
+                    <div className="testi-monogram-avatar avatar-ap">AP</div>
+                    <div className="testi-author-meta">
+                      <strong>Annisa Pratista</strong>
+                      <small>Pembeli Blush Serenade Bouquet</small>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Review 2 */}
+                <div className="testimonial-luxury-card">
+                  <div>
+                    <div className="testi-stars-row">
+                      {[...Array(5)].map((_, i) => (
+                        <Star key={i} size={15} fill="currentColor" />
+                      ))}
+                    </div>
+                    <p className="testi-quote-body">
+                      &ldquo;Rental papan akriliknya aesthetic parah! Beda jauh
+                      sama papan bunga gabus biasa. Tamu-tamu kafe saya saat grand
+                      opening pada foto di depan papannya.&rdquo;
+                    </p>
+                  </div>
+                  <div className="testi-author-row">
+                    <div className="testi-monogram-avatar avatar-db">DB</div>
+                    <div className="testi-author-meta">
+                      <strong>Dimas Bagaskara</strong>
+                      <small>Penyewa Royal Grand Celebration</small>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Review 3 */}
+                <div className="testimonial-luxury-card">
+                  <div>
+                    <div className="testi-stars-row">
+                      {[...Array(5)].map((_, i) => (
+                        <Star key={i} size={15} fill="currentColor" />
+                      ))}
+                    </div>
+                    <p className="testi-quote-body">
+                      &ldquo;Pengiriman tepat waktu ke gedung wisuda UI Salemba.
+                      Kurirnya ramah dan mobil ber-AC jadi bunganya sama sekali
+                      nggak layu terkena panas terik siang.&rdquo;
+                    </p>
+                  </div>
+                  <div className="testi-author-row">
+                    <div className="testi-monogram-avatar avatar-cw">CW</div>
+                    <div className="testi-author-meta">
+                      <strong>Clarissa Wijaya</strong>
+                      <small>Pembeli Pastel Dream Deluxe</small>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ─── QUICK FLOATING CONSULTATION PILL ─── */}
+        <a
+          href={`https://wa.me/${waNumber}?text=${encodeURIComponent(
+            "Halo Seli Florist, saya ingin konsultasi rangkaian bunga & ketersediaan rental papan."
+          )}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="floating-wa-pill"
+          aria-label="Konsultasi Desain Florist via WhatsApp"
+        >
+          <MessageCircle size={18} />
+          <span className="hidden sm:inline">Konsultasi Desain Florist</span>
+          <span className="sm:hidden">Chat Florist</span>
+        </a>
       </main>
+
+      {/* ─── BOUTIQUE FOOTER ─── */}
+      <footer className="boutique-footer">
+        <div className="shell">
+          <div className="footer-top-grid">
+            {/* Col 1: Brand Info */}
+            <div className="footer-col">
+              <h3 className="footer-brand-title">Seli Florist</h3>
+              <p>
+                Bespoke floral design studio untuk buket mewah, bridal styling, dan
+                rental papan ucapan akrilik elegan di setiap perayaan berharga Anda.
+              </p>
+              <div className="footer-hours-box">
+                <strong>Jam Operasional:</strong>
+                <span>Setiap Hari, 08.00 - 21.00 WIB</span>
+              </div>
+            </div>
+
+            {/* Col 2: Layanan Pelanggan */}
+            <div className="footer-col">
+              <h4 className="footer-col-heading">Layanan Pelanggan</h4>
+              <div className="footer-contact-item">
+                <MessageCircle size={18} />
+                <div className="contact-meta-wrap">
+                  <small>WhatsApp CS Resmi</small>
+                  <a
+                    href={`https://wa.me/${waNumber}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    +62 895-1788-0077
+                  </a>
+                </div>
+              </div>
+              <div className="footer-contact-item">
+                <Mail size={18} />
+                <div className="contact-meta-wrap">
+                  <small>Email Pertanyaan</small>
+                  <span>halo@seliflorist.com</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Col 3: Studio & Alamat */}
+            <div className="footer-col">
+              <h4 className="footer-col-heading">Studio &amp; Alamat</h4>
+              <div className="footer-contact-item">
+                <MapPin size={18} />
+                <div className="contact-meta-wrap">
+                  <span>
+                    Jl. Melati Indah No. 42, Senopati, Kebayoran Baru, Jakarta Selatan 12190
+                  </span>
+                </div>
+              </div>
+              <div>
+                <small
+                  style={{
+                    fontSize: 10.5,
+                    fontWeight: 800,
+                    color: "#776a70",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.08em",
+                    display: "block",
+                    marginBottom: 6,
+                  }}
+                >
+                  Opsi Pengiriman Cepat
+                </small>
+                <div className="footer-delivery-pills">
+                  <span className="footer-pill-tag">
+                    Instant Courier (Grab / Gojek)
+                  </span>
+                  <span className="footer-pill-tag">
+                    Kurir Khusus Florist (Mobil Ber-AC)
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Col 4: Metode Pembayaran & Garansi */}
+            <div className="footer-col">
+              <h4 className="footer-col-heading">Metode Pembayaran</h4>
+              <p style={{ fontSize: 12.5, margin: 0 }}>
+                Transaksi terverifikasi instan dengan gerbang pembayaran terpercaya:
+              </p>
+              <div className="footer-payment-badges">
+                <span className="payment-badge">BCA Virtual Account</span>
+                <span className="payment-badge">Mandiri Livin</span>
+                <span className="payment-badge qris">QRIS DOKU</span>
+              </div>
+              <div className="fresh-guarantee-box">
+                <strong>Garansi Bunga Segar</strong>
+                <p>
+                  100% bunga berkualitas segar dari perkebunan pilihan dengan
+                  pendingin suhu khusus.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Footer Bottom Bar */}
+          <div className="footer-bottom-bar">
+            <p style={{ margin: 0 }}>
+              © {new Date().getFullYear()} Seli Florist. Hak Cipta Dilindungi.
+              Crafting delicate moments with grace.
+            </p>
+            <div className="footer-bottom-links">
+              <button type="button" onClick={() => setLegalModal("privacy")}>
+                Kebijakan Privasi
+              </button>
+              <button type="button" onClick={() => setLegalModal("terms")}>
+                Syarat &amp; Ketentuan
+              </button>
+              <button type="button" onClick={() => setLegalModal("faq")}>
+                FAQ &amp; Bantuan
+              </button>
+            </div>
+          </div>
+        </div>
+      </footer>
+
+      {/* ─── INTERACTIVE LEGAL & FAQ MODALS ─── */}
+      {legalModal && (
+        <div
+          className="legal-modal-backdrop"
+          onClick={() => setLegalModal(null)}
+          role="presentation"
+        >
+          <div
+            className="legal-modal-dialog"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+          >
+            <button
+              type="button"
+              className="legal-modal-close"
+              onClick={() => setLegalModal(null)}
+              aria-label="Tutup dialog"
+            >
+              <X size={16} />
+            </button>
+
+            {legalModal === "privacy" && (
+              <>
+                <h3>Kebijakan Privasi Seli Florist</h3>
+                <div className="legal-modal-content">
+                  <p>
+                    Privasi dan kerahasiaan Anda adalah prioritas utama kami. Kami
+                    menghormati pesan personal dan data sensitif yang Anda
+                    percayakan.
+                  </p>
+                  <h4>1. Penggunaan Data Pemesanan</h4>
+                  <p>
+                    Informasi nama, alamat pengiriman, dan nomor telepon penerima
+                    hanya digunakan untuk keperluan pengiriman pesanan dan
+                    konfirmasi pratinjau hasil rangkaian bunga via WhatsApp.
+                  </p>
+                  <h4>2. Keamanan Pembayaran Digital</h4>
+                  <p>
+                    Kami tidak menyimpan data perbankan sensitif. Seluruh transaksi
+                    digital diproses secara aman melalui Virtual Account resmi
+                    BCA, Mandiri, dan QRIS DOKU bersertifikasi Bank Indonesia.
+                  </p>
+                </div>
+              </>
+            )}
+
+            {legalModal === "terms" && (
+              <>
+                <h3>Syarat &amp; Ketentuan Rental &amp; Bunga</h3>
+                <div className="legal-modal-content">
+                  <p>
+                    Harap membaca ringkasan ketentuan sewa papan ucapan dan pesanan
+                    bunga di Seli Florist:
+                  </p>
+                  <h4>1. Sistem DP 50% &amp; Soft-Locking 2 Jam</h4>
+                  <p>
+                    Slot tanggal dan unit papan akrilik dikunci eksklusif selama 2
+                    jam setelah pesanan dibuat untuk memberi waktu penyelesaian
+                    transfer DP 50%.
+                  </p>
+                  <h4>2. Konfirmasi Pratinjau Foto</h4>
+                  <p>
+                    Florist akan mengirimkan foto dokumentasi hasil rangkaian via
+                    WhatsApp sebelum kurir berangkat menuju lokasi acara.
+                  </p>
+                  <h4>3. Durasi Rental &amp; Pengambilan Unit</h4>
+                  <p>
+                    Waktu sewa standar papan akrilik adalah 24 jam. Tim kami
+                    bertanggung jawab penuh atas pengantaran, instalasi, dan
+                    penjemputan unit tanpa limbah gabus.
+                  </p>
+                </div>
+              </>
+            )}
+
+            {legalModal === "faq" && (
+              <>
+                <h3>FAQ &amp; Bantuan</h3>
+                <div className="legal-modal-content">
+                  <h4>Berapa lama bunga segar Seli Florist bertahan?</h4>
+                  <p>
+                    Dengan pemotongan batang diagonal dan pemberian air dingin
+                    bersih setiap hari, buket mawar segar kami mampu bertahan
+                    hingga 4-6 hari di suhu ruangan.
+                  </p>
+                  <h4>Bisa pesan dadakan di hari yang sama (Same-day)?</h4>
+                  <p>
+                    Bisa! Kami menyediakan opsi pengiriman Instant Courier (Grab /
+                    Gojek) untuk katalog ready-stock dengan batas order pukul 15.00
+                    WIB.
+                  </p>
+                  <h4>Bagaimana proses kustom tulisan papan akrilik?</h4>
+                  <p>
+                    Setelah DP dikonfirmasi, desainer grafis kami akan membuatkan
+                    layout mockup tulisan nama &amp; logo ucapan untuk Anda setujui
+                    terlebih dahulu sebelum dicetak.
+                  </p>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </>
   );
 }
