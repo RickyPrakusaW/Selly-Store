@@ -30,6 +30,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { resolveImageUrl } from "@/lib/api";
 import { useSeliStore } from "@/lib/store";
 import type { Product } from "@/lib/types";
+import { RentalDatePicker } from "@/components/rental-date-picker";
 
 const rupiah = new Intl.NumberFormat("id-ID", {
   style: "currency",
@@ -766,67 +767,22 @@ export function ProductDetailInteractive({
 
         {/* Rental Schedule & Time (For Board Rental) */}
         {isRental && (
-          <div className="detail-form-group rental-schedule-card">
-            <div className="schedule-card-header">
-              <Calendar size={18} />
-              <h4>Jadwal & Waktu Sewa Papan Ucapan</h4>
-            </div>
-
-            <div className="schedule-grid">
-              <div className="schedule-input-box">
-                <label>Tanggal Mulai / Acara *</label>
-                <input
-                  type="date"
-                  min={minDate || undefined}
-                  value={bookingDate}
-                  onChange={(e) => {
-                    setBookingDate(e.target.value);
-                    if (!bookingEndDate || bookingEndDate < e.target.value) {
-                      setBookingEndDate(e.target.value);
-                    }
-                  }}
-                  required
-                />
-              </div>
-
-              <div className="schedule-input-box">
-                <label>Tanggal Selesai (Bongkar)</label>
-                <input
-                  type="date"
-                  min={bookingDate || minDate || undefined}
-                  value={bookingEndDate}
-                  onChange={(e) => setBookingEndDate(e.target.value)}
-                />
-              </div>
-
-              <div className="schedule-input-box">
-                <label>
-                  <Clock size={12} /> Jam Pasang di Lokasi
-                </label>
-                <input
-                  type="time"
-                  value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
-                />
-              </div>
-
-              <div className="schedule-input-box">
-                <label>
-                  <Clock size={12} /> Jam Selesai Acara (Maks 18:00)
-                </label>
-                <input
-                  type="time"
-                  value={endTime}
-                  max="18:00"
-                  onChange={(e) => setEndTime(e.target.value)}
-                />
-              </div>
-            </div>
-
-            <div className="schedule-helper-note">
-              💡 <span>Sewa papan ucapan sudah termasuk pengantaran ke lokasi acara, pemasangan rapi, serta penarikan kembali setelah acara selesai.</span>
-            </div>
-          </div>
+          <RentalDatePicker
+            selectedDate={bookingDate}
+            onSelectDate={(date) => {
+              setBookingDate(date);
+              if (!bookingEndDate || bookingEndDate < date) {
+                setBookingEndDate(date);
+              }
+            }}
+            selectedEndDate={bookingEndDate}
+            onSelectEndDate={setBookingEndDate}
+            startTime={startTime}
+            onStartTimeChange={setStartTime}
+            endTime={endTime}
+            onEndTimeChange={setEndTime}
+            minDate={minDate}
+          />
         )}
 
         {/* Custom Greeting Note */}

@@ -2631,81 +2631,640 @@ a { color:inherit; text-decoration:none; }
   color: var(--rose);
 }
 
-/* Rental Schedule Card */
-.rental-schedule-card {
-  padding: 18px 20px;
-  border-radius: 20px;
+/* ═══════════════════════════════════════════════════════════════════
+   RENTAL CALENDAR & SCHEDULE WIDGET (BESPOKE CRAFT)
+   ═══════════════════════════════════════════════════════════════════ */
+.rental-calendar-container {
+  width: 100%;
   background: #ffffff;
-  border: 1.5px solid rgba(240, 220, 227, 0.9);
-  box-shadow: 0 4px 18px rgba(112, 26, 53, 0.04);
+  border-radius: 24px;
+  border: 1.5px solid #f1e4ea;
+  box-shadow: 0 10px 30px -5px rgba(139, 30, 79, 0.05), 0 0 1px 1px rgba(0, 0, 0, 0.02);
+  padding: 24px 26px;
+  margin-bottom: 24px;
+  transition: box-shadow 0.25s ease;
 }
 
-.schedule-card-header {
+@media (max-width: 640px) {
+  .rental-calendar-container {
+    padding: 16px 14px;
+    border-radius: 18px;
+  }
+}
+
+/* Top Header */
+.calendar-top-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+
+.calendar-header-titles {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  flex: 1;
+  min-width: 200px;
+}
+
+.calendar-header-icon-wrap {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: #fff0f5;
+  border: 1.5px solid #fbcfe8;
   display: flex;
   align-items: center;
-  gap: 8px;
-  color: var(--rose);
-  margin-bottom: 12px;
+  justify-content: center;
+  color: #9d174d;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(157, 23, 77, 0.08);
+  margin-top: 2px;
 }
 
-.schedule-card-header h4 {
+.calendar-main-title {
+  font-family: var(--font-title, inherit);
+  font-size: 19px;
+  font-weight: 800;
+  color: #111827;
   margin: 0;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+}
+
+.calendar-sub-title {
+  font-size: 12.5px;
+  color: #6b7280;
+  margin: 3px 0 0 0;
+  line-height: 1.4;
+}
+
+/* Month Switcher Pill */
+.calendar-month-navigator {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 9999px;
+  padding: 4px 6px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  flex-shrink: 0;
+}
+
+.month-nav-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: #475569;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.month-nav-btn:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.month-nav-btn:active {
+  transform: scale(0.92);
+}
+
+.month-nav-label {
   font-size: 14px;
   font-weight: 750;
+  color: #1e293b;
+  min-width: 120px;
+  text-align: center;
+  user-select: none;
+  letter-spacing: -0.01em;
 }
 
-.schedule-grid {
+/* Status Legend */
+.calendar-status-legend {
+  background: #f1f5fd;
+  border: 1px solid #e0e9f8;
+  border-radius: 12px;
+  padding: 10px 18px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 640px) {
+  .calendar-status-legend {
+    gap: 12px 16px;
+    padding: 10px 12px;
+  }
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.legend-dot.dot-available {
+  background: #86efac;
+  box-shadow: 0 0 0 2px rgba(134, 239, 172, 0.35);
+}
+
+.legend-dot.dot-softlocked {
+  background: #fcd34d;
+  box-shadow: 0 0 0 2px rgba(252, 211, 77, 0.35);
+}
+
+.legend-dot.dot-booked {
+  background: #fca5a5;
+  box-shadow: 0 0 0 2px rgba(252, 165, 165, 0.35);
+}
+
+.legend-dot.dot-selected {
+  background: #9d174d;
+  box-shadow: 0 0 0 2px rgba(157, 23, 77, 0.35);
+}
+
+/* Day Names Row */
+.calendar-daynames-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+  margin-bottom: 8px;
+  text-align: center;
 }
 
 @media (max-width: 500px) {
-  .schedule-grid {
+  .calendar-daynames-grid {
+    gap: 4px;
+  }
+}
+
+.dayname-cell {
+  font-size: 11.5px;
+  font-weight: 750;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 6px 0;
+}
+
+.dayname-cell.sunday {
+  color: #dc2626;
+  font-weight: 800;
+}
+
+/* Days Matrix */
+.calendar-matrix-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+}
+
+@media (max-width: 500px) {
+  .calendar-matrix-grid {
+    gap: 4px;
+  }
+}
+
+.calendar-day-slot {
+  min-height: 72px;
+  border-radius: 12px;
+  padding: 7px 4px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  border: 1.5px solid transparent;
+  width: 100%;
+  font-family: inherit;
+  user-select: none;
+}
+
+@media (max-width: 500px) {
+  .calendar-day-slot {
+    min-height: 60px;
+    padding: 5px 2px 4px;
+    border-radius: 9px;
+  }
+}
+
+.calendar-day-slot.out-of-month {
+  background: transparent;
+  opacity: 0.28;
+  pointer-events: none;
+}
+
+/* Available state */
+.calendar-day-slot.is-available {
+  background: #ffffff;
+  border-color: #f1f5f9;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+}
+
+.calendar-day-slot.is-available:hover {
+  border-color: #86efac;
+  background: #f0fdf4;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 14px rgba(16, 185, 129, 0.09);
+}
+
+.calendar-day-slot.is-available:active {
+  transform: scale(0.96);
+}
+
+/* Selected state */
+.calendar-day-slot.is-selected {
+  background: #9d174d !important;
+  border-color: #831843 !important;
+  color: #ffffff !important;
+  transform: scale(1.02);
+  box-shadow: 0 8px 20px -3px rgba(157, 23, 77, 0.35);
+  cursor: pointer;
+  z-index: 2;
+}
+
+/* Booked state */
+.calendar-day-slot.is-booked {
+  background: #fff5f5;
+  border-color: #fee2e2;
+  cursor: not-allowed;
+  opacity: 0.92;
+}
+
+/* Softlocked state */
+.calendar-day-slot.is-softlocked {
+  background: #fffdf5;
+  border-color: #fef3c7;
+  cursor: pointer;
+}
+
+.calendar-day-slot.is-softlocked:hover {
+  border-color: #fde047;
+  background: #fefce8;
+  transform: translateY(-1px);
+}
+
+/* Past state */
+.calendar-day-slot.is-past {
+  background: #f8fafc;
+  border-color: #f1f5f9;
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+/* Slot Typography & Badges */
+.slot-day-number {
+  font-size: 15px;
+  font-weight: 750;
+  line-height: 1.1;
+}
+
+@media (max-width: 500px) {
+  .slot-day-number {
+    font-size: 13.5px;
+  }
+}
+
+.slot-day-number.sunday-num {
+  color: #dc2626;
+}
+
+.slot-day-number.weekday-num {
+  color: #1e293b;
+}
+
+.slot-day-number.selected-text {
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 16px;
+}
+
+.slot-day-number.booked-num {
+  color: #94a3b8;
+}
+
+.slot-day-number.softlocked-num {
+  color: #475569;
+}
+
+.slot-day-number.past-num {
+  color: #cbd5e1;
+}
+
+.slot-day-number.faded {
+  color: #cbd5e1;
+}
+
+.slot-number-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.slot-ban-icon {
+  color: #ef4444;
+}
+
+.slot-clock-icon {
+  color: #f59e0b;
+}
+
+.slot-status-text.available-text {
+  font-size: 11px;
+  font-weight: 600;
+  color: #059669;
+  letter-spacing: -0.01em;
+}
+
+@media (max-width: 500px) {
+  .slot-status-text.available-text {
+    font-size: 9.5px;
+  }
+}
+
+.slot-status-pill {
+  padding: 2px 6px;
+  border-radius: 9999px;
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+@media (max-width: 500px) {
+  .slot-status-pill {
+    padding: 1.5px 4px;
+    font-size: 8px;
+  }
+}
+
+.slot-status-pill.selected-pill {
+  background: rgba(255, 255, 255, 0.22);
+  color: #ffffff;
+}
+
+.slot-status-pill.booked-pill {
+  background: #fee2e2;
+  color: #ef4444;
+}
+
+.slot-status-pill.softlocked-pill {
+  background: #fef08a;
+  color: #854d0e;
+  font-size: 8px;
+}
+
+.slot-past-label {
+  font-size: 10px;
+  color: #cbd5e1;
+}
+
+/* ─── Selected Date Callout Banner ─── */
+.calendar-summary-banner {
+  background: #fdf2f8;
+  border: 1.5px solid #fce7f3;
+  border-radius: 16px;
+  padding: 16px 20px;
+  margin-top: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.summary-banner-left {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  flex: 1;
+  min-width: 260px;
+}
+
+.summary-info-icon-wrap {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 1px solid #fbcfe8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #9d174d;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.summary-selected-heading {
+  font-size: 14.5px;
+  font-weight: 750;
+  color: #111827;
+  margin: 0 0 3px 0;
+  line-height: 1.35;
+}
+
+.summary-selected-heading .highlight-date {
+  color: #9d174d;
+  font-weight: 800;
+}
+
+.summary-selected-heading .no-selection {
+  color: #6b7280;
+  font-weight: 600;
+}
+
+.summary-description {
+  font-size: 12px;
+  color: #4b5563;
+  margin: 0;
+  line-height: 1.45;
+}
+
+.summary-banner-right {
+  flex-shrink: 0;
+}
+
+.ready-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #059669;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 750;
+  padding: 8px 18px;
+  border-radius: 9999px;
+  box-shadow: 0 3px 10px rgba(5, 150, 105, 0.25);
+  animation: badgePop 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes badgePop {
+  0% { transform: scale(0.92); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.empty-badge {
+  display: inline-flex;
+  align-items: center;
+  background: #e2e8f0;
+  color: #64748b;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 8px 16px;
+  border-radius: 9999px;
+}
+
+/* ─── Time & Logistics Section ─── */
+.rental-logistics-section {
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1.5px solid #f1f5f9;
+}
+
+.logistics-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #9d174d;
+  margin-bottom: 12px;
+}
+
+.logistics-title {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 750;
+  color: #1e293b;
+}
+
+.time-presets-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.presets-caption {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #64748b;
+  margin-right: 2px;
+}
+
+.preset-chip {
+  padding: 6px 12px;
+  border-radius: 9999px;
+  border: 1.5px solid #e2e8f0;
+  background: #ffffff;
+  color: #334155;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.preset-chip:hover {
+  border-color: #fbcfe8;
+  background: #fff0f5;
+  color: #9d174d;
+}
+
+.preset-chip.active {
+  border-color: #9d174d;
+  background: #fff0f5;
+  color: #9d174d;
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgba(157, 23, 77, 0.12);
+}
+
+.custom-times-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+@media (max-width: 520px) {
+  .custom-times-grid {
     grid-template-columns: 1fr;
   }
 }
 
-.schedule-input-box {
+.time-input-group {
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 
-.schedule-input-box label {
+.time-input-group label {
   font-size: 11px;
   font-weight: 750;
-  color: var(--ink);
+  color: #334155;
   display: flex;
   align-items: center;
   gap: 4px;
 }
 
-.schedule-input-box input {
+.time-input-group .time-field {
   width: 100%;
   padding: 9px 12px;
-  border: 1.5px solid rgba(240, 220, 227, 0.85);
+  border: 1.5px solid #e2e8f0;
   border-radius: 12px;
-  font-size: 12.5px;
-  background: #fffbfa;
-  color: var(--ink);
+  font-size: 13px;
+  background: #f8fafc;
+  color: #0f172a;
   outline: none;
-  transition: border-color 0.2s;
+  font-family: inherit;
+  transition: all 0.2s ease;
 }
 
-.schedule-input-box input:focus {
-  border-color: var(--pink);
+.time-input-group .time-field:focus {
+  border-color: #9d174d;
   background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(157, 23, 77, 0.1);
 }
 
-.schedule-helper-note {
-  margin-top: 10px;
-  font-size: 11px;
-  color: var(--muted);
+.logistics-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: #fdf2f8;
+  border: 1px solid #fce7f3;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 11.5px;
+  color: #4b5563;
   line-height: 1.5;
-  background: #fdf5f8;
-  padding: 8px 12px;
-  border-radius: 10px;
+}
+
+.logistics-note-icon {
+  color: #9d174d;
+  flex-shrink: 0;
+  margin-top: 2px;
 }
 
 /* Custom Note Textarea */
