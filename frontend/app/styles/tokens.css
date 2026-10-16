@@ -1,0 +1,24 @@
+/* ═══════════════════════════════════════════════════════════════════
+   DESIGN TOKENS, CSS VARIABLES & BASE RESETS
+   ═══════════════════════════════════════════════════════════════════ */
+:root { --pink:#a94065; --rose:#701a35; --blush:#faf4f6; --offwhite:#fff9fb; --ink:#33252b; --muted:#776a70; --line:#f0dce3; --shadow:0 12px 28px rgba(0,0,0,.08); }
+* { box-sizing:border-box; }
+html { scroll-behavior:smooth; }
+body { margin:0; color:var(--ink); background:var(--offwhite); font-family:var(--font-jakarta),sans-serif; }
+button,input,textarea,select { font:inherit; }
+button,a { -webkit-tap-highlight-color:transparent; }
+button { color:inherit; }
+a { color:inherit; text-decoration:none; }
+.shell { width:min(1180px,calc(100% - 32px)); margin-inline:auto; }
+
+/* Toast & Notification Overlays */
+/* ─── Toast Banner ─── */
+.toast-banner { position:fixed; bottom:25px; right:25px; z-index:99; padding:12px 22px; border-radius:999px; color:white; background:var(--rose); box-shadow:0 8px 24px rgba(0,0,0,.18); font-size:13px; font-weight:700; cursor:pointer; animation:slideUp .3s ease; }
+.toast-banner.toast-error { background:#d32f2f; }
+.toast-banner.toast-info { background:#1976d2; }
+@keyframes slideUp { from { transform:translateY(20px); opacity:0; } to { transform:translateY(0); opacity:1; } }
+
+/* ─── Profile Popover ─── */
+.profile-popover { position:absolute; top:48px; right:0; min-width:180px; padding:8px; border:1px solid var(--line); border-radius:18px; background:white; box-shadow:var(--shadow); display:grid; gap:4px; z-index:40; }
+.profile-popover a,.profile-popover button { display:flex; align-items:center; gap:8px; padding:10px 12px; border:0; border-radius:12px; background:none; color:var(--ink); font-size:12px; font-weight:700; width:100%; text-align:left; cursor:pointer; }
+.profile-popover a:hover,.profile-popover button:hover { background:var(--blush); color:var(--pink); }

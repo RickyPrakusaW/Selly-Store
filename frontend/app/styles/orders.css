@@ -1,0 +1,57 @@
+/* ═══════════════════════════════════════════════════════════════════
+   CUSTOMER ORDER HISTORY & TIMELINE TRACKING
+   ═══════════════════════════════════════════════════════════════════ */
+/* ─── Customer Orders List & Detail ─── */
+.orders-page,.order-detail-page { padding:30px 0 100px; }
+.orders-list { display:grid; gap:16px; margin-top:20px; }
+.order-history-card { padding:20px; border:1px solid var(--line); border-radius:24px; background:white; box-shadow:0 4px 14px rgba(0,0,0,.04); display:grid; gap:14px; }
+.order-card-header { display:flex; justify-content:space-between; align-items:center; }
+.order-id-code { font-weight:800; color:var(--rose); font-size:14px; }
+.order-date-text { display:flex; align-items:center; gap:4px; font-size:11px; color:var(--muted); margin-top:2px; }
+.status-badge-pill { padding:6px 14px; border-radius:999px; font-size:11px; font-weight:800; text-transform:uppercase; }
+.badge-orange { background:#fff3e0; color:#e65100; }
+.badge-blue { background:#e3f2fd; color:#1565c0; }
+.badge-green { background:#e8f5e9; color:#2e7d32; }
+.badge-gray { background:#f5f5f5; color:#616161; }
+.badge-red { background:#ffebee; color:#c62828; }
+.order-card-body { display:grid; grid-template-columns:1fr auto; gap:20px; border-top:1px solid var(--line); border-bottom:1px solid var(--line); padding:12px 0; }
+.order-items-preview p { margin:3px 0; font-size:13px; }
+.order-card-financials { text-align:right; font-size:12px; display:grid; gap:4px; }
+.order-card-financials strong { font-size:15px; color:var(--rose); }
+.text-orange { color:#e65100; font-weight:800; }
+.order-card-footer { display:flex; justify-content:flex-end; }
+
+/* Order Detail Stepper */
+.order-header-banner { display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; }
+.stepper-card { padding:20px 24px; border:1px solid var(--line); border-radius:24px; background:white; margin-bottom:24px; }
+.stepper-card h3 { margin:0 0 16px; font-family:var(--font-playfair); color:var(--rose); font-size:18px; }
+.stepper-timeline { display:grid; grid-template-columns:repeat(4,1fr); position:relative; }
+.stepper-timeline::before { content:''; position:absolute; top:18px; left:10%; right:10%; height:3px; background:var(--line); z-index:1; }
+.step-node { display:flex; flex-direction:column; align-items:center; gap:8px; position:relative; z-index:2; font-size:11px; color:var(--muted); font-weight:700; }
+.step-node .circle { width:36px; height:36px; border-radius:50%; background:white; border:2px solid var(--line); display:grid; place-items:center; font-size:14px; font-weight:800; color:var(--muted); }
+.step-node.active .circle { border-color:var(--pink); background:var(--pink); color:white; box-shadow:0 4px 12px rgba(0,0,0,.12); }
+.step-node.active span { color:var(--rose); }
+
+.order-detail-grid { display:grid; grid-template-columns:1fr minmax(360px, 420px); gap:28px; align-items:start; }
+.detail-left { display:grid; gap:20px; }
+.order-items-table { display:grid; gap:12px; }
+.order-item-row { display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--line); font-size:13px; }
+.item-note-text,.item-booking-date { margin:2px 0 0; font-size:11px; color:var(--muted); }
+.item-qty-price { text-align:right; display:grid; gap:2px; }
+.info-grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; font-size:12px; }
+.full-span { grid-column:1/-1; }
+.quote-box { font-style:italic; color:var(--pink); margin:4px 0 0; background:var(--blush); padding:10px; border-radius:12px; }
+.cancel-order-btn { width:100%; margin-top:12px; border:0; background:none; color:#c62828; font-size:12px; font-weight:700; cursor:pointer; text-decoration:underline; }
+
+/* Proof Upload Card */
+.proof-upload-card { padding:22px; border:1px solid var(--line); border-radius:24px; background:white; display:grid; gap:14px; margin-top:20px; }
+.card-header-with-icon { display:flex; align-items:center; gap:12px; color:var(--rose); }
+.card-header-with-icon h3 { margin:0; font-family:var(--font-playfair); font-size:18px; }
+.bank-account-info { padding:12px; border:1px solid #c8e6c9; border-radius:14px; background:#f1f8e9; font-size:12px; color:#2e7d32; }
+.proof-status-box { padding:12px; border-radius:14px; display:flex; align-items:center; gap:10px; font-size:12px; }
+.proof-status-box.pending { background:#fff8e1; border:1px solid #ffe0b2; color:#b78103; }
+.proof-status-box.approved { background:#e8f5e9; border:1px solid #c8e6c9; color:#2e7d32; }
+.proof-status-box.rejected { background:#ffebee; border:1px solid #ffcdd2; color:#c62828; }
+.file-input-label { padding:14px; border:2px dashed var(--line); border-radius:16px; background:#fffbfc; text-align:center; cursor:pointer; display:block; font-size:12px; color:var(--muted); }
+.file-input-label input { display:none; }
+.file-input-label:hover { border-color:var(--pink); }
