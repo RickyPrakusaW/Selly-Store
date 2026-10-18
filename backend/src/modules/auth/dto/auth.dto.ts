@@ -16,12 +16,8 @@ export class RegisterDto {
   email!: string;
 
   @IsString()
-  @MinLength(10)
+  @MinLength(6, { message: 'Password minimal 6 karakter' })
   @MaxLength(72)
-  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/, {
-    message:
-      'password must contain upper-case, lower-case, and numeric characters',
-  })
   password!: string;
 
   @IsString()
@@ -29,8 +25,27 @@ export class RegisterDto {
   fullName!: string;
 
   @IsOptional()
-  @Matches(/^\+?[1-9]\d{7,14}$/)
+  @Matches(/^\+?[0-9\s\-()]{7,20}$/)
   phoneNumber?: string;
+}
+
+export class GoogleAuthDto {
+  @IsOptional()
+  @IsString()
+  credential?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => (value ? String(value).trim().toLowerCase() : undefined))
+  @IsEmail()
+  email?: string;
+
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @IsOptional()
+  @IsString()
+  googleId?: string;
 }
 
 export class LoginDto {

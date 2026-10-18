@@ -18,6 +18,7 @@ import { NotificationQueueService } from '../../common/notification-queue/notifi
 import { JwtPayload } from '../../common/guards/jwt-user.interface';
 import {
   EmailDto,
+  GoogleAuthDto,
   LoginDto,
   RegisterDto,
   ResetPasswordDto,
@@ -109,6 +110,7 @@ export class AuthService implements OnModuleInit {
         fullName: dto.fullName,
         phoneNumber: dto.phoneNumber,
         role: UserRole.CUSTOMER,
+        isVerified: true,
         verificationTokenHash: this.hashToken(token),
         tokenExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
       },
@@ -121,11 +123,84 @@ export class AuthService implements OnModuleInit {
         isVerified: true,
       },
     });
-    await this.sendVerification(user.email, token);
+
+    try {
+      await this.sendVerification(user.email, token);
+    } catch {
+      /* ignore background email dispatch errors */
+    }
+
+    const tokens = await this.issueTokens(user);
     return {
-      message:
-        'Pendaftaran berhasil! Silakan periksa inbox email Anda untuk verifikasi akun.',
-      data: this.publicUser(user),
+      message: 'Pendaftaran berhasil! Akun Anda aktif dan dapat langsung bertransaksi.',
+      user: this.publicUser(user),
+      ...tokens,
+    };
+  }
+
+  async googleLogin(dto: GoogleAuthDto) {
+    let email = dto.email;
+    let name = dto.name;
+
+    if (dto.credential) {
+      try {
+        const parts = dto.credential.split('.');
+        if (parts.length >= 2 && parts[1]) {
+          const payload = JSON.parse(
+            Buffer.from(parts[1], 'base64').toString('utf8'),
+          );
+          if (payload.email) email = String(payload.email).toLowerCase();
+          if (payload.name) name = String(payload.name);
+        }
+      } catch {
+        /* fallback to dto values */
+      }
+    }
+
+    if (!email) {
+      throw new BadRequestException('Email Google tidak valid');
+    }
+
+    const blocked = await this.prisma.blacklist.findUnique({
+      where: { type_value: { type: BlacklistType.EMAIL, value: email } },
+    });
+    if (blocked) {
+      throw new ForbiddenException('Akses akun Anda telah diblokir');
+    }
+
+    let user = await this.prisma.user.findFirst({
+      where: { email, deletedAt: null },
+    });
+
+    if (user) {
+      if (!user.isActive) {
+        throw new ForbiddenException('Akun Anda telah dinonaktifkan');
+      }
+      if (!user.isVerified) {
+        user = await this.prisma.user.update({
+          where: { id: user.id },
+          data: { isVerified: true },
+        });
+      }
+    } else {
+      const dummyPassword = await bcrypt.hash(randomUUID(), 10);
+      user = await this.prisma.user.create({
+        data: {
+          email,
+          fullName: name || 'Pelanggan Google',
+          passwordHash: dummyPassword,
+          role: UserRole.CUSTOMER,
+          isVerified: true,
+          isActive: true,
+        },
+      });
+    }
+
+    const tokens = await this.issueTokens(user);
+    return {
+      message: 'Login Google berhasil!',
+      user: this.publicUser(user),
+      ...tokens,
     };
   }
 

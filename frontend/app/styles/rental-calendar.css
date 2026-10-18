@@ -409,6 +409,39 @@
   font-size: 8px;
 }
 
+/* Stock Badges (Real-Time Availability) */
+.slot-stock-badge {
+  display: inline-block;
+  padding: 2px 5px;
+  border-radius: 6px;
+  font-size: 8.5px;
+  font-weight: 750;
+  line-height: 1.1;
+  white-space: nowrap;
+  letter-spacing: -0.01em;
+}
+.slot-stock-badge.in-stock {
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+.slot-stock-badge.low-stock {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+  box-shadow: 0 0 6px rgba(245, 158, 11, 0.2);
+}
+
+/* Date Range Selection Highlight */
+.calendar-day-slot.is-in-range {
+  background: #fdf2f8 !important;
+  border-color: #fbcfe8 !important;
+}
+.calendar-day-slot.is-in-range .slot-day-number {
+  color: #9d174d;
+  font-weight: 800;
+}
+
 .slot-past-label {
   font-size: 10px;
   color: #cbd5e1;

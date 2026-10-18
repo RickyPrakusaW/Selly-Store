@@ -185,10 +185,21 @@ export function login(email: string, password: string) {
 export function register(data: {
   fullName: string;
   email: string;
-  phoneNumber: string;
+  phoneNumber?: string | undefined;
   password: string;
 }) {
-  return apiRequest<{ id: string }>("/auth/register", {
+  return apiRequest<LoginResult>("/auth/register", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export function googleLoginApi(data: {
+  credential?: string;
+  email?: string;
+  name?: string;
+}) {
+  return apiRequest<LoginResult>("/auth/google", {
     method: "POST",
     body: JSON.stringify(data),
   });

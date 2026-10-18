@@ -8,6 +8,8 @@ import {
   Clock,
   MapPin,
   MessageCircle,
+  Printer,
+  Share2,
 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -137,6 +139,29 @@ export default function OrderDetailPage() {
   );
   const waHelpLink = `https://wa.me/${waNumber}?text=${waHelpText}`;
 
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const handleShareWa = () => {
+    const text =
+      `🌸 *STRUK RESMI SELI FLORIST ATELIER* 🌸\n` +
+      `No. Pesanan: #ORDER-${order.id.slice(0, 8).toUpperCase()}\n` +
+      `Tanggal: ${createdDate}\n` +
+      `Status: ${order.status}\n` +
+      `Pemesan: ${order.customerName}\n` +
+      `Penerima: ${order.recipientName} (${order.recipientPhone})\n` +
+      `Alamat: ${order.deliveryAddress?.fullAddress || (order.deliveryType === "PICKUP" ? "Ambil di Workshop (Pickup)" : "-")}\n` +
+      `--------------------------------\n` +
+      `Total Belanja: ${rupiah.format(Number(order.total))}\n` +
+      `DP Wajib 50%: ${rupiah.format(Number(order.dpAmount))}\n` +
+      `Sisa Pelunasan: ${rupiah.format(Number(order.remainingAmount))}\n` +
+      (order.customTextRequest ? `Ucapan: "${order.customTextRequest}"\n` : "") +
+      `--------------------------------\n` +
+      `Lacak pesanan online: ${window.location.href}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
+  };
+
   return (
     <main className="order-detail-page shell">
       <Link href="/pesanan" className="back-link">
@@ -165,7 +190,13 @@ export default function OrderDetailPage() {
           </div>
         </div>
 
-        <div className="header-actions">
+        <div className="header-actions-group">
+          <button type="button" className="print-invoice-btn" onClick={handlePrint} title="Cetak struk resmi atau simpan sebagai PDF">
+            <Printer size={16} /> Cetak Struk
+          </button>
+          <button type="button" className="share-wa-btn" onClick={handleShareWa} title="Bagikan ringkasan pesanan ke WhatsApp">
+            <Share2 size={16} /> Bagikan WA
+          </button>
           <a
             href={waHelpLink}
             target="_blank"
@@ -418,6 +449,99 @@ export default function OrderDetailPage() {
           </div>
         </div>
       )}
+
+      {/* ─── Printable Formal Invoice / Receipt ─── */}
+      <div className="printable-invoice-sheet" aria-hidden="true">
+        <div className="print-invoice-header">
+          <div>
+            <h1 className="print-store-name">SELI FLORIST</h1>
+            <small style={{ color: "#666" }}>Atelier Bunga &amp; Rental Papan Ucapan • Yogyakarta</small>
+          </div>
+          <div>
+            <h2 className="print-invoice-title">FAKTUR PESANAN</h2>
+            <div style={{ fontSize: "10pt", color: "#444" }}>#ORDER-{order.id.slice(0, 8).toUpperCase()}</div>
+            <div style={{ fontSize: "9pt", color: "#666" }}>{createdDate}</div>
+          </div>
+        </div>
+
+        <div className="print-meta-grid">
+          <div>
+            <strong>Informasi Pemesan:</strong>
+            <div>Nama: {order.customerName}</div>
+            <div>WhatsApp: {order.waNumber}</div>
+          </div>
+          <div>
+            <strong>Tujuan &amp; Penerima:</strong>
+            <div>Penerima: {order.recipientName} ({order.recipientPhone})</div>
+            <div>Metode: {order.deliveryType === "PICKUP" ? "Ambil Sendiri (Pickup)" : "Pengiriman (Delivery)"}</div>
+            {order.deliveryAddress?.fullAddress && <div>Alamat: {order.deliveryAddress.fullAddress}</div>}
+          </div>
+        </div>
+
+        {order.customTextRequest && (
+          <div style={{ background: "#f9f9f9", padding: "10px 14px", borderLeft: "3px solid #d48b9f", marginBottom: "16px", fontSize: "10pt" }}>
+            <strong>Pesan pada Pita / Kartu Ucapan:</strong>
+            <div style={{ fontStyle: "italic", marginTop: "2px" }}>&quot;{order.customTextRequest}&quot;</div>
+          </div>
+        )}
+
+        <table className="print-table">
+          <thead>
+            <tr>
+              <th>Item Produk / Rental</th>
+              <th className="text-right">Qty</th>
+              <th className="text-right">Harga</th>
+              <th className="text-right">Subtotal</th>
+            </tr>
+          </thead>
+          <tbody>
+            {order.items?.map((it) => (
+              <tr key={it.id}>
+                <td>
+                  <strong>{it.productNameSnapshot || "Bunga / Karangan"}</strong>
+                  {it.bookingDate && (
+                    <div style={{ fontSize: "9pt", color: "#666" }}>
+                      Periode: {formatBookingDate(it.bookingDate)} {it.bookingEndDate ? `s/d ${formatBookingDate(it.bookingEndDate)}` : ""}
+                    </div>
+                  )}
+                  {it.customNoteSnapshot && <div style={{ fontSize: "9pt", color: "#666" }}>Catatan: {it.customNoteSnapshot}</div>}
+                </td>
+                <td className="text-right">{it.qty}</td>
+                <td className="text-right">{rupiah.format(Number(it.priceSnapshot))}</td>
+                <td className="text-right">{rupiah.format(Number(it.priceSnapshot) * it.qty)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        <div className="print-total-block">
+          <div className="print-total-row">
+            <span>Subtotal:</span>
+            <span>{rupiah.format(Number(order.subtotal))}</span>
+          </div>
+          <div className="print-total-row">
+            <span>Ongkos Kirim:</span>
+            <span>{Number(order.ongkirFee) > 0 ? rupiah.format(Number(order.ongkirFee)) : "GRATIS"}</span>
+          </div>
+          <div className="print-total-row grand-total">
+            <span>Total Transaksi:</span>
+            <span>{rupiah.format(Number(order.total))}</span>
+          </div>
+          <div className="print-total-row" style={{ marginTop: "8px", color: "#166437", fontWeight: "bold" }}>
+            <span>DP 50% (Wajib):</span>
+            <span>{rupiah.format(Number(order.dpAmount))}</span>
+          </div>
+          <div className="print-total-row" style={{ color: "#9d174d" }}>
+            <span>Sisa Pelunasan:</span>
+            <span>{rupiah.format(Number(order.remainingAmount))}</span>
+          </div>
+        </div>
+
+        <div className="print-footer-note">
+          <p style={{ margin: "0 0 4px" }}>Terima kasih telah mempercayakan momen spesial Anda kepada Seli Florist Atelier.</p>
+          <small>Struk ini sah dan diterbitkan secara digital oleh sistem Seli Florist. Layanan Pelanggan: WA 0895-1788-0077</small>
+        </div>
+      </div>
     </main>
   );
 }

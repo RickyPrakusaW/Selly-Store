@@ -28,11 +28,26 @@ const formatLocalDate = (d: Date) => {
 };
 
 export default function AdminReportsPage() {
+  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   const [from, setFrom] = useState(() => {
     const today = new Date();
     return formatLocalDate(new Date(today.getFullYear(), today.getMonth(), 1));
   });
   const [to, setTo] = useState(() => formatLocalDate(new Date()));
+
+  const setPreset = (days: number) => {
+    const end = new Date();
+    const start = new Date();
+    start.setDate(end.getDate() - days);
+    setFrom(formatLocalDate(start));
+    setTo(formatLocalDate(end));
+  };
+
+  const setThisMonth = () => {
+    const today = new Date();
+    setFrom(formatLocalDate(new Date(today.getFullYear(), today.getMonth(), 1)));
+    setTo(formatLocalDate(today));
+  };
 
   const { data: summary, isLoading: loadingSummary } = useQuery<ReportSummary>({
     queryKey: ["report-summary", from, to],
@@ -116,6 +131,33 @@ export default function AdminReportsPage() {
                 value={to}
                 onChange={(e) => setTo(e.target.value)}
               />
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", gap: "6px", marginLeft: "auto" }}>
+              <button
+                type="button"
+                className="atelier-btn-secondary compact"
+                style={{ fontSize: "11px", padding: "4px 10px" }}
+                onClick={() => setPreset(7)}
+              >
+                7 Hari
+              </button>
+              <button
+                type="button"
+                className="atelier-btn-secondary compact"
+                style={{ fontSize: "11px", padding: "4px 10px" }}
+                onClick={() => setPreset(30)}
+              >
+                30 Hari
+              </button>
+              <button
+                type="button"
+                className="atelier-btn-secondary compact"
+                style={{ fontSize: "11px", padding: "4px 10px" }}
+                onClick={setThisMonth}
+              >
+                Bulan Ini
+              </button>
             </div>
           </div>
         </div>
@@ -234,6 +276,52 @@ export default function AdminReportsPage() {
         </div>
 
         <div className="atelier-panel-body" style={{ padding: "24px" }}>
+          {/* Interactive Hover Tooltip Banner */}
+          {hoveredIdx !== null && chartData[hoveredIdx] && (
+            <div
+              style={{
+                marginBottom: "16px",
+                padding: "12px 18px",
+                background: "#faf5f7",
+                border: "1px solid #f2d7e0",
+                borderRadius: "14px",
+                display: "flex",
+                gap: "24px",
+                alignItems: "center",
+                flexWrap: "wrap",
+                boxShadow: "0 4px 14px rgba(169,64,101,0.06)",
+                animation: "fadeIn 0.2s ease",
+              }}
+            >
+              <div>
+                <small style={{ color: "var(--admin-muted)", fontSize: "11px", display: "block" }}>Periode / Tanggal</small>
+                <strong style={{ fontSize: "14px", color: "var(--admin-ink)" }}>
+                  {chartData[hoveredIdx]?.period || chartData[hoveredIdx]?.date}
+                </strong>
+              </div>
+              <div>
+                <small style={{ color: "var(--admin-muted)", fontSize: "11px", display: "block" }}>Omzet Penjualan</small>
+                <strong style={{ fontSize: "14px", color: "var(--admin-rose)" }}>
+                  {rupiah.format(Number(chartData[hoveredIdx]?.revenue ?? 0))}
+                </strong>
+              </div>
+              <div>
+                <small style={{ color: "var(--admin-muted)", fontSize: "11px", display: "block" }}>Laba Bersih</small>
+                <strong style={{ fontSize: "14px", color: "#166437" }}>
+                  {rupiah.format(Number(chartData[hoveredIdx]?.profit ?? chartData[hoveredIdx]?.grossProfit ?? 0))}
+                </strong>
+              </div>
+              <div>
+                <small style={{ color: "var(--admin-muted)", fontSize: "11px", display: "block" }}>Estimasi Margin</small>
+                <strong style={{ fontSize: "14px", color: "#854d0e" }}>
+                  {Number(chartData[hoveredIdx]?.revenue) > 0
+                    ? `${Math.round(((Number(chartData[hoveredIdx]?.profit ?? chartData[hoveredIdx]?.grossProfit ?? 0)) / Number(chartData[hoveredIdx]?.revenue)) * 100)}%`
+                    : "0%"}
+                </strong>
+              </div>
+            </div>
+          )}
+
           {loadingChart ? (
             <div style={{ textAlign: "center", padding: "40px", color: "var(--admin-muted)", fontSize: "13px" }}>
               Memuat grafik data…
@@ -266,10 +354,13 @@ export default function AdminReportsPage() {
                 const profitVal = Number(dp.profit ?? dp.grossProfit ?? 0);
                 const revPct = Math.round((revenueVal / maxVal) * 100);
                 const profitPct = Math.round((profitVal / maxVal) * 100);
+                const isHovered = hoveredIdx === idx;
 
                 return (
                   <div
                     key={idx}
+                    onMouseEnter={() => setHoveredIdx(idx)}
+                    onMouseLeave={() => setHoveredIdx(null)}
                     style={{
                       display: "flex",
                       flexDirection: "column",
@@ -279,31 +370,46 @@ export default function AdminReportsPage() {
                       minWidth: "36px",
                       height: "100%",
                       justifyContent: "flex-end",
+                      cursor: "pointer",
+                      padding: "4px 2px",
+                      borderRadius: "6px",
+                      background: isHovered ? "rgba(169, 64, 101, 0.05)" : "transparent",
+                      transition: "all 0.2s ease",
+                      transform: isHovered ? "translateY(-4px)" : "none",
                     }}
                   >
                     <div style={{ display: "flex", alignItems: "flex-end", gap: "3px", height: "100%", width: "100%", justifyContent: "center" }}>
                       <div
                         style={{
-                          width: "14px",
+                          width: isHovered ? "16px" : "13px",
                           height: `${Math.max(4, revPct)}%`,
                           background: "var(--admin-rose)",
                           borderRadius: "4px 4px 0 0",
-                          transition: "height 0.3s ease",
+                          transition: "all 0.25s ease",
+                          boxShadow: isHovered ? "0 0 10px rgba(169, 64, 101, 0.4)" : "none",
                         }}
                         title={`Omzet: ${rupiah.format(revenueVal)}`}
                       />
                       <div
                         style={{
-                          width: "14px",
+                          width: isHovered ? "16px" : "13px",
                           height: `${Math.max(4, Math.max(0, profitPct))}%`,
                           background: "#166437",
                           borderRadius: "4px 4px 0 0",
-                          transition: "height 0.3s ease",
+                          transition: "all 0.25s ease",
+                          boxShadow: isHovered ? "0 0 10px rgba(22, 100, 55, 0.4)" : "none",
                         }}
                         title={`Laba: ${rupiah.format(profitVal)}`}
                       />
                     </div>
-                    <span style={{ fontSize: "10px", fontWeight: 600, color: "var(--admin-muted)", whiteSpace: "nowrap" }}>
+                    <span
+                      style={{
+                        fontSize: "10px",
+                        fontWeight: isHovered ? 800 : 600,
+                        color: isHovered ? "var(--admin-rose)" : "var(--admin-muted)",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
                       {periodStr.length > 5 ? periodStr.slice(5) : periodStr}
                     </span>
                   </div>

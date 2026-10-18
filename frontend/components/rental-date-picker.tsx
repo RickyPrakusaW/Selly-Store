@@ -60,6 +60,7 @@ interface DaySlot {
   status: DayStatus;
   isSunday: boolean;
   lockRemaining?: string | undefined;
+  availableStock?: number;
 }
 
 const TIME_PRESETS = [
@@ -228,43 +229,24 @@ export function RentalDatePicker({
           }
         }
 
-        if (bookedCount >= totalActiveBoards) {
+        const availableUnits = Math.max(0, totalActiveBoards - bookedCount - softLockedCount);
+        if (bookedCount >= totalActiveBoards || availableUnits === 0) {
           status = "booked";
         } else if (bookedCount + softLockedCount >= totalActiveBoards) {
           status = "soft_locked";
           lockRemaining = "TERKUNCI 1J 45M";
-        } else {
-          // 2. Realistic demo/visual state if backend has no booking data for this month
-          // For May 2026 or generic demo when DB is empty, reproduce user's exact showcase:
-          if (bookedCount === 0 && softLockedCount === 0) {
-            if (monthKey === "2026-05") {
-              if ([12, 18, 19, 25].includes(day)) {
-                status = "booked";
-              } else if (day === 22) {
-                status = "soft_locked";
-                lockRemaining = "TERKUNCI 1J 45M";
-              }
-            } else {
-              // Subtle deterministic demo pattern for other months so customers see real UI states
-              if (day === 12 || day === 25) {
-                status = "booked";
-              } else if (day === 22) {
-                status = "soft_locked";
-                lockRemaining = "TERKUNCI 1J 30M";
-              }
-            }
-          }
         }
-      }
 
-      slots.push({
-        dayNum: day,
-        dateStr,
-        isCurrentMonth: true,
-        status,
-        isSunday,
-        lockRemaining,
-      });
+        slots.push({
+          dayNum: day,
+          dateStr,
+          isCurrentMonth: true,
+          status,
+          isSunday,
+          lockRemaining,
+          availableStock: availableUnits,
+        });
+      }
     }
 
     // Trailing days from next month to complete row of 7
@@ -395,8 +377,6 @@ export function RentalDatePicker({
       {/* ─── Interactive Days Matrix ─── */}
       <div className="calendar-matrix-grid">
         {calendarDays.map((slot, idx) => {
-          const isSelected = slot.isCurrentMonth && slot.dateStr === selectedDate;
-
           // Out-of-month padding days
           if (!slot.isCurrentMonth) {
             return (
@@ -410,6 +390,16 @@ export function RentalDatePicker({
             );
           }
 
+          const isStartDate = slot.isCurrentMonth && slot.dateStr === selectedDate;
+          const isEndDate = slot.isCurrentMonth && Boolean(selectedEndDate && slot.dateStr === selectedEndDate);
+          const isSelected = isStartDate || isEndDate;
+          const isInRange = Boolean(
+            selectedDate &&
+            selectedEndDate &&
+            slot.dateStr > selectedDate &&
+            slot.dateStr < selectedEndDate
+          );
+
           // In-month days
           if (isSelected) {
             return (
@@ -421,7 +411,9 @@ export function RentalDatePicker({
                 aria-label={`Pilihan Anda: ${slot.dayNum}`}
               >
                 <span className="slot-day-number selected-text">{slot.dayNum}</span>
-                <span className="slot-status-pill selected-pill">Terpilih</span>
+                <span className="slot-status-pill selected-pill">
+                  {isStartDate && selectedEndDate ? "Mulai" : isEndDate ? "Selesai" : "Terpilih"}
+                </span>
               </button>
             );
           }
@@ -431,14 +423,14 @@ export function RentalDatePicker({
               <div
                 key={slot.dateStr}
                 className="calendar-day-slot is-booked"
-                title="Penuh / Sudah Dipesan"
+                title="Penuh / Sudah Dipesan Semua Unit"
                 aria-disabled="true"
               >
                 <div className="slot-number-row">
                   <span className="slot-day-number booked-num">{slot.dayNum}</span>
                   <Ban size={12} className="slot-ban-icon" />
                 </div>
-                <span className="slot-status-pill booked-pill">BOOKED</span>
+                <span className="slot-status-pill booked-pill">PENUH</span>
               </div>
             );
           }
@@ -450,7 +442,7 @@ export function RentalDatePicker({
                 type="button"
                 className="calendar-day-slot is-softlocked"
                 onClick={() => handleSelectDay(slot)}
-                title="Slot sedang di-hold checkout pelanggan lain. Bisa terbuka kembali jika tidak diselesaikan."
+                title="Slot sedang di-hold checkout pelanggan lain."
               >
                 <div className="slot-number-row">
                   <span className="slot-day-number softlocked-num">{slot.dayNum}</span>
@@ -478,13 +470,14 @@ export function RentalDatePicker({
           }
 
           // Available
+          const stock = slot.availableStock ?? 1;
           return (
             <button
               key={slot.dateStr}
               type="button"
-              className="calendar-day-slot is-available"
+              className={`calendar-day-slot is-available ${isInRange ? "is-in-range" : ""}`}
               onClick={() => handleSelectDay(slot)}
-              aria-label={`Pilih tanggal ${slot.dayNum}: Tersedia`}
+              aria-label={`Pilih tanggal ${slot.dayNum}: Tersedia ${stock} unit`}
             >
               <span
                 className={`slot-day-number ${
@@ -493,7 +486,11 @@ export function RentalDatePicker({
               >
                 {slot.dayNum}
               </span>
-              <span className="slot-status-text available-text">Tersedia</span>
+              {stock === 1 ? (
+                <span className="slot-stock-badge low-stock">Sisa 1</span>
+              ) : (
+                <span className="slot-stock-badge in-stock">Sisa {stock}</span>
+              )}
             </button>
           );
         })}

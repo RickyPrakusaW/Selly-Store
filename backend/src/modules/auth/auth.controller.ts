@@ -16,6 +16,7 @@ import type { JwtUser } from '../../common/guards/jwt-user.interface';
 import { AuthService } from './auth.service';
 import {
   EmailDto,
+  GoogleAuthDto,
   LoginDto,
   RegisterDto,
   ResetPasswordDto,
@@ -38,8 +39,26 @@ export class AuthController {
   @Public()
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @Post('register')
-  register(@Body() dto: RegisterDto) {
-    return this.auth.register(dto);
+  async register(@Body() dto: RegisterDto, @Res({ passthrough: true }) res: Response) {
+    const result = await this.auth.register(dto);
+    if (result.refreshToken) {
+      res.cookie('refreshToken', result.refreshToken, cookieOptions);
+    }
+    return result;
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  @Post('google')
+  async googleLogin(
+    @Body() dto: GoogleAuthDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.auth.googleLogin(dto);
+    if (result.refreshToken) {
+      res.cookie('refreshToken', result.refreshToken, cookieOptions);
+    }
+    return result;
   }
 
   @Public()
