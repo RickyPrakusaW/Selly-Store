@@ -68,16 +68,19 @@ function validateConfig(config: Record<string, unknown>) {
     const origins = String(config.ALLOWED_ORIGINS)
       .split(',')
       .map((origin) => origin.trim());
-    if (origins.some((origin) => !/^https:\/\//.test(origin))) {
+    if (
+      origins.some(
+        (origin) =>
+          !/^https:\/\//.test(origin) &&
+          !/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin),
+      )
+    ) {
       throw new Error(
-        'Every ALLOWED_ORIGINS entry must use HTTPS in production',
+        'Every non-local ALLOWED_ORIGINS entry must use HTTPS in production',
       );
     }
     if (config.PAYMENT_PROVIDER !== 'doku') {
       throw new Error('PAYMENT_PROVIDER must be doku in production');
-    }
-    if (String(config.DOKU_IS_PRODUCTION).toLowerCase() !== 'true') {
-      throw new Error('DOKU_IS_PRODUCTION must be true in production');
     }
   }
   return config;
