@@ -40,95 +40,94 @@
 /* Pending Order Notification Card on Checkout */
 .pending-order-notification-card {
   margin-bottom: 24px;
-  padding: 22px 24px;
-  background: linear-gradient(135deg, #fff7ed 0%, #fffbf6 100%);
-  border: 1.5px solid #fed7aa;
-  border-radius: 24px;
+  padding: 18px 22px;
+  background: var(--blush);
+  border: 1px solid var(--line);
+  border-radius: 16px;
   display: flex;
-  gap: 20px;
+  gap: 16px;
   align-items: flex-start;
-  box-shadow: 0 8px 24px rgba(234, 88, 12, 0.08);
+  box-shadow: var(--elevation-1);
 }
 .pending-banner-left { flex-shrink: 0; }
 .pending-icon-circle {
-  width: 52px;
-  height: 52px;
-  border-radius: 18px;
-  background: #ea580c;
-  color: white;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--surface-muted);
+  color: var(--rose);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 6px 16px rgba(234, 88, 12, 0.25);
 }
-.pending-banner-content { flex: 1; display: grid; gap: 8px; }
+.pending-banner-content { flex: 1; display: grid; gap: 6px; }
 .pending-banner-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .pending-status-badge {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  padding: 4px 12px;
-  background: #ffedd5;
-  color: #c2410c;
+  padding: 3px 10px;
+  background: var(--blush);
+  color: var(--rose);
+  border: 1px solid var(--line);
   border-radius: 999px;
 }
 .pending-code {
   font-family: var(--font-playfair);
-  font-weight: 800;
-  color: #9a3412;
-  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+  font-size: 13px;
 }
 .pending-banner-content h3 {
   margin: 0;
-  font-size: 18px;
-  font-weight: 800;
-  color: #7c2d12;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink);
   font-family: var(--font-playfair);
 }
 .pending-banner-content p {
   margin: 0;
-  font-size: 13px;
-  color: #431407;
-  line-height: 1.55;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.5;
 }
 .pending-amount {
-  color: #c2410c;
-  font-size: 15px;
+  color: var(--rose);
+  font-size: 14px;
   font-weight: 800;
 }
 .pending-actions {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   align-items: center;
   flex-wrap: wrap;
-  margin-top: 6px;
+  margin-top: 4px;
 }
 .pending-pay-button {
-  background: #ea580c !important;
+  background: var(--rose) !important;
   color: white !important;
-  box-shadow: 0 6px 18px rgba(234, 88, 12, 0.3) !important;
+  box-shadow: 0 4px 12px rgba(112, 26, 53, 0.25) !important;
 }
 .pending-pay-button:hover {
-  background: #c2410c !important;
-  transform: translateY(-2px);
+  background: var(--rose-dark) !important;
 }
 .pending-cancel-button {
-  background: white !important;
-  border: 1px solid #fdba74 !important;
-  color: #9a3412 !important;
-  font-size: 13px !important;
-  padding: 10px 16px !important;
-  border-radius: 999px !important;
+  background: transparent !important;
+  border: 1px solid var(--line) !important;
+  color: var(--muted) !important;
+  font-size: 12px !important;
+  padding: 8px 14px !important;
+  border-radius: 10px !important;
   display: inline-flex !important;
   align-items: center !important;
   gap: 6px !important;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: border-color 0.2s, color 0.2s;
 }
 .pending-cancel-button:hover {
-  background: #ffedd5 !important;
-  border-color: #fb923c !important;
+  border-color: var(--line-strong) !important;
+  color: var(--ink) !important;
 }
 .spin-icon {
   animation: spin 1s linear infinite;
@@ -139,130 +138,186 @@
 }
 
 /* Focused card when customer already has pending order on checkout */
-.pending-order-focus-card {
-  max-width: 580px;
-  margin: 30px auto 60px;
-  padding: 44px 36px;
-  background: linear-gradient(145deg, #ffffff 0%, #fffbf7 100%);
-  border: 1.5px solid #fed7aa;
-  border-radius: 28px;
-  box-shadow: 0 20px 48px -12px rgba(234, 88, 12, 0.14), 0 4px 12px rgba(0, 0, 0, 0.03);
+.pend-card {
+  max-width: 480px;
+  margin: 40px auto 60px;
+}
+.pend-card-inner {
+  position: relative;
+  padding: 40px 32px 36px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  box-shadow: var(--elevation-2);
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  gap: 18px;
-  animation: fadeInFocus 0.3s ease-out;
+  gap: 20px;
 }
-@keyframes fadeInFocus {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+.pend-ornament {
+  position: absolute;
+  top: 0; left: 50%;
+  transform: translateX(-50%);
+  width: 60px; height: 3px;
+  border-radius: 0 0 3px 3px;
+  background: var(--rose);
 }
-.pending-icon-circle {
-  width: 72px;
-  height: 72px;
-  border-radius: 22px;
-  background: linear-gradient(135deg, #ffedd5 0%, #fed7aa 100%);
-  color: #ea580c;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 8px 20px -4px rgba(234, 88, 12, 0.25);
-}
-.pending-focus-header {
+.pend-status-row {
   display: flex;
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
   justify-content: center;
 }
-.pending-order-focus-card h2 {
-  font-size: 22px;
+.pend-badge {
+  font-size: 10px;
   font-weight: 800;
-  color: #1c1917;
-  margin: 0;
-  line-height: 1.3;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 4px 12px;
+  background: var(--blush);
+  color: var(--rose);
+  border: 1px solid var(--line);
+  border-radius: 999px;
 }
-.pending-focus-desc {
+.pend-code {
+  font-family: var(--font-jakarta), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  font-weight: 800;
+  color: var(--ink);
+  font-size: 13.5px;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+}
+.pend-amount-block {
+  padding: 20px 28px;
+  background: var(--blush);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  width: 100%;
+  max-width: 320px;
+}
+.pend-label {
+  margin: 0 0 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.pend-price {
   margin: 0;
-  font-size: 14.5px;
-  color: #57534e;
+  font-family: var(--font-playfair);
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--rose);
+  line-height: 1.2;
+}
+.pend-desc {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
   line-height: 1.6;
-  max-width: 480px;
+  max-width: 380px;
 }
-.pending-focus-desc strong {
-  color: #1c1917;
+.pend-desc strong {
+  color: var(--ink);
 }
-.pending-focus-desc .pending-amount {
-  color: #c2410c;
-  font-size: 20px;
-  font-weight: 900;
-  display: block;
-  margin-top: 6px;
-}
-.pending-focus-actions {
+.pend-actions {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   width: 100%;
-  max-width: 380px;
-  margin-top: 10px;
+  max-width: 320px;
+  margin-top: 4px;
 }
-.pending-pay-focus-btn {
+.pend-pay-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   width: 100%;
-  padding: 16px 24px !important;
-  font-size: 15px !important;
-  font-weight: 800 !important;
-  border-radius: 14px !important;
-  background: linear-gradient(135deg, #881337 0%, #4c0519 100%) !important;
-  color: #ffffff !important;
-  box-shadow: 0 10px 24px -4px rgba(136, 19, 55, 0.4) !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  gap: 10px !important;
-  text-decoration: none !important;
-  transition: all 0.2s ease !important;
+  padding: 14px 20px;
+  font-size: 14px;
+  font-weight: 700;
+  border: 0;
+  border-radius: 12px;
+  background: var(--rose);
+  color: #fff;
+  box-shadow: 0 6px 18px -4px rgba(112, 26, 53, 0.35);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.2s, box-shadow 0.2s;
 }
-.pending-pay-focus-btn:hover {
-  transform: translateY(-2px) !important;
-  box-shadow: 0 14px 28px -4px rgba(136, 19, 55, 0.5) !important;
+.pend-pay-btn:hover {
+  background: var(--rose-dark);
+  box-shadow: 0 8px 22px -4px rgba(112, 26, 53, 0.45);
+}
+.pend-cancel-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 11px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+.pend-cancel-btn:hover {
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+.pend-cancel-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+@media (max-width: 540px) {
+  .pend-card { margin: 24px auto 40px; }
+  .pend-card-inner { padding: 32px 20px 28px; gap: 16px; }
+  .pend-price { font-size: 22px; }
+  .pend-amount-block { padding: 16px 20px; }
 }
 
 /* Notice banner in Orders page */
 .pending-notice-banner {
   margin-bottom: 20px;
   padding: 14px 18px;
-  background: #fff7ed;
-  border: 1px solid #fed7aa;
-  border-radius: 18px;
+  background: var(--blush);
+  border: 1px solid var(--line);
+  border-radius: 14px;
   display: flex;
   align-items: center;
   gap: 14px;
-  color: #9a3412;
+  color: var(--ink);
 }
 .pending-notice-banner svg {
   flex-shrink: 0;
-  color: #ea580c;
+  color: var(--rose);
 }
 .pending-notice-banner strong {
   display: block;
   font-size: 13px;
-  color: #7c2d12;
+  color: var(--ink);
 }
 .pending-notice-banner p {
   margin: 2px 0 0;
   font-size: 12px;
-  color: #9a3412;
+  color: var(--muted);
 }
 
 .action-btn-pay {
-  background: #ea580c !important;
+  background: var(--rose) !important;
   color: white !important;
-  box-shadow: 0 4px 14px rgba(234, 88, 12, 0.25) !important;
+  box-shadow: 0 4px 12px rgba(112, 26, 53, 0.25) !important;
 }
 .action-btn-pay:hover {
-  background: #c2410c !important;
+  background: var(--rose-dark) !important;
 }
 .action-btn-neutral {
   background: var(--blush) !important;

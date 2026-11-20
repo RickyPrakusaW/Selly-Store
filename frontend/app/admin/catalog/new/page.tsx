@@ -191,7 +191,7 @@ export default function AdminNewProductPage() {
           </Link>
           <h1>Tambah Produk Baru</h1>
           <p>
-            Daftarkan buket bunga, papan ucapan, atau item hampers baru ke dalam katalog toko online Seli Florist.
+            Daftarkan buket bunga, papan ucapan, atau item hampers baru ke dalam katalog toko online LICHARY Florist.
           </p>
         </div>
         <div className="admin-header-actions">

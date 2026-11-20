@@ -1,16 +1,24 @@
-'use client';
+"use client";
 
-import { ArrowRight, Heart, Package, Plus, Star } from 'lucide-react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
-import { resolveImageUrl } from '@/lib/api';
-import { useSeliStore } from '@/lib/store';
-import type { Product } from '@/lib/types';
+import {
+  ArrowRight,
+  CalendarCheck,
+  CheckCircle2,
+  Heart,
+  Package,
+  ShoppingBag,
+} from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { resolveImageUrl } from "@/lib/api";
+import { useSeliStore } from "@/lib/store";
+import type { Product } from "@/lib/types";
+import { useMounted } from "@/lib/use-mounted";
 
-const rupiah = new Intl.NumberFormat('id-ID', {
-  style: 'currency',
-  currency: 'IDR',
+const rupiah = new Intl.NumberFormat("id-ID", {
+  style: "currency",
+  currency: "IDR",
   maximumFractionDigits: 0,
 });
 
@@ -25,32 +33,36 @@ export function ProductCard({
   const wishlist = useSeliStore((state) => state.wishlist);
   const toggleWishlist = useSeliStore((state) => state.toggleWishlist);
 
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  const mounted = useMounted();
 
   const [isAdding, setIsAdding] = useState(false);
 
-  const isLiked = mounted && Boolean(user) && wishlist.some((p) => p.id === product.id);
+  const isLiked =
+    mounted && Boolean(user) && wishlist.some((p) => p.id === product.id);
 
   const rawImage =
     product.images?.find((item) => item.isPrimary)?.imageUrl ??
     product.images?.[0]?.imageUrl;
   const image = resolveImageUrl(rawImage);
-  const isPo = product.stockType?.toString().toLowerCase().includes('pre');
+  const isPo = product.stockType?.toString().toLowerCase().includes("pre");
   const isBoard =
-    product.category?.slug === 'papan_ucapan' ||
-    product.stockType?.toString().toLowerCase().includes('rental');
+    product.category?.slug === "papan_ucapan" ||
+    product.stockType?.toString().toLowerCase().includes("rental");
   const hasVariants = Boolean(product.variants && product.variants.length > 0);
+  const basePrice = Number(product.basePrice);
+  const availableQty = product.availableQty ?? product.stockQty ?? 0;
+  const isSoldOut = !isPo && !isBoard && availableQty <= 0;
 
   const handleAddClick = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    if (isSoldOut) return;
     if (isBoard || hasVariants) {
       router.push(`/produk/${product.id}`);
     } else {
       setIsAdding(true);
       await addToCart(product);
-      showToast(`${product.name} berhasil ditambahkan ke keranjang`, 'success');
+      showToast(`${product.name} berhasil ditambahkan ke keranjang`, "success");
       setTimeout(() => setIsAdding(false), 500);
     }
   };
@@ -62,38 +74,36 @@ export function ProductCard({
   };
 
   return (
-    <article className="product-card" id={product.category?.slug}>
+    <article className={`product-card ${isSoldOut ? "is-sold-out" : ""}`} id={product.category?.slug}>
       <Link href={`/produk/${product.id}`} className="product-image-wrap">
         {image ? (
           /* eslint-disable-next-line @next/next/no-img-element */
           <img
             src={image}
-            alt={`${product.name} dari Seli Florist`}
+            alt={`${product.name} dari LICHARY Florist`}
             className="product-image"
-            loading={priority ? 'eager' : 'lazy'}
+            loading={priority ? "eager" : "lazy"}
           />
         ) : (
           <div className="product-placeholder" aria-hidden="true">
             <Package size={32} />
-            <span>Seli</span>
+            <span>Lichary</span>
           </div>
         )}
 
-        {/* Stock / Type Badge */}
         <span
-          className={`stock-badge ${isBoard ? 'rental' : isPo ? 'po' : 'ready'}`}
+          className={`stock-badge ${isBoard ? "rental" : isPo ? "po" : "ready"}`}
         >
           {isBoard
-            ? 'Sewa Papan'
+            ? "Sewa Papan"
             : isPo
-            ? `Pre-Order (${product.poDays ?? 3}H)`
-            : 'Ready Stock'}
+              ? `Pre-Order (${product.poDays ?? 3}H)`
+              : "Ready Stock"}
         </span>
 
-        {/* Interactive Wishlist Heart Button */}
         <button
           type="button"
-          className={`card-wishlist-btn ${isLiked ? 'liked' : ''}`}
+          className={`card-wishlist-btn ${isLiked ? "liked" : ""}`}
           onClick={handleHeartClick}
           aria-label={
             isLiked
@@ -103,20 +113,17 @@ export function ProductCard({
         >
           <Heart
             size={16}
-            fill={isLiked ? '#e11d48' : 'none'}
-            color={isLiked ? '#e11d48' : '#776a70'}
+            fill={isLiked ? "#e11d48" : "none"}
+            color={isLiked ? "#e11d48" : "#776a70"}
           />
         </button>
+        <span className="product-image-shade" aria-hidden="true" />
       </Link>
 
       <div className="product-copy">
         <div className="product-topline">
           <span className="product-category-tag">
-            {product.category?.name ?? 'Koleksi'}
-          </span>
-          <span className="product-rating-hint">
-            <Star size={11} fill="#f59e0b" color="#f59e0b" />
-            <strong>4.9</strong>
+            {product.category?.name ?? "Koleksi"}
           </span>
         </div>
 
@@ -124,42 +131,68 @@ export function ProductCard({
           <h3 title={product.name}>{product.name}</h3>
         </Link>
 
+        <div className="product-card-meta">
+          {isBoard ? (
+            <span><CalendarCheck size={13} /> Pilih tanggal</span>
+          ) : isPo ? (
+            <span><CheckCircle2 size={13} /> {product.poDays ?? 3} hari pengerjaan</span>
+          ) : isSoldOut ? (
+            <span className="sold-out-label">Stok sedang habis</span>
+          ) : (
+            <span><CheckCircle2 size={13} /> Tersedia {availableQty} item</span>
+          )}
+        </div>
+
         <div className="product-price">
           <div className="price-column">
-            <small className="price-prefix">Mulai dari</small>
+            <div className="price-topline">
+              <small className="price-prefix">Mulai dari</small>
+              <span className="product-dp">
+                DP 50% <b>{rupiah.format(basePrice / 2)}</b>
+              </span>
+            </div>
             <strong className="price-amount">
-              {rupiah.format(Number(product.basePrice))}
+              {rupiah.format(basePrice)}{isBoard ? " / hari" : ""}
             </strong>
           </div>
-
-          <button
-            type="button"
-            className={`card-action-btn ${
-              isBoard || hasVariants ? 'has-options' : ''
-            } ${isAdding ? 'adding' : ''}`}
-            onClick={handleAddClick}
-            aria-label={
-              isBoard || hasVariants
-                ? `Pilih opsi ${product.name}`
-                : `Tambah ${product.name} ke keranjang`
-            }
-            title={
-              isBoard
-                ? 'Pilih jadwal sewa'
-                : hasVariants
-                ? 'Pilih varian'
-                : 'Tambah ke keranjang'
-            }
-          >
-            {isBoard || hasVariants ? (
-              <span className="action-pill-text">
-                Pilih <ArrowRight size={13} />
-              </span>
-            ) : (
-              <Plus size={18} />
-            )}
-          </button>
         </div>
+
+        <button
+          type="button"
+          className={`card-action-btn ${
+            isBoard || hasVariants ? "has-options" : ""
+          } ${isAdding ? "adding" : ""}`}
+          onClick={handleAddClick}
+          disabled={isSoldOut || isAdding}
+          aria-label={
+            isBoard || hasVariants
+              ? `Pilih opsi ${product.name}`
+              : `Tambah ${product.name} ke keranjang`
+          }
+          title={
+            isBoard
+              ? "Pilih jadwal sewa"
+              : hasVariants
+                ? "Pilih varian"
+                : "Tambah ke keranjang"
+          }
+        >
+          {isSoldOut ? (
+            <span className="action-pill-text">Stok Habis</span>
+          ) : isBoard ? (
+            <span className="action-pill-text">
+              Jadwal &amp; Sewa <ArrowRight size={13} />
+            </span>
+          ) : hasVariants ? (
+            <span className="action-pill-text">
+              Pilih Varian <ArrowRight size={13} />
+            </span>
+          ) : (
+            <span className="action-pill-text">
+              <ShoppingBag size={13} /> + Keranjang
+            </span>
+          )}
+        </button>
       </div>
     </article>
   );

@@ -1,6 +1,7 @@
 import { Transform } from 'class-transformer';
 import {
   IsEmail,
+  IsNotEmpty,
   IsOptional,
   IsString,
   Length,
@@ -8,6 +9,7 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
+import { normalizeWhatsAppNumber } from '../../../common/utils/phone-number.util';
 
 export class RegisterDto {
   @Transform(({ value }) => String(value).trim().toLowerCase())
@@ -16,8 +18,12 @@ export class RegisterDto {
   email!: string;
 
   @IsString()
-  @MinLength(6, { message: 'Password minimal 6 karakter' })
+  @MinLength(10, { message: 'Password minimal 10 karakter' })
   @MaxLength(72)
+  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9\s]).+$/, {
+    message:
+      'Password harus mengandung huruf besar, huruf kecil, angka, dan simbol',
+  })
   password!: string;
 
   @IsString()
@@ -25,27 +31,17 @@ export class RegisterDto {
   fullName!: string;
 
   @IsOptional()
-  @Matches(/^\+?[0-9\s\-()]{7,20}$/)
+  @Transform(({ value }) => normalizeWhatsAppNumber(value))
+  @Matches(/^[1-9]\d{7,14}$/, {
+    message: 'Nomor WhatsApp harus menggunakan format internasional yang valid',
+  })
   phoneNumber?: string;
 }
 
 export class GoogleAuthDto {
-  @IsOptional()
   @IsString()
-  credential?: string;
-
-  @IsOptional()
-  @Transform(({ value }) => (value ? String(value).trim().toLowerCase() : undefined))
-  @IsEmail()
-  email?: string;
-
-  @IsOptional()
-  @IsString()
-  name?: string;
-
-  @IsOptional()
-  @IsString()
-  googleId?: string;
+  @IsNotEmpty()
+  credential!: string;
 }
 
 export class LoginDto {
@@ -74,7 +70,7 @@ export class ResetPasswordDto extends TokenDto {
   @IsString()
   @MinLength(10)
   @MaxLength(72)
-  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/)
+  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9\s]).+$/)
   newPassword!: string;
 }
 
@@ -85,7 +81,10 @@ export class UpdateProfileDto {
   fullName?: string;
 
   @IsOptional()
-  @Matches(/^\+?[1-9]\d{7,14}$/)
+  @Transform(({ value }) => normalizeWhatsAppNumber(value))
+  @Matches(/^[1-9]\d{7,14}$/, {
+    message: 'Nomor WhatsApp harus menggunakan format internasional yang valid',
+  })
   phoneNumber?: string;
 
   @IsOptional()
@@ -97,6 +96,6 @@ export class UpdateProfileDto {
   @IsString()
   @MinLength(10)
   @MaxLength(72)
-  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/)
+  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9\s]).+$/)
   newPassword?: string;
 }

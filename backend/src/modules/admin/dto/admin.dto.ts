@@ -12,6 +12,7 @@ import {
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { PaginationDto } from '../../../common/dto/pagination.dto';
+import { normalizeWhatsAppNumber } from '../../../common/utils/phone-number.util';
 
 const STAFF_ROLES = [
   UserRole.OWNER,
@@ -26,9 +27,9 @@ export class CreateStaffDto {
   @IsEmail()
   email!: string;
   @IsString()
-  @MinLength(12)
+  @MinLength(10)
   @MaxLength(72)
-  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/)
+  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9\s]).+$/)
   password!: string;
   @IsString() @Length(2, 150) fullName!: string;
   @IsIn(STAFF_ROLES) role!: UserRole;
@@ -42,5 +43,10 @@ export class UpdateStaffDto {
 
 export class UpdateAdminProfileDto {
   @IsOptional() @IsString() @Length(2, 150) fullName?: string;
-  @IsOptional() @Matches(/^\+?[1-9]\d{7,14}$/) phoneNumber?: string;
+  @IsOptional()
+  @Transform(({ value }) => normalizeWhatsAppNumber(value))
+  @Matches(/^[1-9]\d{7,14}$/, {
+    message: 'Nomor WhatsApp harus menggunakan format internasional yang valid',
+  })
+  phoneNumber?: string;
 }

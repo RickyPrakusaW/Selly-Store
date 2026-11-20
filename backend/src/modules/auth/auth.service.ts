@@ -65,7 +65,7 @@ export class AuthService implements OnModuleInit {
             email: 'owner@seliflorist.com',
             passwordHash,
             fullName: 'Seli Florist Owner',
-            phoneNumber: '+6281111111101',
+            phoneNumber: '6281111111101',
             role: UserRole.OWNER,
             isVerified: true,
             isActive: true,
@@ -132,33 +132,54 @@ export class AuthService implements OnModuleInit {
 
     const tokens = await this.issueTokens(user);
     return {
-      message: 'Pendaftaran berhasil! Akun Anda aktif dan dapat langsung bertransaksi.',
+      message:
+        'Pendaftaran berhasil! Akun Anda aktif dan dapat langsung bertransaksi.',
       user: this.publicUser(user),
       ...tokens,
     };
   }
 
   async googleLogin(dto: GoogleAuthDto) {
-    let email = dto.email;
-    let name = dto.name;
-
-    if (dto.credential) {
-      try {
-        const parts = dto.credential.split('.');
-        if (parts.length >= 2 && parts[1]) {
-          const payload = JSON.parse(
-            Buffer.from(parts[1], 'base64').toString('utf8'),
-          );
-          if (payload.email) email = String(payload.email).toLowerCase();
-          if (payload.name) name = String(payload.name);
-        }
-      } catch {
-        /* fallback to dto values */
-      }
+    let googleRes: Response;
+    try {
+      googleRes = await fetch(
+        `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(dto.credential)}`,
+        { signal: AbortSignal.timeout(5_000) },
+      );
+    } catch {
+      throw new BadRequestException('Token Google tidak dapat diverifikasi');
     }
 
-    if (!email) {
-      throw new BadRequestException('Email Google tidak valid');
+    if (!googleRes.ok) {
+      throw new BadRequestException(
+        'Token Google tidak valid atau kedaluwarsa',
+      );
+    }
+
+    let info: Record<string, unknown>;
+    try {
+      info = (await googleRes.json()) as Record<string, unknown>;
+    } catch {
+      throw new BadRequestException('Respons verifikasi Google tidak valid');
+    }
+    const email =
+      typeof info.email === 'string' ? info.email.trim().toLowerCase() : '';
+    const name = typeof info.name === 'string' ? info.name.trim() : '';
+    const googleUserId = typeof info.sub === 'string' ? info.sub.trim() : '';
+    const emailVerified =
+      info.email_verified === true || info.email_verified === 'true';
+
+    if (!email || !googleUserId || !emailVerified) {
+      throw new BadRequestException(
+        'Akun Google harus memiliki email yang telah diverifikasi',
+      );
+    }
+
+    const expectedAud = this.config.get<string>('GOOGLE_CLIENT_ID');
+    if (expectedAud && info.aud !== expectedAud) {
+      throw new BadRequestException(
+        'Token Google tidak valid untuk aplikasi ini',
+      );
     }
 
     const blocked = await this.prisma.blacklist.findUnique({
@@ -168,13 +189,14 @@ export class AuthService implements OnModuleInit {
       throw new ForbiddenException('Akses akun Anda telah diblokir');
     }
 
-    let user = await this.prisma.user.findFirst({
-      where: { email, deletedAt: null },
-    });
+    let user = await this.prisma.user.findUnique({ where: { email } });
 
     if (user) {
-      if (!user.isActive) {
+      if (!user.isActive || user.deletedAt) {
         throw new ForbiddenException('Akun Anda telah dinonaktifkan');
+      }
+      if (user.role !== UserRole.CUSTOMER) {
+        throw new ForbiddenException('Gunakan portal khusus admin untuk masuk');
       }
       if (!user.isVerified) {
         user = await this.prisma.user.update({
@@ -187,7 +209,7 @@ export class AuthService implements OnModuleInit {
       user = await this.prisma.user.create({
         data: {
           email,
-          fullName: name || 'Pelanggan Google',
+          fullName: (name || email.slice(0, email.indexOf('@'))).slice(0, 150),
           passwordHash: dummyPassword,
           role: UserRole.CUSTOMER,
           isVerified: true,
@@ -196,12 +218,7 @@ export class AuthService implements OnModuleInit {
       });
     }
 
-    const tokens = await this.issueTokens(user);
-    return {
-      message: 'Login Google berhasil!',
-      user: this.publicUser(user),
-      ...tokens,
-    };
+    return { user: this.publicUser(user), ...(await this.issueTokens(user)) };
   }
 
   async verifyEmail(token: string) {
@@ -325,8 +342,12 @@ export class AuthService implements OnModuleInit {
 
     const redisConnected = await this.redis.isConnected();
     if (redisConnected) {
-      const isRevoked = await this.redis.exists(`revoked:refresh:${payload.jti}`);
-      const sessionExists = await this.redis.exists(`session:refresh:${payload.jti}`);
+      const isRevoked = await this.redis.exists(
+        `revoked:refresh:${payload.jti}`,
+      );
+      const sessionExists = await this.redis.exists(
+        `session:refresh:${payload.jti}`,
+      );
       if (isRevoked || !sessionExists) {
         throw new UnauthorizedException(
           'Refresh token sudah tidak berlaku (revoked)',
@@ -417,7 +438,7 @@ export class AuthService implements OnModuleInit {
       await this.notificationQueue.enqueue({
         kind: 'mail',
         to: user.email,
-        subject: 'Seli Florist reset password',
+        subject: 'LICHARY Florist reset password',
         text: `Reset password Anda: ${base}/reset-password?token=${encodeURIComponent(token)}`,
         idempotencyKey: `password-reset:${user.id}:${this.hashToken(token)}`,
       });

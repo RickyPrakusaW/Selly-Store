@@ -22,6 +22,8 @@ import type { BoardInventory, CalendarDay } from "@/lib/types";
 
 export default function AdminBoardsPage() {
   const showToast = useSeliStore((state) => state.showToast);
+  const user = useSeliStore((state) => state.user);
+  const isOwner = user?.role === "OWNER";
   const currentMonthStr = new Date().toISOString().slice(0, 7);
 
   const [month, setMonth] = useState(currentMonthStr);
@@ -166,11 +168,11 @@ export default function AdminBoardsPage() {
       </section>
 
       {/* ─── Two-Column Workstation ─── */}
-      <div style={{ display: "grid", gridTemplateColumns: "1.1fr 1.4fr", gap: "24px", alignItems: "start" }}>
+      <div className="admin-boards-workstation">
         {/* Left: Add Form & Unit List */}
         <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
           {/* Add Board Unit */}
-          <section className="atelier-panel">
+          {isOwner && <section className="atelier-panel">
             <div className="atelier-panel-header">
               <h2 className="atelier-panel-title">Tambah Unit Papan Baru</h2>
             </div>
@@ -213,7 +215,7 @@ export default function AdminBoardsPage() {
                 <span>{loading ? "Menambahkan…" : "Tambah Unit Papan"}</span>
               </button>
             </form>
-          </section>
+          </section>}
 
           {/* Unit Inventory Table */}
           <section className="atelier-panel">
@@ -247,25 +249,33 @@ export default function AdminBoardsPage() {
                           </span>
                         </td>
                         <td>
-                          <button
-                            type="button"
-                            className={`status-badge-pill ${b.isActive ? "badge-green" : "badge-gray"}`}
-                            style={{ cursor: "pointer", border: "none" }}
-                            onClick={() => void handleToggleBoardStatus(b)}
-                            title={b.isActive ? "Klik untuk non-aktifkan" : "Klik untuk aktifkan"}
-                          >
-                            {b.isActive ? "● Siap Sewa" : "○ Non-Aktif"}
-                          </button>
+                          {isOwner ? (
+                            <button
+                              type="button"
+                              className={`status-badge-pill ${b.isActive ? "badge-green" : "badge-gray"}`}
+                              style={{ cursor: "pointer", border: "none" }}
+                              onClick={() => void handleToggleBoardStatus(b)}
+                              title={b.isActive ? "Klik untuk nonaktifkan" : "Klik untuk aktifkan"}
+                            >
+                              {b.isActive ? "Aktif · Siap Sewa" : "Nonaktif"}
+                            </button>
+                          ) : (
+                            <span className={`status-badge-pill ${b.isActive ? "badge-green" : "badge-gray"}`}>
+                              {b.isActive ? "Aktif · Siap Sewa" : "Nonaktif"}
+                            </span>
+                          )}
                         </td>
                         <td style={{ textAlign: "right" }}>
-                          <button
-                            type="button"
-                            className="atelier-btn-danger compact"
-                            onClick={() => void handleDeleteBoard(b.id, b.boardName)}
-                            title="Hapus unit"
-                          >
-                            <Trash size={13} weight="bold" />
-                          </button>
+                          {isOwner && (
+                            <button
+                              type="button"
+                              className="atelier-btn-danger compact"
+                              onClick={() => void handleDeleteBoard(b.id, b.boardName)}
+                              title="Hapus unit"
+                            >
+                              <Trash size={13} weight="bold" />
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))}

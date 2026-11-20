@@ -5,9 +5,7 @@ import {
   ArrowRight,
   ArrowsClockwise,
   CalendarBlank,
-  CheckCircle,
   Eye,
-  MagnifyingGlass,
   Receipt,
   Tag,
   WarningCircle,
@@ -21,7 +19,8 @@ import {
   fetchProducts,
   fetchReportSummary,
 } from "@/lib/api";
-import { getStatusBadge } from "@/app/pesanan/page";
+import { normalizeWhatsAppNumber } from "@/lib/phone-number";
+import { getStatusBadge } from "@/lib/order-status";
 import { useSeliStore } from "@/lib/store";
 import type {
   BoardInventory,
@@ -384,7 +383,7 @@ export default function AdminDashboardPage() {
                       <td style={{ fontSize: "12px" }}>
                         {order.waNumber ? (
                           <a
-                            href={`https://wa.me/${order.waNumber.replace(/\D/g, "")}`}
+                            href={`https://wa.me/${normalizeWhatsAppNumber(order.waNumber)}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             style={{ color: "var(--admin-rose)", textDecoration: "underline" }}

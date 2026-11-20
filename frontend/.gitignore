@@ -12,6 +12,7 @@
 .env.*
 .env*.local
 !.env.example
+!.env.*.example
 
 # Logs
 *.log

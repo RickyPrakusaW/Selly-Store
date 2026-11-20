@@ -10,7 +10,12 @@ import {
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState, useSyncExternalStore } from "react";
 import { updateProfile } from "@/lib/api";
+import {
+  isValidWhatsAppNumber,
+  normalizeWhatsAppNumber,
+} from "@/lib/phone-number";
 import { useSeliStore } from "@/lib/store";
+import { PhoneNumberField } from "@/components/phone-number-field";
 
 const emptySubscribe = () => () => {};
 function useMounted() {
@@ -60,7 +65,7 @@ export default function ProfilePage() {
         <div className="empty-state">
           <UserRound size={50} />
           <h2>Silakan Masuk Terlebih Dahulu</h2>
-          <p>Anda belum masuk ke akun Seli Florist.</p>
+          <p>Anda belum masuk ke akun LICHARY Florist.</p>
           <button className="primary-button" onClick={() => setAuthOpen(true)}>
             Masuk / Daftar
           </button>
@@ -72,9 +77,18 @@ export default function ProfilePage() {
   const handleUpdate = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
+    const normalizedPhone = normalizeWhatsAppNumber(phoneNumber);
+    setPhoneNumber(normalizedPhone);
+    if (!isValidWhatsAppNumber(normalizedPhone)) {
+      setError("Nomor WhatsApp tidak valid.");
+      return;
+    }
     setSaving(true);
     try {
-      const updated = await updateProfile({ fullName, phoneNumber });
+      const updated = await updateProfile({
+        fullName,
+        phoneNumber: normalizedPhone,
+      });
       setUser(updated);
       showToast("Profil berhasil diperbarui!");
     } catch (err) {
@@ -173,12 +187,10 @@ export default function ProfilePage() {
 
           <label>
             Nomor WhatsApp *
-            <input
+            <PhoneNumberField
               required
-              type="tel"
               value={phoneNumber}
-              onChange={(e) => setPhoneNumber(e.target.value)}
-              placeholder="6281234567890"
+              onChange={setPhoneNumber}
             />
           </label>
 

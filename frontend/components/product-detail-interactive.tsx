@@ -1,15 +1,12 @@
 "use client";
 
 import {
-  Calendar,
   Check,
   CheckCheck,
   ChevronLeft,
   ChevronRight,
-  Clock,
   Facebook,
   Flower2,
-  Gift,
   Heart,
   Link as LinkIcon,
   MessageCircle,
@@ -19,17 +16,16 @@ import {
   RotateCcw,
   ShieldCheck,
   ShoppingBag,
-  Sparkles,
-  Star,
-  Truck,
   X,
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { resolveImageUrl } from "@/lib/api";
+import { normalizeWhatsAppNumber } from "@/lib/phone-number";
 import { useSeliStore } from "@/lib/store";
 import type { Product } from "@/lib/types";
+import { useMounted } from "@/lib/use-mounted";
 import { RentalDatePicker } from "@/components/rental-date-picker";
 
 const rupiah = new Intl.NumberFormat("id-ID", {
@@ -52,74 +48,38 @@ export function ProductDetailInteractive({
   const addToCart = useSeliStore((state) => state.addToCart);
   const showToast = useSeliStore((state) => state.showToast);
 
-  // Gallery multi-media slides
   const primaryDbImg = resolveImageUrl(product.images?.[0]?.imageUrl || "");
-
-  const mediaItems: MediaSlide[] = [
-    {
-      id: "media-video-demo",
-      type: "video",
-      url: "/videos/flower-timelapse.webm",
-      thumbUrl: primaryDbImg || "/images/hero-bouquet.jpg",
-      title: "Video Dokumentasi & Rangkaian Florist",
-    },
-    {
-      id: "media-photo-main",
-      type: "image",
-      url: primaryDbImg || "/images/hero-bouquet.jpg",
-      thumbUrl: primaryDbImg || "/images/hero-bouquet.jpg",
-      title: "Tampak Depan Utama",
-    },
-    ...(product.images && product.images.length > 1
-      ? product.images.slice(1).map((img, i) => {
-          const u = resolveImageUrl(img.imageUrl);
-          const isVid = u.endsWith(".webm") || u.endsWith(".mp4");
-          return {
-            id: img.id || `img-extra-${i}`,
-            type: (isVid ? "video" : "image") as "video" | "image",
-            url: u,
-            thumbUrl: u,
-            title: `Foto Tambahan ${i + 1}`,
-          };
-        })
-      : [
-          {
-            id: "media-photo-detail",
-            type: "image" as const,
-            url: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=900&auto=format&fit=crop&q=85",
-            thumbUrl:
-              "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=200&auto=format&fit=crop&q=80",
-            title: "Detail Kualitas & Kesegaran Bunga",
-          },
-          {
-            id: "media-photo-angle",
-            type: "image" as const,
-            url: "https://images.unsplash.com/photo-1526047932273-341f2a7631f9?w=900&auto=format&fit=crop&q=85",
-            thumbUrl:
-              "https://images.unsplash.com/photo-1526047932273-341f2a7631f9?w=200&auto=format&fit=crop&q=80",
-            title: "Tampak Samping & Proporsi Ukuran",
-          },
-          {
-            id: "media-photo-gift",
-            type: "image" as const,
-            url: "https://images.unsplash.com/photo-1563245372-f21724e3856d?w=900&auto=format&fit=crop&q=85",
-            thumbUrl:
-              "https://images.unsplash.com/photo-1563245372-f21724e3856d?w=200&auto=format&fit=crop&q=80",
-            title: "Packaging Eksklusif & Kartu Ucapan",
-          },
-        ]),
-  ];
+  const mediaItems: MediaSlide[] = product.images?.length
+    ? product.images.map((image, index) => {
+        const url = resolveImageUrl(image.imageUrl);
+        const isVideo = url.endsWith(".webm") || url.endsWith(".mp4");
+        return {
+          id: image.id || `product-media-${index}`,
+          type: isVideo ? "video" : "image",
+          url,
+          thumbUrl: url,
+          title: `${product.name} — tampilan ${index + 1}`,
+        };
+      })
+    : [
+        {
+          id: "product-media-fallback",
+          type: "image",
+          url: "/images/hero-bouquet.jpg",
+          thumbUrl: "/images/hero-bouquet.jpg",
+          title: product.name,
+        },
+      ];
 
   const [activeSlideIdx, setActiveSlideIdx] = useState(0);
   const [isPlayingVideo, setIsPlayingVideo] = useState(false);
   const user = useSeliStore((state) => state.user);
   const wishlist = useSeliStore((state) => state.wishlist);
   const toggleWishlist = useSeliStore((state) => state.toggleWishlist);
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  const mounted = useMounted();
 
-  const isFavorited = mounted && Boolean(user) && wishlist.some((p) => p.id === product.id);
-  const favoriteCount = 1280 + (isFavorited ? 1 : 0);
+  const isFavorited =
+    mounted && Boolean(user) && wishlist.some((p) => p.id === product.id);
   const [copiedLink, setCopiedLink] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const thumbnailsRef = useRef<HTMLDivElement | null>(null);
@@ -344,19 +304,29 @@ export function ProductDetailInteractive({
     toggleWishlist(product);
   };
 
-  const formattedFavoriteCount =
-    favoriteCount >= 1000
-      ? `${(favoriteCount / 1000).toFixed(1).replace(".", ",")}RB`
-      : favoriteCount.toString();
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3001";
+  const pageUrl = `${siteUrl.replace(/\/$/, "")}/produk/${product.id}`;
 
-  const pageUrl = typeof window !== "undefined" ? window.location.href : "";
   const shareText = encodeURIComponent(
-    `Lihat koleksi indah "${product.name}" di Seli Florist: ${pageUrl}`,
+    `Lihat ${product.name} di LICHARY Florist: ${pageUrl}`,
   );
   const waShareUrl = `https://api.whatsapp.com/send?text=${shareText}`;
   const fbShareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(
     pageUrl,
   )}`;
+
+  const handleShareClick =
+    (platform: "wa" | "fb") => (e: React.MouseEvent<HTMLAnchorElement>) => {
+      e.preventDefault();
+      const currentUrl =
+        typeof window !== "undefined" ? window.location.href : pageUrl;
+      const text = `Lihat ${product.name} di LICHARY Florist: ${currentUrl}`;
+      const targetUrl =
+        platform === "wa"
+          ? `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`
+          : `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(currentUrl)}`;
+      window.open(targetUrl, "_blank", "noopener,noreferrer");
+    };
 
   // Form states
   const [selectedVariantId, setSelectedVariantId] = useState<string>(
@@ -424,9 +394,11 @@ export function ProductDetailInteractive({
     showToast(`${product.name} berhasil ditambahkan ke keranjang!`, "success");
   };
 
-  const waNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "6289517880077";
+  const waNumber = normalizeWhatsAppNumber(
+    process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "6289517880077",
+  );
   const waText = encodeURIComponent(
-    `Halo Seli Florist, saya tertarik dengan ${product.name}${
+    `Halo LICHARY Florist, saya tertarik dengan ${product.name}${
       selectedVariant ? ` (${selectedVariant.variantName})` : ""
     }. Total Rp ${totalPrice.toLocaleString("id-ID")}`,
   );
@@ -447,8 +419,8 @@ export function ProductDetailInteractive({
             {isRental
               ? "Sewa Papan Acara"
               : isPo
-              ? `Pre-Order (${product.poDays ?? 3} Hari)`
-              : "Ready Stock"}
+                ? `Pre-Order (${product.poDays ?? 3} Hari)`
+                : "Ready Stock"}
           </span>
 
           {/* Slide Counter Badge */}
@@ -523,7 +495,7 @@ export function ProductDetailInteractive({
           ) : (
             <div className="detail-placeholder">
               <Flower2 size={64} />
-              <span>Seli Florist</span>
+              <span>LICHARY Florist</span>
             </div>
           )}
 
@@ -603,6 +575,7 @@ export function ProductDetailInteractive({
             <span className="share-title-text">Share:</span>
             <a
               href={waShareUrl}
+              onClick={handleShareClick("wa")}
               target="_blank"
               rel="noreferrer"
               className="share-icon-btn wa"
@@ -613,6 +586,7 @@ export function ProductDetailInteractive({
             </a>
             <a
               href={fbShareUrl}
+              onClick={handleShareClick("fb")}
               target="_blank"
               rel="noreferrer"
               className="share-icon-btn fb"
@@ -644,7 +618,9 @@ export function ProductDetailInteractive({
               color={isFavorited ? "#e11d48" : "#881337"}
               className="favorite-heart-icon"
             />
-            <span>Favorit ({formattedFavoriteCount})</span>
+            <span>
+              {isFavorited ? "Tersimpan di favorit" : "Simpan ke favorit"}
+            </span>
           </button>
         </div>
       </div>
@@ -653,24 +629,9 @@ export function ProductDetailInteractive({
       <div className="detail-content-column">
         {/* Category & Title */}
         <div className="detail-header-block">
-          <span className="detail-category-eyebrow">
-            {product.category?.name ?? "Koleksi Eksklusif"}
-          </span>
           <h1 className="detail-title">{product.name}</h1>
 
           {/* Social Proof & Rating */}
-          <div className="detail-social-proof">
-            <div className="star-rating">
-              {[...Array(5)].map((_, i) => (
-                <Star key={i} size={14} fill="#f59e0b" color="#f59e0b" />
-              ))}
-              <span>4.9</span>
-            </div>
-            <span className="dot-divider">•</span>
-            <span className="sales-hint">120+ Terjual</span>
-            <span className="dot-divider">•</span>
-            <span className="reviews-hint">48 Ulasan Pembeli</span>
-          </div>
         </div>
 
         {/* Price Card */}
@@ -709,9 +670,7 @@ export function ProductDetailInteractive({
         {/* Variant Selector */}
         {product.variants && product.variants.length > 0 && (
           <div className="detail-form-group">
-            <label className="form-group-label">
-              Pilih Varian / Ukuran:
-            </label>
+            <label className="form-group-label">Pilih Varian / Ukuran:</label>
             <div className="variant-options-grid">
               {product.variants.map((variant) => {
                 const delta = Number(variant.priceDelta);
@@ -837,31 +796,6 @@ export function ProductDetailInteractive({
             Konsultasi WhatsApp
           </a>
         </div>
-
-        {/* Trust Value Badges */}
-        <div className="detail-trust-pills">
-          <div className="trust-pill">
-            <Sparkles size={16} />
-            <div>
-              <strong>100% Bunga Segar Alami</strong>
-              <small>Dipetik langsung tiap pagi</small>
-            </div>
-          </div>
-          <div className="trust-pill">
-            <Truck size={16} />
-            <div>
-              <strong>Pengiriman Tepat Waktu</strong>
-              <small>Armada aman berpendingin</small>
-            </div>
-          </div>
-          <div className="trust-pill">
-            <Gift size={16} />
-            <div>
-              <strong>Gratis Kartu Ucapan</strong>
-              <small>Cetak rapi dengan amplop segel</small>
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* ─── Fullscreen Image Zoom / Lightbox Modal ─── */}
@@ -949,7 +883,11 @@ export function ProductDetailInteractive({
               style={{
                 transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoomScale})`,
                 cursor:
-                  zoomScale > 1 ? (isDragging ? "grabbing" : "grab") : "zoom-in",
+                  zoomScale > 1
+                    ? isDragging
+                      ? "grabbing"
+                      : "grab"
+                    : "zoom-in",
               }}
               onClick={(e) => {
                 e.stopPropagation();
@@ -978,7 +916,8 @@ export function ProductDetailInteractive({
             onClick={(e) => e.stopPropagation()}
           >
             <span>
-              💡 Klik gambar untuk {zoomScale > 1 ? "memperkecil (1x)" : "memperbesar (2x)"}
+              💡 Klik gambar untuk{" "}
+              {zoomScale > 1 ? "memperkecil (1x)" : "memperbesar (2x)"}
               {zoomScale > 1 && " • Geser untuk melihat sudut lainnya"}
             </span>
           </div>

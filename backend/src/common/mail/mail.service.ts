@@ -58,9 +58,9 @@ export class MailService {
       .get<string>('BASE_URL', 'http://localhost:3000')
       .replace(/\/$/, '');
     const verificationUrl = `${baseUrl}/api/auth/verify?token=${encodeURIComponent(token)}`;
-    const subject = 'Verifikasi akun Seli Florist Anda';
+    const subject = 'Verifikasi akun LICHARY Florist Anda';
     const text = [
-      'Halo, Sahabat Seli Florist!',
+      'Halo, Sahabat LICHARY Florist!',
       '',
       'Terima kasih sudah mendaftar. Klik tautan berikut untuk memverifikasi akun Anda:',
       verificationUrl,
@@ -76,14 +76,14 @@ export class MailService {
           <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px;background:#ffffff;border:1px solid #f2d7df;border-radius:20px;overflow:hidden;box-shadow:0 10px 30px rgba(125,52,76,.08);">
             <tr>
               <td align="center" style="padding:30px 28px 20px;background:linear-gradient(135deg,#fff0f4,#f9dce5);">
-                <div style="font-family:Georgia,serif;font-size:30px;font-weight:700;color:#9f3f61;">Seli Florist</div>
+                <div style="font-family:Georgia,serif;font-size:30px;font-weight:700;color:#9f3f61;">LICHARY Florist</div>
                 <div style="margin-top:6px;font-size:14px;color:#76545f;">Bunga indah untuk setiap cerita</div>
               </td>
             </tr>
             <tr>
               <td style="padding:32px 32px 12px;">
-                <h1 style="margin:0 0 18px;font-family:Georgia,serif;font-size:24px;line-height:1.35;color:#603245;">Halo, Sahabat Seli Florist!</h1>
-                <p style="margin:0 0 14px;font-size:16px;line-height:1.7;">Terima kasih sudah membuat akun di Seli Florist. Tinggal satu langkah lagi sebelum Anda bisa mulai berbelanja.</p>
+                <h1 style="margin:0 0 18px;font-family:Georgia,serif;font-size:24px;line-height:1.35;color:#603245;">Halo, Sahabat LICHARY Florist!</h1>
+                <p style="margin:0 0 14px;font-size:16px;line-height:1.7;">Terima kasih sudah membuat akun di LICHARY Florist. Tinggal satu langkah lagi sebelum Anda bisa mulai berbelanja.</p>
                 <p style="margin:0;font-size:16px;line-height:1.7;">Klik tombol di bawah ini untuk mengaktifkan dan memverifikasi akun Anda:</p>
               </td>
             </tr>

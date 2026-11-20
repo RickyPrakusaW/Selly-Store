@@ -24,7 +24,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!product) return { title: 'Produk tidak ditemukan' };
   const image = resolveImageUrl(product.images[0]?.imageUrl);
   return {
-    title: `${product.name} | Seli Florist`,
+    title: `${product.name} | LICHARY Florist`,
     description: product.description.slice(0, 155),
     alternates: { canonical: `/produk/${id}` },
     openGraph: {
@@ -50,7 +50,7 @@ export default async function ProductPage({ params }: Props) {
     description: product.description,
     image: product.images.map((item) => resolveImageUrl(item.imageUrl)),
     sku: product.id,
-    brand: { '@type': 'Brand', name: 'Seli Florist' },
+    brand: { '@type': 'Brand', name: 'LICHARY Florist' },
     offers: {
       '@type': 'Offer',
       url: `${process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3001'}/produk/${id}`,

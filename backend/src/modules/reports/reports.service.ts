@@ -117,7 +117,7 @@ export class ReportsService {
   async export(query: ReportRangeDto): Promise<Buffer> {
     const report = await this.summary(query);
     const workbook = new ExcelJS.Workbook();
-    workbook.creator = 'Seli Florist API';
+    workbook.creator = 'LICHARY Florist API';
     const sheet = workbook.addWorksheet('Profit and Loss');
     sheet.columns = [
       { header: 'Metric', key: 'metric', width: 30 },

@@ -1,5 +1,6 @@
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
@@ -9,12 +10,19 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor'
 import { SanitizationPipe } from './common/pipes/sanitization.pipe';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    rawBody: true,
+  });
+  app.set('trust proxy', 1);
   app.setGlobalPrefix('api');
   app.enableShutdownHooks();
   app.use(
     helmet({
       crossOriginResourcePolicy: { policy: 'cross-origin' },
+      hsts:
+        process.env.NODE_ENV === 'production'
+          ? { maxAge: 31_536_000, includeSubDomains: true, preload: true }
+          : false,
     }),
   );
   app.use(cookieParser());
@@ -67,16 +75,21 @@ async function bootstrap() {
   app.useGlobalFilters(new GlobalExceptionFilter());
   app.useGlobalInterceptors(new ResponseInterceptor());
 
-  const swaggerConfig = new DocumentBuilder()
-    .setTitle('Seli Florist API')
-    .setDescription(
-      'Structural API contracts for the Seli Florist storefront and admin portal.',
-    )
-    .setVersion('1.0')
-    .addBearerAuth()
-    .build();
-  const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('api/docs', app, swaggerDocument);
-  await app.listen(process.env.PORT ?? 3000);
+  if (
+    process.env.NODE_ENV !== 'production' ||
+    process.env.ENABLE_SWAGGER === 'true'
+  ) {
+    const swaggerConfig = new DocumentBuilder()
+      .setTitle('LICHARY Florist API')
+      .setDescription(
+        'Structural API contracts for the LICHARY Florist storefront and admin portal.',
+      )
+      .setVersion('1.0')
+      .addBearerAuth()
+      .build();
+    const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
+    SwaggerModule.setup('api/docs', app, swaggerDocument);
+  }
+  await app.listen(process.env.PORT ?? 3000, '0.0.0.0');
 }
 void bootstrap();

@@ -92,14 +92,14 @@ export class CheckoutService {
           this.notificationQueue.enqueue({
             kind: 'mail',
             to: user.email,
-            subject: 'Pesanan Seli Florist berhasil dibuat',
+            subject: 'Pesanan LICHARY Florist berhasil dibuat',
             text: `Pesanan ${result.id} berhasil dibuat. DP ${result.dpAmount.toString()} harus dibayar sebelum ${result.dpDeadline.toISOString()}.`,
             idempotencyKey: `order-created:mail:${result.id}`,
           }),
           this.notificationQueue.enqueue({
             kind: 'whatsapp',
             target: dto.waNumber,
-            message: `Pesanan Seli Florist ${result.id} berhasil dibuat. DP Rp${result.dpAmount.toString()} jatuh tempo ${result.dpDeadline.toISOString()}.`,
+            message: `Pesanan LICHARY Florist ${result.id} berhasil dibuat. DP Rp${result.dpAmount.toString()} jatuh tempo ${result.dpDeadline.toISOString()}.`,
             idempotencyKey: `order-created:wa:${result.id}`,
           }),
         ]);
@@ -160,7 +160,8 @@ export class CheckoutService {
         });
       } else {
         throw new ConflictException({
-          message: 'Anda masih memiliki pesanan yang belum dibayar (menunggu DP)',
+          message:
+            'Anda masih memiliki pesanan yang belum dibayar (menunggu DP)',
           pendingOrderId: pending.id,
           orderNumber: `#ORDER-${pending.id.slice(0, 8).toUpperCase()}`,
           dpAmount: Number(pending.dpAmount),

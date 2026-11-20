@@ -8,15 +8,26 @@ describe('AppController', () => {
   beforeEach(async () => {
     const app: TestingModule = await Test.createTestingModule({
       controllers: [AppController],
-      providers: [AppService],
+      providers: [
+        {
+          provide: AppService,
+          useValue: {
+            getInfo: () => ({ service: 'seli-florist-api', status: 'ok' }),
+            getHealth: () => ({ status: 'ok', database: 'connected' }),
+          },
+        },
+      ],
     }).compile();
 
     appController = app.get<AppController>(AppController);
   });
 
   describe('root', () => {
-    it('should return "Hello World!"', () => {
-      expect(appController.getHello()).toBe('Hello World!');
+    it('returns service metadata', () => {
+      expect(appController.getInfo()).toEqual({
+        service: 'seli-florist-api',
+        status: 'ok',
+      });
     });
   });
 });

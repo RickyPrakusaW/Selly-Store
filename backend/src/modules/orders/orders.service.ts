@@ -143,7 +143,11 @@ export class OrdersService {
           include: { user: true },
         });
       },
-      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      {
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+        maxWait: 5000,
+        timeout: 20000,
+      },
     );
     this.notifications.admin('order_cancelled', {
       orderId,
@@ -152,7 +156,7 @@ export class OrdersService {
     });
     this.sendMailInBackground(
       result.user.email,
-      'Seli Florist order cancelled',
+      'LICHARY Florist order cancelled',
       `Order ${orderId} was cancelled. Refund: ${result.refundAmount?.toString() ?? 'none'}.`,
     );
     return result;
@@ -241,12 +245,16 @@ export class OrdersService {
           include: { user: true },
         });
       },
-      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      {
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+        maxWait: 5000,
+        timeout: 20000,
+      },
     );
     this.notifications.admin('dp_verified', { orderId });
     this.sendMailInBackground(
       result.user.email,
-      'Seli Florist DP verified',
+      'LICHARY Florist DP verified',
       `Remaining amount: ${result.remainingAmount.toString()}. Deadline: ${deadline.toISOString()}.`,
     );
     return result;
@@ -291,12 +299,16 @@ export class OrdersService {
           include: { user: true },
         });
       },
-      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      {
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+        maxWait: 5000,
+        timeout: 20000,
+      },
     );
     this.notifications.admin('final_payment_verified', { orderId });
     this.sendMailInBackground(
       result.user.email,
-      'Seli Florist payment complete',
+      'LICHARY Florist payment complete',
       `Order ${orderId} is fully paid.`,
     );
     return result;
@@ -329,7 +341,7 @@ export class OrdersService {
             proofType: ProofType.DP,
             fileUrl: `gateway:${gatewayName.toLowerCase()}:${referenceId}`,
             storageKey: `gateway-${gatewayName.toLowerCase()}-${referenceId}`,
-            originalFilename: `${gatewayName} QRIS DP (${referenceId})`,
+            originalFilename: `${gatewayName} DP (${referenceId})`,
             fileSize: 0,
             mimeType: 'application/json',
             verificationStatus: VerificationStatus.APPROVED,
@@ -360,15 +372,19 @@ export class OrdersService {
           include: { user: true },
         });
       },
-      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      {
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+        maxWait: 10_000,
+        timeout: 20_000,
+      },
     );
 
     if (result && result.user) {
       this.notifications.admin('dp_verified', { orderId });
       this.sendMailInBackground(
         result.user.email,
-        'Seli Florist Pembayaran DP Berhasil',
-        `Pembayaran DP pesanan #${orderId.slice(0, 8).toUpperCase()} melalui ${gatewayName} QRIS telah berhasil diverifikasi secara otomatis.`,
+        'LICHARY Florist Pembayaran DP Berhasil',
+        `Pembayaran DP pesanan #${orderId.slice(0, 8).toUpperCase()} melalui ${gatewayName} telah berhasil diverifikasi secara otomatis.`,
       );
     }
     return result;
@@ -395,7 +411,7 @@ export class OrdersService {
             proofType: ProofType.FINAL,
             fileUrl: `gateway:${gatewayName.toLowerCase()}:${referenceId}`,
             storageKey: `gateway-${gatewayName.toLowerCase()}-${referenceId}`,
-            originalFilename: `${gatewayName} QRIS Pelunasan (${referenceId})`,
+            originalFilename: `${gatewayName} Pelunasan (${referenceId})`,
             fileSize: 0,
             mimeType: 'application/json',
             verificationStatus: VerificationStatus.APPROVED,
@@ -414,15 +430,19 @@ export class OrdersService {
           include: { user: true },
         });
       },
-      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      {
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+        maxWait: 10_000,
+        timeout: 20_000,
+      },
     );
 
     if (result && result.user) {
       this.notifications.admin('final_payment_verified', { orderId });
       this.sendMailInBackground(
         result.user.email,
-        'Seli Florist Pelunasan Berhasil',
-        `Pelunasan pesanan #${orderId.slice(0, 8).toUpperCase()} melalui ${gatewayName} QRIS telah lunas. Rangkaian bunga Anda segera kami kirimkan!`,
+        'LICHARY Florist Pelunasan Berhasil',
+        `Pelunasan pesanan #${orderId.slice(0, 8).toUpperCase()} melalui ${gatewayName} telah lunas. Rangkaian bunga Anda segera kami kirimkan!`,
       );
     }
     return result;
@@ -488,7 +508,11 @@ export class OrdersService {
           },
         });
       },
-      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      {
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+        maxWait: 5000,
+        timeout: 20000,
+      },
     );
     this.notifications.admin('order_rejected', { orderId });
     return result;
@@ -517,13 +541,21 @@ export class OrdersService {
         if (!order.stockReservationClosed) {
           for (const item of order.items) {
             if (item.product.stockType === StockType.READY_STOCK) {
-              await tx.product.update({
+              const prod = await tx.product.findUnique({
                 where: { id: item.productId },
-                data: {
-                  stockQty: { decrement: item.qty },
-                  reservedQty: { decrement: item.qty },
-                },
+                select: { stockQty: true, reservedQty: true },
               });
+              if (prod) {
+                const stockDec = Math.min(prod.stockQty, item.qty);
+                const resDec = Math.min(prod.reservedQty, item.qty);
+                await tx.product.update({
+                  where: { id: item.productId },
+                  data: {
+                    ...(stockDec > 0 ? { stockQty: { decrement: stockDec } } : {}),
+                    ...(resDec > 0 ? { reservedQty: { decrement: resDec } } : {}),
+                  },
+                });
+              }
             }
           }
         }
@@ -532,7 +564,11 @@ export class OrdersService {
           data: { status: OrderStatus.COMPLETED, stockReservationClosed: true },
         });
       },
-      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      {
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+        maxWait: 5000,
+        timeout: 20000,
+      },
     );
   }
 
@@ -588,7 +624,11 @@ export class OrdersService {
           include: { user: true },
         });
       },
-      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      {
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+        maxWait: 5000,
+        timeout: 20000,
+      },
     );
     this.notifications.admin('order_force_cancelled', {
       orderId,
@@ -596,7 +636,7 @@ export class OrdersService {
     });
     this.sendMailInBackground(
       result.user.email,
-      'Seli Florist order cancelled by store',
+      'LICHARY Florist order cancelled by store',
       `${dto.adminCancelNote}. Refund: ${result.refundAmount?.toString() ?? 'none'}.`,
     );
     return result;
@@ -616,7 +656,7 @@ export class OrdersService {
     });
     this.sendMailInBackground(
       result.user.email,
-      'Seli Florist refund completed',
+      'LICHARY Florist refund completed',
       `Refund for order ${orderId} has been transferred.`,
     );
     return result;
@@ -696,7 +736,11 @@ export class OrdersService {
             data: { boardId: dto.boardId },
           });
         },
-        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+        {
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+        maxWait: 5000,
+        timeout: 20000,
+      },
       );
     } catch (error) {
       if (
@@ -793,11 +837,19 @@ export class OrdersService {
   ) {
     if (!order.stockReservationClosed) {
       for (const item of order.items) {
-        if (item.product.stockType === StockType.READY_STOCK)
-          await tx.product.update({
+        if (item.product.stockType === StockType.READY_STOCK) {
+          const prod = await tx.product.findUnique({
             where: { id: item.productId },
-            data: { reservedQty: { decrement: item.qty } },
+            select: { reservedQty: true },
           });
+          if (prod && prod.reservedQty > 0) {
+            const dec = Math.min(prod.reservedQty, item.qty);
+            await tx.product.update({
+              where: { id: item.productId },
+              data: { reservedQty: { decrement: dec } },
+            });
+          }
+        }
       }
       await tx.order.update({
         where: { id: order.id },

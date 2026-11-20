@@ -23,7 +23,9 @@ export function storageKeyFromUrl(url: string): string | null {
 
 @Injectable()
 export class StorageService {
-  private readonly root = resolve(process.cwd(), 'uploads');
+  private readonly root = resolve(
+    process.env.UPLOAD_DIR?.trim() || resolve(process.cwd(), 'uploads'),
+  );
 
   async store(
     file: UploadedImage,

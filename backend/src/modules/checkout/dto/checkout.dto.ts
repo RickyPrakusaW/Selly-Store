@@ -1,4 +1,4 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { DeliveryType } from '@prisma/client';
 import {
@@ -19,6 +19,7 @@ import {
   IsBoolean,
   Min,
 } from 'class-validator';
+import { normalizeWhatsAppNumber } from '../../../common/utils/phone-number.util';
 
 export class AddressDto {
   @ApiProperty({ example: 'Jl. Melati No. 10, Bandung' })
@@ -78,7 +79,10 @@ export class EstimateShippingDto {
 
 export class CheckoutDto extends EstimateShippingDto {
   @ApiProperty({ example: '6281234567890' })
-  @Matches(/^\+?[1-9]\d{7,14}$/)
+  @Transform(({ value }) => normalizeWhatsAppNumber(value))
+  @Matches(/^[1-9]\d{7,14}$/, {
+    message: 'Nomor WhatsApp harus menggunakan format internasional yang valid',
+  })
   waNumber!: string;
   @ApiProperty()
   @IsString()
@@ -89,7 +93,10 @@ export class CheckoutDto extends EstimateShippingDto {
   @Length(2, 150)
   recipientName!: string;
   @ApiProperty({ example: '6281234567890' })
-  @Matches(/^\+?[1-9]\d{7,14}$/)
+  @Transform(({ value }) => normalizeWhatsAppNumber(value))
+  @Matches(/^[1-9]\d{7,14}$/, {
+    message: 'Nomor penerima harus menggunakan format internasional yang valid',
+  })
   recipientPhone!: string;
   @ApiPropertyOptional()
   @IsOptional()
@@ -104,7 +111,9 @@ export class CheckoutDto extends EstimateShippingDto {
   @Type(() => CheckoutItemDto)
   items?: CheckoutItemDto[];
 
-  @ApiPropertyOptional({ description: 'Batalkan pesanan pending sebelumnya jika ada' })
+  @ApiPropertyOptional({
+    description: 'Batalkan pesanan pending sebelumnya jika ada',
+  })
   @IsOptional()
   @IsBoolean()
   replacePending?: boolean;

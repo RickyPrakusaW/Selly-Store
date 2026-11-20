@@ -206,32 +206,6 @@ try {
 Assert-True $overlapRejected 'Bentrok rentang tanggal sewa tidak dicegah'
 Write-Host 'Tahap pencegahan bentrok sewa lulus'
 
-$proofPng = [byte[]]@(
-  137, 80, 78, 71, 13, 10, 26, 10,
-  0, 0, 0, 0, 0, 0, 0, 0,
-  73, 69, 78, 68, 174, 66, 96, 130
-)
-$dpProof = Send-Image "/orders/$orderId/payment-proof/dp" $customerToken $proofPng 'bukti-dp.png' 'image/png'
-Assert-True ($dpProof.verificationStatus -eq 'PENDING') 'Bukti DP tidak tersimpan'
-Invoke-Api POST "/admin/orders/$orderId/verify-dp" $adminToken | Out-Null
-Write-Host 'Tahap verifikasi DP lulus'
-$finalProof = Send-Image "/orders/$orderId/payment-proof/final" $customerToken $proofPng 'bukti-pelunasan.png' 'image/png'
-Assert-True ($finalProof.verificationStatus -eq 'PENDING') 'Bukti pelunasan tidak tersimpan'
-Invoke-Api POST "/admin/orders/$orderId/verify-final" $adminToken | Out-Null
-Write-Host 'Tahap verifikasi pelunasan lulus'
-
-$order = Invoke-Api GET "/admin/orders/$orderId" $adminToken
-Assert-True ($order.status -eq 'FULLY_PAID') 'Status setelah verifikasi pelunasan bukan FULLY_PAID'
-Assert-True ($order.bookings.Count -eq 5) 'Lima unit fisik papan tidak dialokasikan'
-$boards = Invoke-Api GET '/admin/boards' $adminToken
-Assert-True (@($boards | Where-Object boardName -match '^PB-\d{3}$').Count -ge 5) 'Inventaris PB-001 dan seterusnya tidak tersedia'
-$currentBoardId = $order.bookings[0].boardId
-Invoke-Api PUT "/admin/orders/$orderId/reassign-board" $adminToken @{ boardId = $currentBoardId } | Out-Null
-Invoke-Api POST "/admin/orders/$orderId/process" $adminToken | Out-Null
-$completed = Invoke-Api POST "/admin/orders/$orderId/complete" $adminToken
-Assert-True ($completed.status -eq 'COMPLETED') 'Alur PROCESSING ke COMPLETED gagal'
-Write-Host 'Tahap alokasi papan dan penyelesaian pesanan lulus'
-
 $today = (Get-Date).ToString('yyyy-MM-dd')
 $cost = Invoke-Api POST '/admin/finance/product-costs' $adminToken @{
   productId = $ready.id

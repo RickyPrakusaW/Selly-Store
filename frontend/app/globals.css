@@ -1,7 +1,24 @@
 @import "tailwindcss";
 
+.phone-number-field {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 8px;
+}
+
+.phone-number-field .PhoneInputCountry {
+  flex: none;
+  margin-right: 0;
+}
+
+.phone-number-field .PhoneInputInput {
+  min-width: 0;
+  flex: 1;
+}
+
 /* ═══════════════════════════════════════════════════════════════════
-   SELI FLORIST DESIGN SYSTEM (MODULAR ARCHITECTURE)
+   LICHARY FLORIST DESIGN SYSTEM (MODULAR ARCHITECTURE)
    Bespoke Luxury Florist & E-Commerce Web Application
    ═══════════════════════════════════════════════════════════════════ */
 

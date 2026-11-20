@@ -3,8 +3,10 @@
 import { useQuery } from '@tanstack/react-query';
 import {
   ArrowRight,
+  CheckCircle2,
   Clock,
   CreditCard,
+  Package,
   PackageCheck,
   QrCode,
   ShoppingBag,
@@ -12,8 +14,9 @@ import {
 import Link from 'next/link';
 import { useState, useSyncExternalStore } from 'react';
 import { fetchMyOrders } from '@/lib/api';
+import { getStatusBadge } from '@/lib/order-status';
 import { useSeliStore } from '@/lib/store';
-import type { OrderListItem, OrderStatus } from '@/lib/types';
+import type { OrderListItem } from '@/lib/types';
 
 const rupiah = new Intl.NumberFormat('id-ID', {
   style: 'currency',
@@ -28,29 +31,6 @@ function useMounted() {
     () => true,
     () => false,
   );
-}
-
-export function getStatusBadge(status: OrderStatus) {
-  switch (status) {
-    case 'PENDING_PAYMENT':
-      return { label: 'Menunggu DP 50%', className: 'badge-orange' };
-    case 'DP_VERIFIED':
-      return { label: 'DP Diverifikasi', className: 'badge-blue' };
-    case 'PENDING_FINAL_PAYMENT':
-      return { label: 'Menunggu Pelunasan', className: 'badge-orange' };
-    case 'FULLY_PAID':
-      return { label: 'Lunas', className: 'badge-green' };
-    case 'PROCESSING':
-      return { label: 'Diproses', className: 'badge-green' };
-    case 'COMPLETED':
-      return { label: 'Selesai', className: 'badge-green' };
-    case 'CANCELLED':
-      return { label: 'Dibatalkan', className: 'badge-gray' };
-    case 'REJECTED':
-      return { label: 'Ditolak', className: 'badge-red' };
-    default:
-      return { label: status, className: 'badge-gray' };
-  }
 }
 
 export default function CustomerOrdersPage() {
@@ -165,13 +145,18 @@ export default function CustomerOrdersPage() {
             return (
               <article key={order.id} className="order-history-card">
                 <div className="order-card-header">
-                  <div>
-                    <span className="order-id-code">
-                      #ORDER-{order.id.slice(0, 8).toUpperCase()}
-                    </span>
-                    <span className="order-date-text" suppressHydrationWarning>
-                      <Clock size={13} /> {createdDate}
-                    </span>
+                  <div className="order-header-identity">
+                    <div className="order-header-badge-icon">
+                      <Package size={18} />
+                    </div>
+                    <div className="order-header-text">
+                      <h3 className="order-id-code">
+                        #ORDER-{order.id.slice(0, 8).toUpperCase()}
+                      </h3>
+                      <span className="order-date-text" suppressHydrationWarning>
+                        <Clock size={12} /> {createdDate}
+                      </span>
+                    </div>
                   </div>
                   <span className={`status-badge-pill ${badge.className}`}>
                     {badge.label}
@@ -180,59 +165,103 @@ export default function CustomerOrdersPage() {
 
                 <div className="order-card-body">
                   <div className="order-items-preview">
-                    {order.items.map((item, idx) => (
-                      <p key={idx}>
-                        <strong>{item.qty}x</strong> {item.productNameSnapshot}
-                      </p>
-                    ))}
+                    <span className="items-preview-label">Produk Dipesan</span>
+                    <div className="order-items-chips-list">
+                      {order.items.slice(0, 3).map((item, idx) => (
+                        <div key={idx} className="order-item-chip">
+                          <span className="order-item-qty">{item.qty}×</span>
+                          <span className="order-item-name">{item.productNameSnapshot}</span>
+                        </div>
+                      ))}
+                      {order.items.length > 3 && (
+                        <span className="order-items-more">
+                          +{order.items.length - 3} produk lainnya
+                        </span>
+                      )}
+                    </div>
                   </div>
 
-                  <div className="order-card-financials">
-                    <div>
-                      <small>Total Pesanan:</small>
-                      <strong>{rupiah.format(Number(order.total))}</strong>
+                  <div className="order-finance-box">
+                    <div className="order-finance-row main-total">
+                      <span className="finance-label">Total Pesanan</span>
+                      <strong className="finance-total-val">
+                        {rupiah.format(Number(order.total))}
+                      </strong>
                     </div>
-                    <div>
-                      <small>DP 50%:</small>
-                      <span>{rupiah.format(Number(order.dpAmount))}</span>
-                    </div>
-                    {Number(order.remainingAmount) > 0 && (
-                      <div>
-                        <small>Sisa Pelunasan:</small>
-                        <span className="text-orange">
-                          {rupiah.format(Number(order.remainingAmount))}
-                        </span>
+                    <div className="order-finance-divider" />
+                    <div className="order-finance-breakdown">
+                      <div className="finance-sub-row">
+                        <span>DP 50%</span>
+                        <b>{rupiah.format(Number(order.dpAmount))}</b>
                       </div>
-                    )}
+                      {Number(order.remainingAmount) > 0 ? (
+                        <div className="finance-sub-row remaining">
+                          <span>Sisa Pelunasan</span>
+                          <b>{rupiah.format(Number(order.remainingAmount))}</b>
+                        </div>
+                      ) : (
+                        <div className="finance-sub-row paid">
+                          <span>Pelunasan</span>
+                          <b>Lunas</b>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
 
                 <div className="order-card-footer">
-                  <Link
-                    href={`/pesanan/${order.id}`}
-                    className={`primary-button compact ${
-                      order.status === "PENDING_PAYMENT" ||
-                      order.status === "PENDING_FINAL_PAYMENT"
-                        ? "action-btn-pay"
-                        : "action-btn-neutral"
-                    }`}
-                  >
+                  <div className="order-footer-hint">
                     {order.status === "PENDING_PAYMENT" ? (
-                      <>
-                        <CreditCard size={15} /> Bayar DP via QRIS{" "}
-                        <ArrowRight size={15} />
-                      </>
+                      <span className="hint-pill warning">
+                        <Clock size={13} /> Selesaikan pembayaran DP via DOKU QRIS
+                      </span>
                     ) : order.status === "PENDING_FINAL_PAYMENT" ? (
-                      <>
-                        <CreditCard size={15} /> Bayar Pelunasan via QRIS{" "}
-                        <ArrowRight size={15} />
-                      </>
+                      <span className="hint-pill warning">
+                        <Clock size={13} /> Menunggu pelunasan sebelum pengiriman
+                      </span>
+                    ) : order.status === "COMPLETED" || order.status === "FULLY_PAID" ? (
+                      <span className="hint-pill success">
+                        <CheckCircle2 size={13} /> Pembayaran telah diverifikasi
+                      </span>
+                    ) : order.status === "CANCELLED" ? (
+                      <span className="hint-pill neutral">
+                        Pesanan telah dibatalkan
+                      </span>
                     ) : (
-                      <>
-                        Lihat Detail <ArrowRight size={15} />
-                      </>
+                      <span className="hint-pill neutral">
+                        Pesanan tercatat di sistem
+                      </span>
                     )}
-                  </Link>
+                  </div>
+
+                  <div className="order-footer-actions">
+                    <Link
+                      href={`/pesanan/${order.id}`}
+                      className="order-btn-detail"
+                    >
+                      Lihat Detail
+                    </Link>
+
+                    {order.status === "PENDING_PAYMENT" && (
+                      <Link
+                        href={`/pesanan/${order.id}`}
+                        className="order-btn-pay"
+                      >
+                        <CreditCard size={15} /> Bayar DP via QRIS
+                        <ArrowRight size={14} />
+                      </Link>
+                    )}
+
+                    {order.status === "PENDING_FINAL_PAYMENT" && (
+                      <Link
+                        href={`/pesanan/${order.id}`}
+                        className="order-btn-pay"
+                      >
+                        <CreditCard size={15} /> Bayar Pelunasan
+                        <ArrowRight size={14} />
+                      </Link>
+                    )}
+                  </div>
                 </div>
               </article>
             );

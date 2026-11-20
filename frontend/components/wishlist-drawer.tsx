@@ -13,6 +13,7 @@ import { useEffect, useState } from "react";
 import { resolveImageUrl } from "@/lib/api";
 import { useSeliStore } from "@/lib/store";
 import type { Product } from "@/lib/types";
+import { useMounted } from "@/lib/use-mounted";
 
 const rupiah = new Intl.NumberFormat("id-ID", {
   style: "currency",
@@ -21,8 +22,7 @@ const rupiah = new Intl.NumberFormat("id-ID", {
 });
 
 export function WishlistDrawer() {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  const mounted = useMounted();
 
   const wishlistOpen = useSeliStore((state) => state.wishlistOpen);
   const setWishlistOpen = useSeliStore((state) => state.setWishlistOpen);
@@ -60,7 +60,9 @@ export function WishlistDrawer() {
     const isBoard =
       product.category?.slug === "papan_ucapan" ||
       product.stockType?.toString().toLowerCase().includes("rental");
-    const hasVariants = Boolean(product.variants && product.variants.length > 0);
+    const hasVariants = Boolean(
+      product.variants && product.variants.length > 0,
+    );
 
     if (isBoard || hasVariants) {
       setWishlistOpen(false);
@@ -82,10 +84,7 @@ export function WishlistDrawer() {
       aria-modal="true"
       aria-label="Wishlist dan Produk Favorit"
     >
-      <div
-        className="wishlist-drawer"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div className="wishlist-drawer" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="wishlist-drawer-header">
           <div className="drawer-title-group">

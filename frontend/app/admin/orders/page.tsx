@@ -3,8 +3,6 @@
 import { useQuery } from "@tanstack/react-query";
 import {
   ArrowsClockwise,
-  Check,
-  CheckCircle,
   Eye,
   MagnifyingGlass,
   Prohibit,
@@ -20,16 +18,15 @@ import {
   adminListOrders,
   adminProcess,
   adminReassignBoard,
+  adminRefundDone,
   adminReject,
   adminUpdateStatus,
-  adminVerifyDp,
-  adminVerifyFinal,
   fetchBoards,
   resolveImageUrl,
 } from "@/lib/api";
 import { useSeliStore } from "@/lib/store";
 import type { BoardInventory, Order } from "@/lib/types";
-import { getStatusBadge } from "@/app/pesanan/page";
+import { getStatusBadge } from "@/lib/order-status";
 
 const rupiah = new Intl.NumberFormat("id-ID", {
   style: "currency",
@@ -43,10 +40,11 @@ export default function AdminOrdersPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [actionModal, setActionModal] = useState<
-    "reject" | "cancel" | "reassign" | "status" | null
+    "reject" | "cancel" | "refund" | "reassign" | "status" | null
   >(null);
   const [rejectReason, setRejectReason] = useState("");
   const [cancelReason, setCancelReason] = useState("");
+  const [refundNote, setRefundNote] = useState("");
   const [selectedBoardId, setSelectedBoardId] = useState("");
   const [newStatus, setNewStatus] = useState("");
   const [statusNote, setStatusNote] = useState("");
@@ -85,44 +83,6 @@ export default function AdminOrdersPage() {
       setSelectedOrder(detail);
     } catch {
       showToast("Gagal memuat detail pesanan", "error");
-    }
-  };
-
-  const handleVerifyDp = async (id: string) => {
-    if (!confirm("Konfirmasi verifikasi bukti transfer DP 50% untuk pesanan ini?"))
-      return;
-    setProcessing(true);
-    try {
-      await adminVerifyDp(id);
-      showToast("Bukti DP 50% berhasil diverifikasi!");
-      if (selectedOrder?.id === id) handleOpenDetail(id);
-      refetch();
-    } catch (err) {
-      showToast(
-        err instanceof Error ? err.message : "Gagal verifikasi DP",
-        "error",
-      );
-    } finally {
-      setProcessing(false);
-    }
-  };
-
-  const handleVerifyFinal = async (id: string) => {
-    if (!confirm("Konfirmasi verifikasi bukti transfer pelunasan?"))
-      return;
-    setProcessing(true);
-    try {
-      await adminVerifyFinal(id);
-      showToast("Bukti Pelunasan berhasil diverifikasi!");
-      if (selectedOrder?.id === id) handleOpenDetail(id);
-      refetch();
-    } catch (err) {
-      showToast(
-        err instanceof Error ? err.message : "Gagal verifikasi pelunasan",
-        "error",
-      );
-    } finally {
-      setProcessing(false);
     }
   };
 
@@ -200,6 +160,26 @@ export default function AdminOrdersPage() {
     }
   };
 
+  const handleConfirmRefund = async () => {
+    if (!selectedOrder || !refundNote.trim()) return;
+    setProcessing(true);
+    try {
+      await adminRefundDone(selectedOrder.id, refundNote.trim());
+      showToast("Refund ditandai selesai");
+      setActionModal(null);
+      setRefundNote("");
+      await handleOpenDetail(selectedOrder.id);
+      void refetch();
+    } catch (err) {
+      showToast(
+        err instanceof Error ? err.message : "Gagal menyelesaikan refund",
+        "error",
+      );
+    } finally {
+      setProcessing(false);
+    }
+  };
+
   const handleConfirmReassign = async () => {
     if (!selectedOrder || !selectedBoardId) return;
     setProcessing(true);
@@ -243,6 +223,15 @@ export default function AdminOrdersPage() {
   const pendingVerifyCount = orders.filter(
     (o) => o.paymentProofs?.some((p) => p.verificationStatus === "PENDING"),
   ).length;
+  const hasPendingDpProof = selectedOrder?.paymentProofs?.some(
+    (proof) =>
+      proof.proofType === "DP" && proof.verificationStatus === "PENDING",
+  );
+  const hasPendingFinalProof = selectedOrder?.paymentProofs?.some(
+    (proof) =>
+      proof.proofType === "FINAL" && proof.verificationStatus === "PENDING",
+  );
+  const hasPendingProof = hasPendingDpProof || hasPendingFinalProof;
 
   return (
     <div className="admin-page-wrap">
@@ -463,30 +452,6 @@ export default function AdminOrdersPage() {
                             <Eye size={13} weight="bold" />
                             <span>Detail</span>
                           </button>
-                          {ord.status === "PENDING_PAYMENT" && dpP && dpP.verificationStatus === "PENDING" && (
-                            <button
-                              type="button"
-                              className="atelier-btn-primary compact"
-                              disabled={processing}
-                              onClick={() => void handleVerifyDp(ord.id)}
-                            >
-                              <Check size={13} weight="bold" />
-                              <span>Verif DP</span>
-                            </button>
-                          )}
-                          {["PENDING_FINAL_PAYMENT", "DP_VERIFIED"].includes(ord.status) &&
-                            finalP &&
-                            finalP.verificationStatus === "PENDING" && (
-                              <button
-                                type="button"
-                                className="atelier-btn-primary compact"
-                                disabled={processing}
-                                onClick={() => void handleVerifyFinal(ord.id)}
-                              >
-                                <Check size={13} weight="bold" />
-                                <span>Verif Pelunasan</span>
-                              </button>
-                            )}
                         </div>
                       </td>
                     </tr>
@@ -669,28 +634,6 @@ export default function AdminOrdersPage() {
 
             {/* Modal Actions */}
             <div className="admin-modal-footer" style={{ flexWrap: "wrap" }}>
-              {selectedOrder.status === "PENDING_PAYMENT" && (
-                <button
-                  type="button"
-                  className="atelier-btn-primary compact"
-                  disabled={processing}
-                  onClick={() => void handleVerifyDp(selectedOrder.id)}
-                >
-                  <Check size={14} weight="bold" />
-                  <span>Verifikasi DP 50%</span>
-                </button>
-              )}
-              {["PENDING_FINAL_PAYMENT", "DP_VERIFIED"].includes(selectedOrder.status) && (
-                <button
-                  type="button"
-                  className="atelier-btn-primary compact"
-                  disabled={processing}
-                  onClick={() => void handleVerifyFinal(selectedOrder.id)}
-                >
-                  <Check size={14} weight="bold" />
-                  <span>Verifikasi Pelunasan</span>
-                </button>
-              )}
               {["DP_VERIFIED", "PENDING_FINAL_PAYMENT", "FULLY_PAID"].includes(selectedOrder.status) && (
                 <button
                   type="button"
@@ -714,13 +657,28 @@ export default function AdminOrdersPage() {
                   <span>Tandai Selesai</span>
                 </button>
               )}
-              <button
-                type="button"
-                className="atelier-btn-secondary compact"
-                onClick={() => setActionModal("reassign")}
-              >
-                <span>Alokasi Papan</span>
-              </button>
+              {selectedOrder.items.some((item) => item.bookingDate) && (
+                <button
+                  type="button"
+                  className="atelier-btn-secondary compact"
+                  onClick={() => setActionModal("reassign")}
+                >
+                  <span>Alokasi Papan</span>
+                </button>
+              )}
+              {selectedOrder.refundStatus === "PENDING_REFUND" && (
+                <button
+                  type="button"
+                  className="atelier-btn-primary compact"
+                  style={{ background: "#166437", borderColor: "#14532d" }}
+                  onClick={() => {
+                    setRefundNote("");
+                    setActionModal("refund");
+                  }}
+                >
+                  <span>Selesaikan Refund</span>
+                </button>
+              )}
               <button
                 type="button"
                 className="atelier-btn-secondary compact"
@@ -732,22 +690,26 @@ export default function AdminOrdersPage() {
               >
                 <span>Ubah Status</span>
               </button>
-              <button
-                type="button"
-                className="atelier-btn-secondary compact"
-                style={{ color: "#92400e", borderColor: "#fde68a" }}
-                onClick={() => setActionModal("reject")}
-              >
-                <span>Tolak Bukti</span>
-              </button>
-              <button
-                type="button"
-                className="atelier-btn-danger compact"
-                onClick={() => setActionModal("cancel")}
-              >
-                <Prohibit size={13} weight="bold" />
-                <span>Batalkan</span>
-              </button>
+              {hasPendingProof && (
+                <button
+                  type="button"
+                  className="atelier-btn-secondary compact"
+                  style={{ color: "#92400e", borderColor: "#fde68a" }}
+                  onClick={() => setActionModal("reject")}
+                >
+                  <span>Tolak Bukti</span>
+                </button>
+              )}
+              {!(["COMPLETED", "CANCELLED", "REJECTED"] as string[]).includes(selectedOrder.status) && (
+                <button
+                  type="button"
+                  className="atelier-btn-danger compact"
+                  onClick={() => setActionModal("cancel")}
+                >
+                  <Prohibit size={13} weight="bold" />
+                  <span>Batalkan</span>
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -827,6 +789,46 @@ export default function AdminOrdersPage() {
                 onClick={() => void handleConfirmCancel()}
               >
                 Konfirmasi Batalkan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Sub-modal: Konfirmasi Refund ─── */}
+      {actionModal === "refund" && selectedOrder && (
+        <div className="admin-modal-backdrop" onClick={() => setActionModal(null)}>
+          <div className="admin-modal-card" style={{ maxWidth: "480px" }} onClick={(e) => e.stopPropagation()}>
+            <div className="admin-modal-header">
+              <h3>Konfirmasi Refund Selesai</h3>
+              <button type="button" className="admin-modal-close-btn" onClick={() => setActionModal(null)}>
+                <X size={18} weight="bold" />
+              </button>
+            </div>
+            <div className="admin-modal-body">
+              <p style={{ margin: 0, fontSize: "13px", color: "var(--admin-muted)" }}>
+                Pastikan dana sebesar <strong>{rupiah.format(Number(selectedOrder.refundAmount ?? 0))}</strong> sudah ditransfer kepada pelanggan.
+              </p>
+              <textarea
+                rows={3}
+                required
+                className="atelier-form-textarea"
+                value={refundNote}
+                onChange={(e) => setRefundNote(e.target.value)}
+                placeholder="Contoh: Ditransfer ke BCA ****1234, referensi TRX-001"
+              />
+            </div>
+            <div className="admin-modal-footer">
+              <button type="button" className="atelier-btn-secondary compact" onClick={() => setActionModal(null)}>
+                Kembali
+              </button>
+              <button
+                type="button"
+                className="atelier-btn-primary compact"
+                disabled={processing || !refundNote.trim()}
+                onClick={() => void handleConfirmRefund()}
+              >
+                Konfirmasi Dana Terkirim
               </button>
             </div>
           </div>

@@ -5,6 +5,7 @@ import {
   ArrowSquareOut,
   CalendarBlank,
   ChartBar,
+  GearSix,
   List,
   Receipt,
   SignOut,
@@ -20,15 +21,29 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { adminListOrders } from "@/lib/api";
 import { useSeliStore } from "@/lib/store";
-import type { Order } from "@/lib/types";
+import type { Order, UserRole } from "@/lib/types";
 
 const emptySubscribe = () => () => {};
+const ALLOWED_ADMIN_ROLES: readonly UserRole[] = [
+  "OWNER",
+  "FINANCE",
+  "STAFF_VERIFICATION",
+];
+
 function useMounted() {
   return useSyncExternalStore(
     emptySubscribe,
     () => true,
     () => false,
   );
+}
+
+function canAccessAdminRoute(pathname: string, role: UserRole): boolean {
+  if (pathname.startsWith("/admin/finance") || pathname.startsWith("/admin/reports")) {
+    return role === "OWNER" || role === "FINANCE";
+  }
+  if (pathname.startsWith("/admin/boards")) return role === "OWNER";
+  return true;
 }
 
 export default function AdminLayout({
@@ -47,13 +62,21 @@ export default function AdminLayout({
     pathname.startsWith("/admin") && pathname !== "/admin/login";
 
   useEffect(() => {
-    if (isAdminPage && currentUser) {
-      const allowedRoles = ["OWNER", "FINANCE", "STAFF_VERIFICATION"];
-      if (!allowedRoles.includes(currentUser.role)) {
-        router.push("/");
+    if (!mounted) return;
+    if (isAdminPage) {
+      if (!currentUser) {
+        router.replace("/admin/login");
+        return;
+      }
+      if (!ALLOWED_ADMIN_ROLES.includes(currentUser.role)) {
+        router.replace("/");
+        return;
+      }
+      if (!canAccessAdminRoute(pathname, currentUser.role)) {
+        router.replace("/admin");
       }
     }
-  }, [isAdminPage, currentUser, router]);
+  }, [mounted, isAdminPage, currentUser, pathname, router]);
 
   /* Live counter for unverified / pending payment proof orders */
   const { data: orders = [] } = useQuery<Order[]>({
@@ -73,6 +96,48 @@ export default function AdminLayout({
     return <>{children}</>;
   }
 
+  if (
+    isAdminPage &&
+    (!mounted ||
+      !currentUser ||
+      !ALLOWED_ADMIN_ROLES.includes(currentUser.role) ||
+      !canAccessAdminRoute(pathname, currentUser.role))
+  ) {
+    return (
+      <main
+        style={{
+          minHeight: "100vh",
+          display: "grid",
+          placeItems: "center",
+          background: "var(--admin-bg, #faf6f8)",
+          padding: "24px 16px",
+        }}
+      >
+        <div
+          className="atelier-panel"
+          style={{
+            padding: "36px 32px",
+            textAlign: "center",
+            borderRadius: "18px",
+            maxWidth: "380px",
+            boxShadow: "0 12px 32px rgba(43, 29, 35, 0.06)",
+          }}
+        >
+          <p
+            style={{
+              margin: 0,
+              fontWeight: 600,
+              color: "var(--admin-rose, #701a35)",
+              fontSize: "15px",
+            }}
+          >
+            Memeriksa autentikasi admin…
+          </p>
+        </div>
+      </main>
+    );
+  }
+
   const roleLabels: Record<string, string> = {
     OWNER: "Pemilik (Owner)",
     FINANCE: "Staf Keuangan",
@@ -89,13 +154,13 @@ export default function AdminLayout({
         <div className="mobile-brand">
           <Image
             src="/logo.jpeg"
-            alt="Logo Seli Florist"
+            alt="Logo LICHARY Florist"
             width={32}
             height={32}
             className="brand-logo-img"
           />
           <div>
-            <strong>Seli Florist</strong>
+            <strong>LICHARY Florist</strong>
             <small>Atelier Operations</small>
           </div>
         </div>
@@ -127,13 +192,13 @@ export default function AdminLayout({
         <div className="sidebar-header">
           <Image
             src="/logo.jpeg"
-            alt="Logo Seli Florist"
+            alt="Logo LICHARY Florist"
             width={38}
             height={38}
             className="brand-logo-img"
           />
           <div className="sidebar-title-group">
-            <strong>Seli Florist</strong>
+            <strong>LICHARY Florist</strong>
             <small>Atelier Management</small>
           </div>
         </div>
@@ -188,13 +253,24 @@ export default function AdminLayout({
             <span>Katalog &amp; Stok</span>
           </Link>
 
+          {currentUser?.role === "OWNER" && (
+            <Link
+              href="/admin/boards"
+              className={pathname.startsWith("/admin/boards") ? "active" : ""}
+              onClick={closeMobile}
+            >
+              <CalendarBlank size={18} weight="regular" />
+              <span>Papan Ucapan</span>
+            </Link>
+          )}
+
           <Link
-            href="/admin/boards"
-            className={pathname.startsWith("/admin/boards") ? "active" : ""}
+            href="/admin/settings"
+            className={pathname.startsWith("/admin/settings") ? "active" : ""}
             onClick={closeMobile}
           >
-            <CalendarBlank size={18} weight="regular" />
-            <span>Papan Ucapan</span>
+            <GearSix size={18} weight="regular" />
+            <span>Profil &amp; Keamanan</span>
           </Link>
 
           {(currentUser?.role === "OWNER" ||
@@ -241,9 +317,9 @@ export default function AdminLayout({
           <button
             type="button"
             className="sidebar-logout-btn"
-            onClick={() => {
+            onClick={async () => {
               closeMobile();
-              logoutUser();
+              await logoutUser();
               router.push("/admin/login");
             }}
           >

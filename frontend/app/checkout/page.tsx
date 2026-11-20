@@ -7,7 +7,7 @@ import {
   CheckCircle2,
   CreditCard,
   MapPin,
-  QrCode,
+  PackageCheck,
   RefreshCw,
   Truck,
 } from "lucide-react";
@@ -21,6 +21,11 @@ import {
   estimateOngkir,
   fetchMyOrders,
 } from "@/lib/api";
+import {
+  isValidWhatsAppNumber,
+  normalizeWhatsAppNumber,
+} from "@/lib/phone-number";
+import { PhoneNumberField } from "@/components/phone-number-field";
 import { useSeliStore } from "@/lib/store";
 import type { CheckoutPayload, DeliveryType } from "@/lib/types";
 
@@ -149,7 +154,7 @@ export default function CheckoutPage() {
           <AlertCircle size={50} />
           <h2>Silakan Masuk Terlebih Dahulu</h2>
           <p>
-            Anda harus masuk ke akun Seli Florist untuk melanjutkan pemesanan.
+            Anda harus masuk ke akun LICHARY Florist untuk melanjutkan pemesanan.
           </p>
           <button className="primary-button" onClick={() => setAuthOpen(true)}>
             Masuk / Daftar Sekarang
@@ -159,7 +164,7 @@ export default function CheckoutPage() {
     );
   }
 
-  if (cartItems.length === 0) {
+  if (cartItems.length === 0 && !pendingOrder) {
     return (
       <main className="simple-page shell">
         <div className="empty-state">
@@ -168,9 +173,14 @@ export default function CheckoutPage() {
             Silakan tambahkan produk ke keranjang terlebih dahulu sebelum
             checkout.
           </p>
-          <Link href="/" className="primary-button">
-            Kembali ke Katalog
-          </Link>
+          <div style={{ display: "flex", gap: "12px", justifyContent: "center", marginTop: "16px", flexWrap: "wrap" }}>
+            <Link href="/" className="primary-button">
+              Kembali ke Katalog
+            </Link>
+            <Link href="/pesanan" className="secondary-button" style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
+              <PackageCheck size={18} /> Lihat Pesanan Saya
+            </Link>
+          </div>
         </div>
       </main>
     );
@@ -241,6 +251,14 @@ export default function CheckoutPage() {
       return;
     }
 
+    if (
+      !isValidWhatsAppNumber(waNumber) ||
+      !isValidWhatsAppNumber(recipientPhone)
+    ) {
+      setError("Nomor WhatsApp pemesan atau penerima belum valid.");
+      return;
+    }
+
     setSubmitting(true);
     let currentOngkir = ongkirFee;
 
@@ -272,12 +290,17 @@ export default function CheckoutPage() {
 
     try {
       const idempotencyKey = generateUUID();
+      const normalizedWaNumber = normalizeWhatsAppNumber(waNumber);
+      const normalizedRecipientPhone =
+        normalizeWhatsAppNumber(recipientPhone);
+      setWaNumber(normalizedWaNumber);
+      setRecipientPhone(normalizedRecipientPhone);
       const payload: CheckoutPayload = {
         deliveryType,
         customerName,
-        waNumber,
+        waNumber: normalizedWaNumber,
         recipientName,
-        recipientPhone,
+        recipientPhone: normalizedRecipientPhone,
         ...(customTextRequest.trim()
           ? { customTextRequest: customTextRequest.trim() }
           : {}),
@@ -368,40 +391,54 @@ export default function CheckoutPage() {
 
       {/* Jika customer sudah memiliki pesanan aktif yang menunggu pembayaran */}
       {pendingOrder ? (
-        <div className="pending-order-focus-card">
-          <div className="pending-icon-circle">
-            <QrCode size={34} />
-          </div>
-          <div className="pending-focus-header">
-            <span className="pending-status-badge">Menunggu Pembayaran DP</span>
-            <span className="pending-code">{pendingOrder.orderNumber}</span>
-          </div>
-          <h2>Pesanan Anda Sedang Menunggu Pembayaran</h2>
-          <p className="pending-focus-desc">
-            Pesanan <strong>{pendingOrder.orderNumber}</strong> sudah berhasil dibuat dan saat ini sedang menunggu pembayaran Down Payment (DP 50%) sebesar{" "}
-            <strong className="pending-amount">{rupiah.format(pendingOrder.dpAmount)}</strong>.
-          </p>
-          <div className="pending-focus-actions">
-            <Link
-              href={`/pesanan/${pendingOrder.id}`}
-              className="primary-button pending-pay-focus-btn"
-            >
-              <CreditCard size={18} /> Lanjut ke Halaman Pembayaran (DOKU QRIS) →
-            </Link>
-            <button
-              type="button"
-              className="secondary-button pending-cancel-button"
-              disabled={cancellingOldOrder}
-              onClick={() => void handleCancelAndReplace()}
-            >
-              <RefreshCw
-                size={15}
-                className={cancellingOldOrder ? "spin-icon" : ""}
-              />
-              {cancellingOldOrder
-                ? "Membatalkan…"
-                : "Batalkan Pesanan Ini & Buat Pesanan Baru"}
-            </button>
+        <div className="pend-card">
+          <div className="pend-card-inner">
+            {/* Top ornamental line */}
+            <div className="pend-ornament" aria-hidden="true" />
+
+            {/* Status row */}
+            <div className="pend-status-row">
+              <span className="pend-badge">Menunggu Pembayaran DP</span>
+              <span className="pend-code">{pendingOrder.orderNumber}</span>
+            </div>
+
+            {/* Amount block */}
+            <div className="pend-amount-block">
+              <p className="pend-label">Down Payment (50%)</p>
+              <p className="pend-price">{rupiah.format(pendingOrder.dpAmount)}</p>
+            </div>
+
+            {/* Explanation */}
+            <p className="pend-desc">
+              Pesanan <strong>{pendingOrder.orderNumber}</strong> sudah tercatat.
+              Silakan selesaikan pembayaran DP untuk memproses pesanan Anda.
+            </p>
+
+            {/* Actions */}
+            <div className="pend-actions">
+              <Link
+                href={`/pesanan/${pendingOrder.id}`}
+                className="pend-pay-btn"
+              >
+                <CreditCard size={17} />
+                Lanjut Bayar
+                <ArrowRight size={16} />
+              </Link>
+              <button
+                type="button"
+                className="pend-cancel-btn"
+                disabled={cancellingOldOrder}
+                onClick={() => void handleCancelAndReplace()}
+              >
+                <RefreshCw
+                  size={14}
+                  className={cancellingOldOrder ? "spin-icon" : ""}
+                />
+                {cancellingOldOrder
+                  ? "Membatalkan…"
+                  : "Batalkan & buat pesanan baru"}
+              </button>
+            </div>
           </div>
         </div>
       ) : (
@@ -448,12 +485,10 @@ export default function CheckoutPage() {
               </label>
               <label>
                 WhatsApp Pemesan *
-                <input
+                <PhoneNumberField
                   required
-                  type="tel"
                   value={waNumber}
-                  onChange={(e) => setWaNumber(e.target.value)}
-                  placeholder="6281234567890"
+                  onChange={setWaNumber}
                 />
               </label>
             </div>
@@ -469,12 +504,10 @@ export default function CheckoutPage() {
               </label>
               <label>
                 Nomor HP Penerima *
-                <input
+                <PhoneNumberField
                   required
-                  type="tel"
                   value={recipientPhone}
-                  onChange={(e) => setRecipientPhone(e.target.value)}
-                  placeholder="6281234567890"
+                  onChange={setRecipientPhone}
                 />
               </label>
             </div>
@@ -520,7 +553,7 @@ export default function CheckoutPage() {
                 <MapPin size={22} />
                 <div>
                   <strong>Ambil Mandiri (Pickup)</strong>
-                  <span>Ambil sendiri di workshop Seli Florist</span>
+                  <span>Ambil sendiri di workshop LICHARY Florist</span>
                 </div>
               </label>
             </div>

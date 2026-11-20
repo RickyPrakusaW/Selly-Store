@@ -4,7 +4,8 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   allowedDevOrigins: ['localhost', '127.0.0.1', '192.168.0.106', '*.local'],
   images: {
-    unoptimized: true,
+    formats: ['image/avif', 'image/webp'],
+    minimumCacheTTL: 2_592_000,
   },
 };
 

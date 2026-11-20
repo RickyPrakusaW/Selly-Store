@@ -41,24 +41,6 @@ export class AdminOrdersController {
     return this.ordersService.getAdmin(id);
   }
 
-  @Post(':id/verify-dp')
-  @ApiOperation({ summary: 'Verify DP 50% payment proof' })
-  verifyDp(
-    @CurrentUser() user: JwtUser,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
-    return this.ordersService.verifyDp(id, user.id);
-  }
-
-  @Post(':id/verify-final')
-  @ApiOperation({ summary: 'Verify final payment proof' })
-  verifyFinal(
-    @CurrentUser() user: JwtUser,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
-    return this.ordersService.verifyFinal(id, user.id);
-  }
-
   @Post(':id/reject')
   @ApiOperation({ summary: 'Reject payment proof and blacklist customer' })
   reject(

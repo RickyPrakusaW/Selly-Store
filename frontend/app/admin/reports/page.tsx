@@ -11,7 +11,8 @@ import {
   Wallet,
 } from "@phosphor-icons/react";
 import { useState } from "react";
-import { exportReport, fetchChartData, fetchReportSummary } from "@/lib/api";
+import { downloadReportExcel, fetchChartData, fetchReportSummary } from "@/lib/api";
+import { useSeliStore } from "@/lib/store";
 import type { ChartDataPoint, ReportSummary } from "@/lib/types";
 
 const rupiah = new Intl.NumberFormat("id-ID", {
@@ -63,9 +64,21 @@ export default function AdminReportsPage() {
     enabled: Boolean(from) && Boolean(to),
   });
 
-  const handleExport = () => {
-    const url = exportReport(from, to);
-    window.open(url, "_blank");
+  const showToast = useSeliStore((state) => state.showToast);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExport = async () => {
+    if (isExporting) return;
+    setIsExporting(true);
+    try {
+      await downloadReportExcel(from, to);
+      showToast("Berkas laporan Excel berhasil diunduh.");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Gagal mengunduh laporan Excel.";
+      alert(msg);
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const maxVal = Math.max(
@@ -91,9 +104,14 @@ export default function AdminReportsPage() {
           </p>
         </div>
         <div className="admin-header-actions">
-          <button type="button" className="atelier-btn-primary" onClick={handleExport}>
+          <button
+            type="button"
+            className="atelier-btn-primary"
+            onClick={() => void handleExport()}
+            disabled={isExporting}
+          >
             <DownloadSimple size={16} weight="bold" />
-            <span>Ekspor Excel (.xlsx)</span>
+            <span>{isExporting ? "Mengunduh Excel…" : "Ekspor Excel (.xlsx)"}</span>
           </button>
         </div>
       </header>

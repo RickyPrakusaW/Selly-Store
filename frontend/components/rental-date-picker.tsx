@@ -12,7 +12,9 @@ import {
 } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
 import { fetchCalendar } from "@/lib/api";
-import type { BoardInventory } from "@/lib/types";
+import type { BoardBooking, BoardInventory } from "@/lib/types";
+
+type BoardWithBookings = BoardInventory & { bookings?: BoardBooking[] };
 
 interface RentalDatePickerProps {
   selectedDate: string; // YYYY-MM-DD
@@ -112,8 +114,7 @@ export function RentalDatePicker({
     return today.getMonth();
   });
 
-  const [boardsData, setBoardsData] = useState<BoardInventory[]>([]);
-  const [isLoadingApi, setIsLoadingApi] = useState(false);
+  const [boardsData, setBoardsData] = useState<BoardWithBookings[]>([]);
 
   // Month string for API: "YYYY-MM"
   const monthKey = `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}`;
@@ -121,22 +122,16 @@ export function RentalDatePicker({
   // Fetch real calendar data from backend
   useEffect(() => {
     let isCancelled = false;
-    setIsLoadingApi(true);
-
     fetchCalendar(monthKey)
-      .then((data: any) => {
+      .then((data) => {
         if (!isCancelled) {
-          // If backend returns array of boards
           if (Array.isArray(data)) {
-            setBoardsData(data);
+            setBoardsData(data as unknown as BoardWithBookings[]);
           }
         }
       })
       .catch(() => {
-        // Silently fallback to mock/local simulation
-      })
-      .finally(() => {
-        if (!isCancelled) setIsLoadingApi(false);
+        setBoardsData([]);
       });
 
     return () => {
@@ -166,8 +161,16 @@ export function RentalDatePicker({
   // Build calendar matrix
   const calendarDays = useMemo(() => {
     const firstDayOfWeek = new Date(currentYear, currentMonth, 1).getDay(); // 0 = Sun
-    const totalDaysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-    const totalDaysInPrevMonth = new Date(currentYear, currentMonth, 0).getDate();
+    const totalDaysInMonth = new Date(
+      currentYear,
+      currentMonth + 1,
+      0,
+    ).getDate();
+    const totalDaysInPrevMonth = new Date(
+      currentYear,
+      currentMonth,
+      0,
+    ).getDate();
 
     const slots: DaySlot[] = [];
 
@@ -200,8 +203,8 @@ export function RentalDatePicker({
         monthKey === "2026-05"
           ? false
           : minDate
-          ? dateStr < minDate
-          : dateStr < todayStr;
+            ? dateStr < minDate
+            : dateStr < todayStr;
       const isSunday = slots.length % 7 === 0;
 
       let status: DayStatus = "available";
@@ -218,7 +221,7 @@ export function RentalDatePicker({
           const slotDate = new Date(`${dateStr}T00:00:00Z`);
           for (const board of boardsData) {
             if (!board.isActive) continue;
-            for (const b of (board as any).bookings || []) {
+            for (const b of board.bookings ?? []) {
               const start = new Date(b.bookingStart);
               const end = new Date(b.bookingEnd);
               if (slotDate >= start && slotDate <= end) {
@@ -229,7 +232,10 @@ export function RentalDatePicker({
           }
         }
 
-        const availableUnits = Math.max(0, totalActiveBoards - bookedCount - softLockedCount);
+        const availableUnits = Math.max(
+          0,
+          totalActiveBoards - bookedCount - softLockedCount,
+        );
         if (bookedCount >= totalActiveBoards || availableUnits === 0) {
           status = "booked";
         } else if (bookedCount + softLockedCount >= totalActiveBoards) {
@@ -267,14 +273,7 @@ export function RentalDatePicker({
     }
 
     return slots;
-  }, [
-    currentYear,
-    currentMonth,
-    boardsData,
-    minDate,
-    todayStr,
-    monthKey,
-  ]);
+  }, [currentYear, currentMonth, boardsData, minDate, todayStr, monthKey]);
 
   // Selected date formatted in Indonesian: e.g. "16 Mei 2026 (Sabtu)"
   const formattedSelectedDate = useMemo(() => {
@@ -294,7 +293,11 @@ export function RentalDatePicker({
   }, [selectedDate]);
 
   const handleSelectDay = (slot: DaySlot) => {
-    if (!slot.isCurrentMonth || slot.status === "booked" || slot.status === "past") {
+    if (
+      !slot.isCurrentMonth ||
+      slot.status === "booked" ||
+      slot.status === "past"
+    ) {
       return;
     }
     onSelectDate(slot.dateStr);
@@ -390,14 +393,17 @@ export function RentalDatePicker({
             );
           }
 
-          const isStartDate = slot.isCurrentMonth && slot.dateStr === selectedDate;
-          const isEndDate = slot.isCurrentMonth && Boolean(selectedEndDate && slot.dateStr === selectedEndDate);
+          const isStartDate =
+            slot.isCurrentMonth && slot.dateStr === selectedDate;
+          const isEndDate =
+            slot.isCurrentMonth &&
+            Boolean(selectedEndDate && slot.dateStr === selectedEndDate);
           const isSelected = isStartDate || isEndDate;
           const isInRange = Boolean(
             selectedDate &&
             selectedEndDate &&
             slot.dateStr > selectedDate &&
-            slot.dateStr < selectedEndDate
+            slot.dateStr < selectedEndDate,
           );
 
           // In-month days
@@ -410,9 +416,15 @@ export function RentalDatePicker({
                 onClick={() => handleSelectDay(slot)}
                 aria-label={`Pilihan Anda: ${slot.dayNum}`}
               >
-                <span className="slot-day-number selected-text">{slot.dayNum}</span>
+                <span className="slot-day-number selected-text">
+                  {slot.dayNum}
+                </span>
                 <span className="slot-status-pill selected-pill">
-                  {isStartDate && selectedEndDate ? "Mulai" : isEndDate ? "Selesai" : "Terpilih"}
+                  {isStartDate && selectedEndDate
+                    ? "Mulai"
+                    : isEndDate
+                      ? "Selesai"
+                      : "Terpilih"}
                 </span>
               </button>
             );
@@ -427,7 +439,9 @@ export function RentalDatePicker({
                 aria-disabled="true"
               >
                 <div className="slot-number-row">
-                  <span className="slot-day-number booked-num">{slot.dayNum}</span>
+                  <span className="slot-day-number booked-num">
+                    {slot.dayNum}
+                  </span>
                   <Ban size={12} className="slot-ban-icon" />
                 </div>
                 <span className="slot-status-pill booked-pill">PENUH</span>
@@ -445,7 +459,9 @@ export function RentalDatePicker({
                 title="Slot sedang di-hold checkout pelanggan lain."
               >
                 <div className="slot-number-row">
-                  <span className="slot-day-number softlocked-num">{slot.dayNum}</span>
+                  <span className="slot-day-number softlocked-num">
+                    {slot.dayNum}
+                  </span>
                   <Clock size={12} className="slot-clock-icon" />
                 </div>
                 <span className="slot-status-pill softlocked-pill">
@@ -507,17 +523,21 @@ export function RentalDatePicker({
               {formattedSelectedDate ? (
                 <>
                   Tanggal Terpilih:{" "}
-                  <span className="highlight-date">{formattedSelectedDate}</span>
+                  <span className="highlight-date">
+                    {formattedSelectedDate}
+                  </span>
                 </>
               ) : (
                 <span className="no-selection">
-                  Silakan klik salah satu tanggal bertanda &quot;Tersedia&quot; di atas
+                  Silakan klik salah satu tanggal bertanda &quot;Tersedia&quot;
+                  di atas
                 </span>
               )}
             </h4>
             <p className="summary-description">
-              Unit papan dibatasi agar kualitas bunga dan jadwal antar tetap presisi. Tanggal dengan
-              label &apos;Booked&apos; telah dikonfirmasi dan tidak dapat disewa.
+              Unit papan dibatasi agar kualitas bunga dan jadwal antar tetap
+              presisi. Tanggal dengan label &apos;Booked&apos; telah
+              dikonfirmasi dan tidak dapat disewa.
             </p>
           </div>
         </div>
@@ -538,7 +558,9 @@ export function RentalDatePicker({
       <div className="rental-logistics-section">
         <div className="logistics-header">
           <Clock size={16} className="logistics-header-icon" />
-          <h4 className="logistics-title">Waktu Pemasangan &amp; Pembongkaran di Lokasi Acara</h4>
+          <h4 className="logistics-title">
+            Waktu Pemasangan &amp; Pembongkaran di Lokasi Acara
+          </h4>
         </div>
 
         {/* Quick Presets */}
@@ -595,9 +617,10 @@ export function RentalDatePicker({
         <div className="logistics-note">
           <Sparkles size={14} className="logistics-note-icon" />
           <span>
-            <strong>Layanan All-in:</strong> Sewa papan akrilik / ucapan sudah termasuk pengantaran
-            ke venue di Malang &amp; sekitarnya, standing kokoh, pemasangan rapi, serta penjemputan
-            kembali unit setelah acara selesai.
+            <strong>Layanan All-in:</strong> Sewa papan akrilik / ucapan sudah
+            termasuk pengantaran ke venue di Malang &amp; sekitarnya, standing
+            kokoh, pemasangan rapi, serta penjemputan kembali unit setelah acara
+            selesai.
           </span>
         </div>
       </div>

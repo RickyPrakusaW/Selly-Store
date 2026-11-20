@@ -2,7 +2,6 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  Eye,
   FloppyDisk,
   ImageSquare,
   MagnifyingGlass,
@@ -146,7 +145,7 @@ export default function AdminCatalogPage() {
       (prod.stockType as "READY_STOCK" | "PRE_ORDER" | "RENTAL_UNIT") ||
         "READY_STOCK",
     );
-    setEditStockQty(String(prod.availableQty ?? 0));
+    setEditStockQty(String(prod.stockQty ?? prod.availableQty ?? 0));
     setEditPoDays(String(prod.poDays ?? 3));
   };
 
@@ -160,9 +159,13 @@ export default function AdminCatalogPage() {
         categoryId: editCategoryId || undefined,
         description: editDescription,
         basePrice: Number(editBasePrice),
+      });
+      await adminUpdateStock(viewProduct.id, {
         stockType: editStockType,
         stockQty: Number(editStockQty),
-        poDays: editStockType === "PRE_ORDER" ? Number(editPoDays) : undefined,
+        ...(editStockType === "PRE_ORDER"
+          ? { poDays: Number(editPoDays) }
+          : {}),
       });
       showToast("Produk berhasil diperbarui!", "success");
       setIsEditing(false);
@@ -181,13 +184,23 @@ export default function AdminCatalogPage() {
     }
   };
 
-  const handleUpdateStock = async (id: string, currentQty: number) => {
+  const handleUpdateStock = async (product: Product) => {
+    const currentQty = product.stockQty ?? product.availableQty ?? 0;
     const newQtyStr = prompt("Masukkan jumlah stok baru:", String(currentQty));
     if (newQtyStr === null) return;
     const newQty = Number(newQtyStr);
-    if (isNaN(newQty)) return;
+    if (!Number.isInteger(newQty) || newQty < 0) {
+      showToast("Stok harus berupa bilangan bulat 0 atau lebih", "error");
+      return;
+    }
     try {
-      await adminUpdateStock(id, { stockQty: newQty });
+      await adminUpdateStock(product.id, {
+        stockType: product.stockType,
+        stockQty: newQty,
+        ...(product.stockType === "PRE_ORDER" && product.poDays
+          ? { poDays: product.poDays }
+          : {}),
+      });
       showToast("Stok berhasil diperbarui");
       refetchProducts();
     } catch (err) {
@@ -448,7 +461,7 @@ export default function AdminCatalogPage() {
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            void handleUpdateStock(prod.id, prod.availableQty ?? 0);
+                            void handleUpdateStock(prod);
                           }}
                           className="atelier-btn-secondary compact"
                           style={{
@@ -566,7 +579,7 @@ export default function AdminCatalogPage() {
                           <button
                             type="button"
                             className="atelier-btn-secondary compact"
-                            onClick={() => void handleUpdateStock(prod.id, prod.availableQty ?? 0)}
+                            onClick={() => void handleUpdateStock(prod)}
                             title="Klik untuk ubah stok cepat"
                           >
                             <span>{prod.availableQty ?? 0} unit</span>

@@ -39,10 +39,13 @@ export class AuthController {
   @Public()
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @Post('register')
-  async register(@Body() dto: RegisterDto, @Res({ passthrough: true }) res: Response) {
+  async register(
+    @Body() dto: RegisterDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     const result = await this.auth.register(dto);
     if (result.refreshToken) {
-      res.cookie('refreshToken', result.refreshToken, cookieOptions);
+      res.cookie('refresh_token', result.refreshToken, cookieOptions);
     }
     return result;
   }
@@ -55,10 +58,8 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     const result = await this.auth.googleLogin(dto);
-    if (result.refreshToken) {
-      res.cookie('refreshToken', result.refreshToken, cookieOptions);
-    }
-    return result;
+    res.cookie('refresh_token', result.refreshToken, cookieOptions);
+    return { accessToken: result.accessToken, user: result.user };
   }
 
   @Public()
@@ -73,7 +74,7 @@ export class AuthController {
         <head>
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Verifikasi Akun - Seli Florist</title>
+          <title>Verifikasi Akun - LICHARY Florist</title>
           <style>
             body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #fff7f9; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
             .card { background: white; padding: 40px; border-radius: 20px; box-shadow: 0 10px 30px rgba(169,64,101,0.1); text-align: center; max-width: 420px; border: 1px solid #f2d7df; }
@@ -85,9 +86,9 @@ export class AuthController {
         </head>
         <body>
           <div class="card">
-            <h1>Status Akun Seli Florist</h1>
+            <h1>Status Akun LICHARY Florist</h1>
             <p>${result.message}</p>
-            <a href="${process.env.FRONTEND_URL ?? 'http://localhost:3001'}" class="btn">Masuk ke Seli Florist</a>
+            <a href="${process.env.FRONTEND_URL ?? 'http://localhost:3001'}" class="btn">Masuk ke LICHARY Florist</a>
           </div>
         </body>
         </html>
@@ -103,7 +104,7 @@ export class AuthController {
         <head>
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Verifikasi Akun - Seli Florist</title>
+          <title>Verifikasi Akun - LICHARY Florist</title>
           <style>
             body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #fff7f9; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
             .card { background: white; padding: 40px; border-radius: 20px; box-shadow: 0 10px 30px rgba(169,64,101,0.1); text-align: center; max-width: 420px; border: 1px solid #f2d7df; }
@@ -116,7 +117,7 @@ export class AuthController {
           <div class="card">
             <h1>Informasi Verifikasi</h1>
             <p>${message}</p>
-            <a href="${process.env.FRONTEND_URL ?? 'http://localhost:3001'}" class="btn">Kembali ke Seli Florist</a>
+            <a href="${process.env.FRONTEND_URL ?? 'http://localhost:3001'}" class="btn">Kembali ke LICHARY Florist</a>
           </div>
         </body>
         </html>

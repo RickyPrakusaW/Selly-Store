@@ -37,11 +37,18 @@ export function resolveImageUrl(url: string | null | undefined): string {
 let accessToken: string | null = null;
 let refreshPromise: Promise<boolean> | null = null;
 
+type ApiErrorData = {
+  pendingOrderId?: string;
+  orderNumber?: string;
+  dpAmount?: string | number;
+  [key: string]: unknown;
+};
+
 export class ApiError extends Error {
   constructor(
     message: string,
     public readonly status: number,
-    public readonly data?: any,
+    public readonly data?: ApiErrorData,
   ) {
     super(message);
   }
@@ -68,14 +75,18 @@ export function getAccessToken(): string | null {
 async function read<T>(response: Response): Promise<T> {
   const body = (await response.json().catch(() => null)) as
     | ApiEnvelope<T>
-    | { message?: string; [key: string]: any }
+    | { message?: string; [key: string]: unknown }
     | null;
   if (!response.ok) {
     const msg =
       response.status === 429
         ? "Terlalu banyak permintaan. Silakan tunggu beberapa saat."
         : (body?.message ?? "Permintaan tidak dapat diproses.");
-    throw new ApiError(msg, response.status, body);
+    throw new ApiError(
+      msg,
+      response.status,
+      body && typeof body === "object" ? (body as ApiErrorData) : undefined,
+    );
   }
   return (body as ApiEnvelope<T>).data;
 }
@@ -157,7 +168,7 @@ export async function fetchProducts(
   search = "",
   category = "",
 ): Promise<Product[]> {
-  const params = new URLSearchParams({ page: "1", limit: "24" });
+  const params = new URLSearchParams({ page: "1", limit: "100" });
   if (search) params.set("search", search);
   if (category) params.set("category", category);
   return apiRequest<Product[]>(`/products?${params.toString()}`);
@@ -194,11 +205,7 @@ export function register(data: {
   });
 }
 
-export function googleLoginApi(data: {
-  credential?: string;
-  email?: string;
-  name?: string;
-}) {
+export function googleLoginApi(data: { credential: string }) {
   return apiRequest<LoginResult>("/auth/google", {
     method: "POST",
     body: JSON.stringify(data),
@@ -219,6 +226,8 @@ export function logout() {
 export function updateProfile(data: {
   fullName?: string;
   phoneNumber?: string;
+  currentPassword?: string;
+  newPassword?: string;
 }) {
   return apiRequest<User>("/auth/me", {
     method: "PUT",
@@ -331,26 +340,6 @@ export function cancelOrder(id: string, reason: string): Promise<Order> {
    PAYMENT PROOF
    ═══════════════════════════════════════════ */
 
-export function uploadDpProof(orderId: string, file: File) {
-  return apiUpload(`/orders/${orderId}/payment-proof/dp`, file);
-}
-
-export function retractDpProof(orderId: string) {
-  return apiRequest(`/orders/${orderId}/payment-proof/dp`, {
-    method: "DELETE",
-  });
-}
-
-export function uploadFinalProof(orderId: string, file: File) {
-  return apiUpload(`/orders/${orderId}/payment-proof/final`, file);
-}
-
-export function retractFinalProof(orderId: string) {
-  return apiRequest(`/orders/${orderId}/payment-proof/final`, {
-    method: "DELETE",
-  });
-}
-
 /* ═══════════════════════════════════════════
    ADMIN ORDERS
    ═══════════════════════════════════════════ */
@@ -363,14 +352,6 @@ export function adminListOrders(page = 1, status?: string): Promise<Order[]> {
 
 export function adminGetOrder(id: string): Promise<Order> {
   return apiRequest<Order>(`/admin/orders/${id}`);
-}
-
-export function adminVerifyDp(id: string) {
-  return apiRequest(`/admin/orders/${id}/verify-dp`, { method: "POST" });
-}
-
-export function adminVerifyFinal(id: string) {
-  return apiRequest(`/admin/orders/${id}/verify-final`, { method: "POST" });
 }
 
 export function adminReject(id: string, reason: string) {
@@ -542,6 +523,37 @@ export function exportReport(from: string, to: string): string {
   return `${API_URL}/admin/reports/export?from=${from}&to=${to}`;
 }
 
+export async function downloadReportExcel(from: string, to: string): Promise<void> {
+  const token = getAccessToken();
+  const res = await fetch(`${API_URL}/admin/reports/export?from=${from}&to=${to}`, {
+    method: "GET",
+    headers: {
+      Accept: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    credentials: "include",
+  });
+
+  if (!res.ok) {
+    const errorBody = await res.json().catch(() => null);
+    throw new ApiError(
+      errorBody?.message ?? "Gagal mengunduh berkas laporan Excel.",
+      res.status,
+      errorBody,
+    );
+  }
+
+  const blob = await res.blob();
+  const blobUrl = window.URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = blobUrl;
+  a.download = `laporan-lichary-florist-${from}-sd-${to}.xlsx`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.URL.revokeObjectURL(blobUrl);
+}
+
 /* ═══════════════════════════════════════════
    ADMIN CATALOG
    ═══════════════════════════════════════════ */
@@ -585,7 +597,14 @@ export function adminUpdateProduct(id: string, data: Record<string, unknown>) {
   });
 }
 
-export function adminUpdateStock(id: string, data: { stockQty: number }) {
+export function adminUpdateStock(
+  id: string,
+  data: {
+    stockType: Product["stockType"];
+    stockQty: number;
+    poDays?: number;
+  },
+) {
   return apiRequest(`/admin/products/${id}/stock`, {
     method: "PUT",
     body: JSON.stringify(data),
@@ -615,19 +634,18 @@ export function adminDeleteProductImage(productId: string, imageId: string) {
   });
 }
 
-export interface QrisPaymentData {
+export interface DokuCheckoutData {
   orderId: string;
   orderNumber: string;
   invoiceNumber: string;
   amount: number;
-  qrContent: string;
-  paymentUrl?: string;
+  paymentUrl: string;
   expiresAt: string;
-  isSimulation: boolean;
+  environment: "sandbox" | "production";
   paymentType: "DP" | "FINAL";
 }
 
-export interface QrisStatusData {
+export interface DokuPaymentStatusData {
   orderId: string;
   orderStatus: string;
   dpStatus?: string;
@@ -636,32 +654,26 @@ export interface QrisStatusData {
   remainingAmount: number;
 }
 
-export function generateQrisPayment(
+export function createDokuCheckout(
   orderId: string,
-  paymentType?: "DP" | "FINAL",
+  paymentType: "DP" | "FINAL",
 ) {
-  return apiRequest<QrisPaymentData>("/payments/qris/generate", {
+  return apiRequest<DokuCheckoutData>("/payments/doku/checkout", {
     method: "POST",
     body: JSON.stringify({ orderId, paymentType }),
   });
 }
 
-export function fetchQrisPaymentStatus(orderId: string) {
-  return apiRequest<QrisStatusData>(`/payments/qris/status/${orderId}`, {
-    method: "GET",
-  });
-}
-
-export function simulateQrisPaymentSuccess(
+export function fetchDokuPaymentStatus(
   orderId: string,
-  paymentType?: "DP" | "FINAL",
+  invoiceNumber?: string,
 ) {
-  return apiRequest<{ status: string; message: string; transactionId: string }>(
-    "/payments/qris/simulate-success",
-    {
-      method: "POST",
-      body: JSON.stringify({ orderId, paymentType }),
-    },
+  const query = invoiceNumber
+    ? `?invoiceNumber=${encodeURIComponent(invoiceNumber)}`
+    : "";
+  return apiRequest<DokuPaymentStatusData>(
+    `/payments/doku/status/${orderId}${query}`,
+    { method: "GET" },
   );
 }
 

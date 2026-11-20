@@ -1,9 +1,22 @@
 'use client';
 
-import { ArrowRight, Calendar, Flower2, Info, LockKeyhole, Minus, Package, Plus, ShoppingBag, Trash2 } from 'lucide-react';
+import {
+  ArrowRight,
+  Calendar,
+  CreditCard,
+  Flower2,
+  Info,
+  LockKeyhole,
+  Minus,
+  Package,
+  PackageCheck,
+  Plus,
+  ShoppingBag,
+  Trash2,
+} from 'lucide-react';
 import Link from 'next/link';
-import { useSyncExternalStore } from 'react';
-import { resolveImageUrl } from '@/lib/api';
+import { useEffect, useState, useSyncExternalStore } from 'react';
+import { fetchMyOrders, resolveImageUrl } from '@/lib/api';
 import { useSeliStore } from '@/lib/store';
 import { formatBookingDate } from '@/lib/types';
 
@@ -32,6 +45,31 @@ export default function CartPage() {
   const removeFromCart = useSeliStore((state) => state.removeFromCart);
   const clearCart = useSeliStore((state) => state.clearCart);
   const setAuthOpen = useSeliStore((state) => state.setAuthOpen);
+
+  const [pendingOrder, setPendingOrder] = useState<{
+    id: string;
+    orderNumber: string;
+    dpAmount: number;
+  } | null>(null);
+
+  useEffect(() => {
+    if (user) {
+      fetchMyOrders(1, "PENDING_PAYMENT")
+        .then((orders) => {
+          const first = orders?.[0];
+          if (first) {
+            setPendingOrder({
+              id: first.id,
+              orderNumber: `#ORDER-${first.id.slice(0, 8).toUpperCase()}`,
+              dpAmount: Number(first.dpAmount),
+            });
+          } else {
+            setPendingOrder(null);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [user]);
 
   if (!mounted) {
     return (
@@ -90,13 +128,54 @@ export default function CartPage() {
   if (items.length === 0) {
     return (
       <main className="simple-page shell">
+        {pendingOrder && (
+          <div
+            className="pending-notice-banner"
+            style={{
+              marginBottom: "24px",
+              maxWidth: "580px",
+              margin: "0 auto 24px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "16px",
+              flexWrap: "wrap",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "12px", textAlign: "left" }}>
+              <CreditCard size={24} style={{ color: "var(--rose)", flexShrink: 0 }} />
+              <div>
+                <strong style={{ display: "block", color: "var(--ink)", fontSize: "14px" }}>
+                  Pesanan {pendingOrder.orderNumber} Menunggu Pembayaran
+                </strong>
+                <span style={{ fontSize: "12px", color: "var(--muted)" }}>
+                  DP 50%: <b>{rupiah.format(pendingOrder.dpAmount)}</b>
+                </span>
+              </div>
+            </div>
+            <Link
+              href={`/pesanan/${pendingOrder.id}`}
+              className="primary-button compact"
+              style={{ fontSize: "12px", padding: "8px 16px" }}
+            >
+              Bayar Sekarang <ArrowRight size={14} />
+            </Link>
+          </div>
+        )}
         <div className="empty-state">
           <ShoppingBag size={50} />
           <h2>Keranjang Belanja Kosong</h2>
           <p>Anda belum menambahkan rangkaian bunga atau kado ke keranjang.</p>
-          <Link href="/" className="primary-button" style={{ marginTop: '16px' }}>
-            Jelajahi Koleksi <ArrowRight size={18} />
-          </Link>
+          <div style={{ display: "flex", gap: "12px", justifyContent: "center", marginTop: "16px", flexWrap: "wrap" }}>
+            <Link href="/" className="primary-button">
+              Jelajahi Koleksi <ArrowRight size={18} />
+            </Link>
+            {user && (
+              <Link href="/pesanan" className="secondary-button" style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
+                <PackageCheck size={18} /> Lihat Pesanan Saya
+              </Link>
+            )}
+          </div>
         </div>
       </main>
     );
@@ -104,6 +183,39 @@ export default function CartPage() {
 
   return (
     <main className="cart-page shell">
+      {pendingOrder && (
+        <div
+          className="pending-notice-banner"
+          style={{
+            marginBottom: "20px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "16px",
+            flexWrap: "wrap",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            <CreditCard size={22} style={{ color: "var(--rose)", flexShrink: 0 }} />
+            <div>
+              <strong style={{ display: "block", color: "var(--ink)", fontSize: "13px" }}>
+                Anda memiliki pesanan aktif yang menunggu pembayaran ({pendingOrder.orderNumber})
+              </strong>
+              <span style={{ fontSize: "12px", color: "var(--muted)" }}>
+                DP 50%: <b>{rupiah.format(pendingOrder.dpAmount)}</b>
+              </span>
+            </div>
+          </div>
+          <Link
+            href={`/pesanan/${pendingOrder.id}`}
+            className="primary-button compact"
+            style={{ fontSize: "12px", padding: "8px 16px" }}
+          >
+            Selesaikan Pembayaran <ArrowRight size={14} />
+          </Link>
+        </div>
+      )}
+
       <header className="section-heading">
         <div>
           <p className="eyebrow">Pilihan Anda</p>

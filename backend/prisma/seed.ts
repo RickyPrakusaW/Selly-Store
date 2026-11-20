@@ -9,6 +9,8 @@ import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
 const DUMMY_PASSWORD = 'PasswordKuat123!';
+const isProduction = process.env.NODE_ENV === 'production';
+const useLiveTestPrices = process.env.LIVE_PAYMENT_TEST_PRICES === 'true';
 
 type SeedProduct = {
   slug: string;
@@ -41,7 +43,7 @@ const categories = [
   },
 ] as const;
 
-const products: SeedProduct[] = [
+const regularProducts: SeedProduct[] = [
   {
     slug: 'bucket-mawar-merah-passionate',
     categorySlug: 'bunga',
@@ -178,6 +180,17 @@ const products: SeedProduct[] = [
     variants: [],
   },
 ];
+
+// Even prices keep the application's 50% DP and settlement amounts as whole
+// rupiah values: Rp2 -> DP Rp1 + settlement Rp1, Rp4 -> Rp2 + Rp2, etc.
+const products: SeedProduct[] = regularProducts.map((product, index) => ({
+  ...product,
+  basePrice: useLiveTestPrices ? (index + 1) * 2 : product.basePrice,
+  variants: product.variants.map((variant) => ({
+    ...variant,
+    priceDelta: useLiveTestPrices ? 0 : variant.priceDelta,
+  })),
+}));
 
 async function seedCategories(): Promise<Map<string, string>> {
   const categoryIds = new Map<string, string>();
@@ -317,30 +330,77 @@ async function seedRentalUnits(productIds: Map<string, string>): Promise<void> {
 }
 
 async function seedUsers(): Promise<void> {
+  const ownerEmail = process.env.SEED_OWNER_EMAIL?.trim().toLowerCase();
+  const ownerPassword = process.env.SEED_OWNER_PASSWORD;
+  const ownerName = process.env.SEED_OWNER_NAME?.trim() || 'Seli Florist Owner';
+
+  if (isProduction) {
+    if (!ownerEmail || !ownerPassword || ownerPassword.length < 12) {
+      throw new Error(
+        'Production seed requires SEED_OWNER_EMAIL and a SEED_OWNER_PASSWORD of at least 12 characters',
+      );
+    }
+    const passwordHash = await bcrypt.hash(ownerPassword, 12);
+    await prisma.user.upsert({
+      where: { email: ownerEmail },
+      update: {
+        passwordHash,
+        fullName: ownerName,
+        role: UserRole.OWNER,
+        isVerified: true,
+        isActive: true,
+        deletedAt: null,
+      },
+      create: {
+        email: ownerEmail,
+        passwordHash,
+        fullName: ownerName,
+        role: UserRole.OWNER,
+        isVerified: true,
+      },
+    });
+    await prisma.adminUser.upsert({
+      where: { email: ownerEmail },
+      update: {
+        passwordHash,
+        fullName: ownerName,
+        role: UserRole.OWNER,
+        isActive: true,
+      },
+      create: {
+        email: ownerEmail,
+        passwordHash,
+        fullName: ownerName,
+        role: UserRole.OWNER,
+      },
+    });
+    return;
+  }
+
   const passwordHash = await bcrypt.hash(DUMMY_PASSWORD, 12);
   const accounts = [
     {
       email: 'owner@seliflorist.com',
       fullName: 'Seli Florist Owner',
-      phoneNumber: '+6281111111101',
+      phoneNumber: '6281111111101',
       role: UserRole.OWNER,
     },
     {
       email: 'staff@seliflorist.com',
       fullName: 'Seli Florist Staff',
-      phoneNumber: '+6281111111102',
+      phoneNumber: '6281111111102',
       role: UserRole.STAFF_VERIFICATION,
     },
     {
       email: 'budi.santoso@gmail.com',
       fullName: 'Budi Santoso',
-      phoneNumber: '+6281111111103',
+      phoneNumber: '6281111111103',
       role: UserRole.CUSTOMER,
     },
     {
       email: 'siti.aminah@gmail.com',
       fullName: 'Siti Aminah',
-      phoneNumber: '+6281111111104',
+      phoneNumber: '6281111111104',
       role: UserRole.CUSTOMER,
     },
   ] as const;
@@ -391,7 +451,7 @@ async function main(): Promise<void> {
   await seedRentalUnits(productIds);
   await seedUsers();
   console.log(
-    'Seli Florist seed completed: 3 categories, 9 products, 5 rental units, and 4 users.',
+    `Seli Florist seed completed${useLiveTestPrices ? ' with live test prices (Rp2/Rp4/...)' : ''}.`,
   );
 }
 

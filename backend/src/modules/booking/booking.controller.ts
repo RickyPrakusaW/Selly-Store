@@ -34,27 +34,31 @@ export class BookingController {
   }
 }
 
-@Roles(UserRole.OWNER)
 @Controller('admin/boards')
 export class AdminBoardsController {
   constructor(private readonly booking: BookingService) {}
 
-  @Get() boards() {
+  @Roles(UserRole.OWNER, UserRole.FINANCE, UserRole.STAFF_VERIFICATION)
+  @Get()
+  boards() {
     return this.booking.listBoards();
   }
 
-  @Post() create(@Body() dto: CreateBoardDto) {
+  @Roles(UserRole.OWNER)
+  @Post()
+  create(@Body() dto: CreateBoardDto) {
     return this.booking.createBoard(dto);
   }
 
-  @Put(':id') update(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: UpdateBoardDto,
-  ) {
+  @Roles(UserRole.OWNER)
+  @Put(':id')
+  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateBoardDto) {
     return this.booking.updateBoard(id, dto);
   }
 
-  @Delete(':id') delete(@Param('id', ParseUUIDPipe) id: string) {
+  @Roles(UserRole.OWNER)
+  @Delete(':id')
+  delete(@Param('id', ParseUUIDPipe) id: string) {
     return this.booking.deleteBoard(id);
   }
 }

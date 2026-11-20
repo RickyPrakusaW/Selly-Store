@@ -9,17 +9,27 @@ import {
 } from "@phosphor-icons/react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { adminLogin, setAccessToken } from "@/lib/api";
 import { useSeliStore } from "@/lib/store";
 
 export default function AdminLoginPage() {
   const router = useRouter();
+  const user = useSeliStore((state) => state.user);
   const setUser = useSeliStore((state) => state.setUser);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (user) {
+      const allowedRoles = ["OWNER", "FINANCE", "STAFF_VERIFICATION"];
+      if (allowedRoles.includes(user.role)) {
+        router.replace("/admin/orders");
+      }
+    }
+  }, [user, router]);
 
   const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
@@ -63,7 +73,7 @@ export default function AdminLoginPage() {
         <div style={{ textAlign: "center", marginBottom: "24px" }}>
           <Image
             src="/logo.jpeg"
-            alt="Logo Seli Florist"
+            alt="Logo LICHARY Florist"
             width={56}
             height={56}
             className="brand-logo-img"
@@ -89,7 +99,7 @@ export default function AdminLoginPage() {
               lineHeight: 1.5,
             }}
           >
-            Masuk dengan akun terverifikasi Seli Florist untuk mengelola pesanan dan operasional toko.
+            Masuk dengan akun terverifikasi LICHARY Florist untuk mengelola pesanan dan operasional toko.
           </p>
         </div>
 

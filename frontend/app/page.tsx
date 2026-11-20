@@ -5,8 +5,8 @@ import type { ApiEnvelope, Category, Product } from "@/lib/types";
 async function catalog<T>(path: string): Promise<T[]> {
   try {
     const response = await fetch(`${API_URL}${path}`, {
-      cache: "no-store",
-      signal: AbortSignal.timeout(3000),
+      next: { revalidate: 60 },
+      signal: AbortSignal.timeout(1500),
     });
     if (!response.ok) return [];
     const body = (await response.json()) as ApiEnvelope<T[]>;
@@ -18,13 +18,13 @@ async function catalog<T>(path: string): Promise<T[]> {
 
 export default async function HomePage() {
   const [products, categories] = await Promise.all([
-    catalog<Product>("/products?page=1&limit=24"),
+    catalog<Product>("/products?page=1&limit=100"),
     catalog<Category>("/categories"),
   ]);
   const localBusiness = {
     "@context": "https://schema.org",
     "@type": "Florist",
-    name: "Seli Florist",
+    name: "LICHARY Florist",
     url: process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3001",
     priceRange: "RpRp",
     areaServed: "Indonesia",

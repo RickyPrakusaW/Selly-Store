@@ -3,12 +3,10 @@
 import { useQuery } from "@tanstack/react-query";
 import {
   ArrowsClockwise,
-  CurrencyDollar,
   Info,
   Plus,
   Trash,
   TrendDown,
-  TrendUp,
   Wallet,
 } from "@phosphor-icons/react";
 import { FormEvent, useState } from "react";

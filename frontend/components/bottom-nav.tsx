@@ -42,7 +42,7 @@ export function BottomNav() {
 
   return (
     <nav className="bottom-nav" aria-label="Navigasi mobile" suppressHydrationWarning>
-      <Link href="/">
+      <Link href="/" className={pathname === "/" ? "active" : ""} aria-current={pathname === "/" ? "page" : undefined}>
         <Home />
         <span>Beranda</span>
       </Link>
@@ -63,27 +63,32 @@ export function BottomNav() {
         {currentWishlistCount > 0 && <b>{currentWishlistCount}</b>}
         <span>Favorit</span>
       </button>
-      <Link href="/keranjang" className="badge-button" suppressHydrationWarning>
+      <Link href="/keranjang" className={`badge-button ${pathname === "/keranjang" ? "active" : ""}`} suppressHydrationWarning>
         <ShoppingBag />
         {currentCartCount > 0 && <b>{currentCartCount}</b>}
         <span>Keranjang</span>
       </Link>
-      <Link href="/pesanan">
+      <Link href="/pesanan" className={pathname.startsWith("/pesanan") ? "active" : ""}>
         <PackageCheck />
         <span>Pesanan</span>
       </Link>
       {isAdmin ? (
-        <Link href="/admin/orders">
+        <Link href="/admin/orders" className="active">
           <ShieldCheck />
           <span>Admin</span>
         </Link>
       ) : (
-        <button onClick={() => !currentUser && setAuthOpen(true)} suppressHydrationWarning>
-          <UserRound />
-          <span>
-            {currentUser ? currentUser.fullName.split(" ")[0] : "Akun"}
-          </span>
-        </button>
+        currentUser ? (
+          <Link href="/profil" className={pathname === "/profil" ? "active" : ""}>
+            <UserRound />
+            <span>Akun</span>
+          </Link>
+        ) : (
+          <button onClick={() => setAuthOpen(true)} suppressHydrationWarning>
+            <UserRound />
+            <span>Akun</span>
+          </button>
+        )
       )}
     </nav>
   );

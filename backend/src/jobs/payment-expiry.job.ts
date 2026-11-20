@@ -23,54 +23,67 @@ export class PaymentExpiryJob {
     private readonly notifications: NotificationsService,
   ) {}
 
+  private isExpiring = false;
+
   @Cron(CronExpression.EVERY_MINUTE)
   async expirePayments(): Promise<void> {
-    const now = new Date();
-    const dueDp = await this.prisma.order.findMany({
-      where: {
-        status: OrderStatus.PENDING_PAYMENT,
-        dpDeadline: { lte: now },
-        downPayment: { status: PaymentStatus.WAITING_PROOF },
-      },
-      select: { id: true },
-    });
-    const dueFinal = await this.prisma.order.findMany({
-      where: {
-        status: OrderStatus.PENDING_FINAL_PAYMENT,
-        finalPaymentDeadline: { lte: now },
-        paymentProofs: {
-          none: {
-            proofType: ProofType.FINAL,
-            verificationStatus: VerificationStatus.PENDING,
-            retractedAt: null,
-          },
+    if (this.isExpiring) return;
+    this.isExpiring = true;
+
+    try {
+      const now = new Date();
+      const dueDp = await this.prisma.order.findMany({
+        where: {
+          status: OrderStatus.PENDING_PAYMENT,
+          dpDeadline: { lte: now },
+          downPayment: { status: PaymentStatus.WAITING_PROOF },
         },
-      },
-      select: { id: true },
-    });
-    for (const entry of dueDp) await this.cancel(entry.id, false);
-    for (const entry of dueFinal) await this.cancel(entry.id, true);
-    await this.prisma.boardBooking.updateMany({
-      where: {
-        status: BookingStatus.SOFT_LOCKED,
-        expiresAt: { lte: now },
-        OR: [
-          { orderId: null },
-          {
-            order: {
-              status: {
-                in: [
-                  OrderStatus.CANCELLED,
-                  OrderStatus.REJECTED,
-                  OrderStatus.COMPLETED,
-                ],
-              },
+        select: { id: true },
+      });
+      const dueFinal = await this.prisma.order.findMany({
+        where: {
+          status: OrderStatus.PENDING_FINAL_PAYMENT,
+          finalPaymentDeadline: { lte: now },
+          paymentProofs: {
+            none: {
+              proofType: ProofType.FINAL,
+              verificationStatus: VerificationStatus.PENDING,
+              retractedAt: null,
             },
           },
-        ],
-      },
-      data: { status: BookingStatus.CANCELLED, expiresAt: null },
-    });
+        },
+        select: { id: true },
+      });
+      for (const entry of dueDp) await this.cancel(entry.id, false);
+      for (const entry of dueFinal) await this.cancel(entry.id, true);
+      await this.prisma.boardBooking.updateMany({
+        where: {
+          status: BookingStatus.SOFT_LOCKED,
+          expiresAt: { lte: now },
+          OR: [
+            { orderId: null },
+            {
+              order: {
+                status: {
+                  in: [
+                    OrderStatus.CANCELLED,
+                    OrderStatus.REJECTED,
+                    OrderStatus.COMPLETED,
+                  ],
+                },
+              },
+            },
+          ],
+        },
+        data: { status: BookingStatus.CANCELLED, expiresAt: null },
+      });
+    } catch (error) {
+      this.logger.warn(
+        `expirePayments job encountered a temporary connection issue: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    } finally {
+      this.isExpiring = false;
+    }
   }
 
   @Cron(CronExpression.EVERY_HOUR)
@@ -89,7 +102,7 @@ export class PaymentExpiryJob {
       try {
         await this.mail.send(
           order.user.email,
-          'Seli Florist final payment reminder',
+          'LICHARY Florist final payment reminder',
           `Final payment for order ${order.id} is due by ${order.finalPaymentDeadline?.toISOString()}.`,
         );
         await this.prisma.order.update({
@@ -116,7 +129,7 @@ export class PaymentExpiryJob {
       });
       await this.mail.send(
         order.user.email,
-        'Seli Florist payment deadline expired',
+        'LICHARY Florist payment deadline expired',
         `Order ${orderId} was cancelled because its payment deadline expired.`,
       );
     } catch (error) {
