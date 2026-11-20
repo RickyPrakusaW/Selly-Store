@@ -391,17 +391,14 @@ export function AuthDialog() {
 
             {/* Official Google Identity Services SDK Render Target */}
             {googleClientId ? (
-              <div
-                ref={googleBtnContainerRef}
-                className="auth-google-box"
-              />
-            ) : (
-              <div>
-                <InlineError message="Google Sign-In belum dikonfigurasi." />
-              </div>
-            )}
-
-            <div className="auth-divider">atau menggunakan email</div>
+              <>
+                <div
+                  ref={googleBtnContainerRef}
+                  className="auth-google-box"
+                />
+                <div className="auth-divider">atau menggunakan email</div>
+              </>
+            ) : null}
 
             <div className="auth-tabs">
               <button
