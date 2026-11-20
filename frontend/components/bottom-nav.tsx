@@ -80,7 +80,21 @@ export function BottomNav() {
       ) : (
         currentUser ? (
           <Link href="/profil" className={pathname === "/profil" ? "active" : ""}>
-            <UserRound />
+            {currentUser.avatarUrl ? (
+              <img
+                src={currentUser.avatarUrl}
+                alt={currentUser.fullName}
+                referrerPolicy="no-referrer"
+                style={{
+                  width: 22,
+                  height: 22,
+                  borderRadius: "50%",
+                  objectFit: "cover",
+                }}
+              />
+            ) : (
+              <UserRound />
+            )}
             <span>Akun</span>
           </Link>
         ) : (

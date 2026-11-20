@@ -145,6 +145,7 @@ model User {
   role                  UserRole           @default(CUSTOMER)
   fullName              String             @map("full_name") @db.VarChar(150)
   phoneNumber           String?            @map("phone_number") @db.VarChar(32)
+  avatarUrl             String?            @map("avatar_url")
   isVerified            Boolean            @default(false) @map("is_verified")
   isActive              Boolean            @default(true) @map("is_active")
   verificationTokenHash String?            @map("verification_token_hash")

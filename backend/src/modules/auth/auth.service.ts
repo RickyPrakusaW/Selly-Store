@@ -166,6 +166,8 @@ export class AuthService implements OnModuleInit {
       typeof info.email === 'string' ? info.email.trim().toLowerCase() : '';
     const name = typeof info.name === 'string' ? info.name.trim() : '';
     const googleUserId = typeof info.sub === 'string' ? info.sub.trim() : '';
+    const picture =
+      typeof info.picture === 'string' ? info.picture.trim() : null;
     const emailVerified =
       info.email_verified === true || info.email_verified === 'true';
 
@@ -198,10 +200,17 @@ export class AuthService implements OnModuleInit {
       if (user.role !== UserRole.CUSTOMER) {
         throw new ForbiddenException('Gunakan portal khusus admin untuk masuk');
       }
+      const dataToUpdate: Record<string, unknown> = {};
       if (!user.isVerified) {
+        dataToUpdate.isVerified = true;
+      }
+      if (picture && user.avatarUrl !== picture) {
+        dataToUpdate.avatarUrl = picture;
+      }
+      if (Object.keys(dataToUpdate).length > 0) {
         user = await this.prisma.user.update({
           where: { id: user.id },
-          data: { isVerified: true },
+          data: dataToUpdate,
         });
       }
     } else {
@@ -214,6 +223,7 @@ export class AuthService implements OnModuleInit {
           role: UserRole.CUSTOMER,
           isVerified: true,
           isActive: true,
+          avatarUrl: picture,
         },
       });
     }
@@ -386,6 +396,7 @@ export class AuthService implements OnModuleInit {
         email: true,
         fullName: true,
         phoneNumber: true,
+        avatarUrl: true,
         role: true,
         isVerified: true,
         createdAt: true,

@@ -421,6 +421,15 @@
   display: grid;
   place-items: center;
   flex-shrink: 0;
+  overflow: hidden;
+}
+
+.profile-pill .avatar-circle .avatar-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
 }
 
 .profile-pill .chevron {
@@ -488,11 +497,27 @@
 }
 
 .profile-popover-greeting {
-  display: grid;
-  gap: 3px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   margin: 2px 4px 7px;
-  padding: 10px;
+  padding: 8px 10px;
   border-bottom: 1px solid #f0dce4;
+}
+
+.profile-popover-greeting .popover-avatar-img {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1.5px solid #f4c9d7;
+  flex-shrink: 0;
+}
+
+.profile-popover-greeting div {
+  display: grid;
+  gap: 2px;
+}
 }
 
 .profile-popover-greeting small {

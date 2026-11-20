@@ -122,9 +122,27 @@ export default function ProfilePage() {
       >
         <div className="admin-card-form">
           <div style={{ textAlign: "center", marginBottom: "16px" }}>
-            <div className="mail-orbit" style={{ margin: "0 auto 12px" }}>
-              <UserRound size={32} />
-            </div>
+            {user.avatarUrl ? (
+              <img
+                src={user.avatarUrl}
+                alt={user.fullName}
+                referrerPolicy="no-referrer"
+                style={{
+                  width: 80,
+                  height: 80,
+                  borderRadius: "50%",
+                  objectFit: "cover",
+                  border: "3px solid #f4c9d7",
+                  boxShadow: "0 4px 14px rgba(112, 26, 53, 0.12)",
+                  display: "block",
+                  margin: "0 auto 12px",
+                }}
+              />
+            ) : (
+              <div className="mail-orbit" style={{ margin: "0 auto 12px" }}>
+                <UserRound size={32} />
+              </div>
+            )}
             <h2>{user.fullName}</h2>
             <p className="text-muted">{user.email}</p>
             <div style={{ marginTop: "8px" }}>

@@ -248,15 +248,40 @@ export function SiteHeader() {
                 aria-label="Menu akun"
                 suppressHydrationWarning
               >
-                <div className="avatar-circle"><UserRound size={15} /></div>
+                <div className="avatar-circle">
+                  {currentUser.avatarUrl ? (
+                    <img
+                      src={currentUser.avatarUrl}
+                      alt={currentUser.fullName}
+                      className="avatar-img"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <UserRound size={15} />
+                  )}
+                </div>
                 <span className="profile-name">{firstName}</span>
                 <ChevronDown size={13} className="chevron" />
               </button>
               {profileOpen && (
                 <div className="profile-popover" onMouseLeave={() => setProfileOpen(false)}>
                   <div className="profile-popover-greeting">
-                    <small>Masuk sebagai</small>
-                    <b>{currentUser.fullName}</b>
+                    {currentUser.avatarUrl ? (
+                      <img
+                        src={currentUser.avatarUrl}
+                        alt={currentUser.fullName}
+                        className="popover-avatar-img"
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      <div className="avatar-circle" style={{ width: 34, height: 34 }}>
+                        <UserRound size={17} />
+                      </div>
+                    )}
+                    <div>
+                      <small>Masuk sebagai</small>
+                      <b>{currentUser.fullName}</b>
+                    </div>
                   </div>
                   <Link href="/profil" onClick={() => setProfileOpen(false)}>
                     <UserRound size={16} /> Profil Saya

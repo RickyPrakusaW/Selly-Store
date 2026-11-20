@@ -27,6 +27,7 @@ export type User = {
   email: string;
   fullName: string;
   phoneNumber: string | null;
+  avatarUrl?: string | null;
   role: UserRole;
   isVerified: boolean;
 };
