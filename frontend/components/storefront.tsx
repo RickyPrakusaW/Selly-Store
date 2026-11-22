@@ -1,14 +1,8 @@
 import {
   ArrowRight,
-  Award,
-  CalendarDays,
   Camera,
   Clock3,
   CreditCard,
-  Flower2,
-  Gift,
-  Headphones,
-  Heart,
   Leaf,
   LockKeyhole,
   Mail,
@@ -31,13 +25,13 @@ import { CopyVoucherButton } from "./copy-voucher-button";
 import { HomeCatalog } from "./home-catalog";
 
 const FLOATING_CATEGORIES = [
-  { label: "Buket Bunga", icon: Flower2, href: "#koleksi", slug: "bunga" },
-  { label: "Papan Ucapan", icon: ShieldCheck, href: "#rental", slug: "papan_ucapan" },
-  { label: "Hampers", icon: Gift, href: "#koleksi", slug: "kado" },
-  { label: "Bunga Artificial", icon: Sparkles, href: "#koleksi", slug: "bunga" },
-  { label: "Bunga Segar", icon: Leaf, href: "#koleksi", slug: "bunga" },
-  { label: "Dekorasi Acara", icon: CalendarDays, href: "#koleksi", slug: "papan_ucapan" },
-  { label: "Lainnya", icon: Heart, href: "#koleksi", slug: "" },
+  { label: "Buket Bunga", iconSrc: "/icons/buket-bunga.webp", href: "#koleksi", slug: "bunga" },
+  { label: "Papan Ucapan", iconSrc: "/icons/papan-ucapan.webp", href: "#rental", slug: "papan_ucapan" },
+  { label: "Hampers", iconSrc: "/icons/hampers.webp", href: "#koleksi", slug: "kado" },
+  { label: "Bunga Artificial", iconSrc: "/icons/bunga-artificial.webp", href: "#koleksi", slug: "bunga" },
+  { label: "Bunga Segar", iconSrc: "/icons/bunga-segar.webp", href: "#koleksi", slug: "bunga" },
+  { label: "Dekorasi Acara", iconSrc: "/icons/dekorasi-acara.webp", href: "#koleksi", slug: "papan_ucapan" },
+  { label: "Lainnya", iconSrc: "/icons/lainnya.webp", href: "#koleksi", slug: "" },
 ] as const;
 
 const orderSteps = [
@@ -160,28 +154,60 @@ export function Storefront({
 
               <div className="hero-trust-grid">
                 <div className="trust-item">
-                  <div className="trust-icon-box"><Truck size={20} /></div>
+                  <div className="trust-icon-box">
+                    <Image
+                      src="/icons/pengiriman-cepat.webp"
+                      alt="Pengiriman Cepat Area Surabaya"
+                      width={38}
+                      height={38}
+                      className="trust-badge-img"
+                    />
+                  </div>
                   <div className="trust-item-copy">
                     <b>Pengiriman Cepat</b>
                     <small>Area Surabaya</small>
                   </div>
                 </div>
                 <div className="trust-item">
-                  <div className="trust-icon-box"><Award size={20} /></div>
+                  <div className="trust-icon-box">
+                    <Image
+                      src="/icons/bunga-segar-kualitas.webp"
+                      alt="Bunga Segar Berkualitas"
+                      width={38}
+                      height={38}
+                      className="trust-badge-img"
+                    />
+                  </div>
                   <div className="trust-item-copy">
                     <b>Bunga Segar</b>
                     <small>Berkualitas</small>
                   </div>
                 </div>
                 <div className="trust-item">
-                  <div className="trust-icon-box"><ShieldCheck size={20} /></div>
+                  <div className="trust-icon-box">
+                    <Image
+                      src="/icons/bisa-custom.webp"
+                      alt="Bisa Custom Sesuai Keinginan"
+                      width={38}
+                      height={38}
+                      className="trust-badge-img"
+                    />
+                  </div>
                   <div className="trust-item-copy">
                     <b>Bisa Custom</b>
                     <small>Sesuai Keinginan</small>
                   </div>
                 </div>
                 <div className="trust-item">
-                  <div className="trust-icon-box"><Headphones size={20} /></div>
+                  <div className="trust-icon-box">
+                    <Image
+                      src="/icons/layanan-ramah.webp"
+                      alt="Layanan Ramah & Responsif"
+                      width={38}
+                      height={38}
+                      className="trust-badge-img"
+                    />
+                  </div>
                   <div className="trust-item-copy">
                     <b>Layanan Ramah</b>
                     <small>&amp; Responsif</small>
@@ -258,21 +284,22 @@ export function Storefront({
               </div>
 
               <div className="category-bar-items">
-                {FLOATING_CATEGORIES.map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <a
-                      key={item.label}
-                      href={item.href}
-                      className="category-pill-card"
-                    >
-                      <div className="category-avatar-circle">
-                        <Icon size={22} className="category-avatar-icon" />
-                      </div>
-                      <span className="category-pill-name">{item.label}</span>
-                    </a>
-                  );
-                })}
+                {FLOATING_CATEGORIES.map((item) => (
+                  <a
+                    key={item.label}
+                    href={item.href}
+                    className="category-pill-card"
+                  >
+                    <Image
+                      src={item.iconSrc}
+                      alt={item.label}
+                      width={80}
+                      height={80}
+                      className="category-icon"
+                    />
+                    <span className="category-pill-name">{item.label}</span>
+                  </a>
+                ))}
               </div>
             </div>
           </div>
