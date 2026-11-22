@@ -29,7 +29,6 @@ import type { Category, Product } from "@/lib/types";
 import { normalizeWhatsAppNumber } from "@/lib/phone-number";
 import { CopyVoucherButton } from "./copy-voucher-button";
 import { HomeCatalog } from "./home-catalog";
-import { ProductCard } from "./product-card";
 
 const FLOATING_CATEGORIES = [
   { label: "Buket Bunga", icon: Flower2, href: "#koleksi", slug: "bunga" },
@@ -96,79 +95,6 @@ const testimonials = [
   },
 ] as const;
 
-const fallbackProducts: Product[] = [
-  {
-    id: "fb-1",
-    name: "Classic Lilac Blossom Bouquet",
-    slug: "classic-lilac-blossom-bouquet",
-    basePrice: "385000",
-    stockType: "READY_STOCK",
-    stockQty: 10,
-    availableQty: 10,
-    reservedQty: 0,
-    description: "Buket bunga bernuansa ungu pastel eksklusif",
-    category: { id: "c-1", slug: "bunga", name: "Buket Bunga" },
-    variants: [],
-    images: [{ id: "img-1", imageUrl: "/images/stitch/hero-banner.jpg", isPrimary: true, sortOrder: 0 }],
-  },
-  {
-    id: "fb-2",
-    name: "Crimson Red Roses Luxury",
-    slug: "crimson-red-roses-luxury",
-    basePrice: "450000",
-    stockType: "READY_STOCK",
-    stockQty: 15,
-    availableQty: 15,
-    reservedQty: 0,
-    description: "Mawar merah premium pilihan istimewa",
-    category: { id: "c-1", slug: "bunga", name: "Buket Bunga" },
-    variants: [],
-    images: [{ id: "img-2", imageUrl: "/images/stitch/product-pastel.jpg", isPrimary: true, sortOrder: 0 }],
-  },
-  {
-    id: "fb-3",
-    name: "Sweet Pastel Lily Cascade",
-    slug: "sweet-pastel-lily-cascade",
-    basePrice: "420000",
-    stockType: "READY_STOCK",
-    stockQty: 8,
-    availableQty: 8,
-    reservedQty: 0,
-    description: "Rangkaian bunga lily pastel menawan",
-    category: { id: "c-1", slug: "bunga", name: "Buket Bunga" },
-    variants: [],
-    images: [{ id: "img-3", imageUrl: "/images/stitch/product-blush.jpg", isPrimary: true, sortOrder: 0 }],
-  },
-  {
-    id: "fb-4",
-    name: "Ethereal Blue Hydrangea Symphony",
-    slug: "ethereal-blue-hydrangea-symphony",
-    basePrice: "490000",
-    stockType: "READY_STOCK",
-    stockQty: 12,
-    availableQty: 12,
-    reservedQty: 0,
-    description: "Kombinasi mawar biru dan putih elegan",
-    category: { id: "c-1", slug: "bunga", name: "Buket Bunga" },
-    variants: [],
-    images: [{ id: "img-4", imageUrl: "/images/stitch/product-board.jpg", isPrimary: true, sortOrder: 0 }],
-  },
-  {
-    id: "fb-5",
-    name: "Golden Sunflower Sunshine",
-    slug: "golden-sunflower-sunshine",
-    basePrice: "360000",
-    stockType: "READY_STOCK",
-    stockQty: 20,
-    availableQty: 20,
-    reservedQty: 0,
-    description: "Buket bunga matahari cerah penuh sukacita",
-    category: { id: "c-1", slug: "bunga", name: "Buket Bunga" },
-    variants: [],
-    images: [{ id: "img-5", imageUrl: "/images/stitch/product-hamper.jpg", isPrimary: true, sortOrder: 0 }],
-  },
-];
-
 export function Storefront({
   initialProducts,
   categories,
@@ -180,14 +106,6 @@ export function Storefront({
     "Halo LICHARY Florist, saya ingin konsultasi rangkaian buket bunga custom.",
   )}`;
   const promoCode = process.env.NEXT_PUBLIC_PROMO_CODE ?? "LICHARYBLOOM";
-
-  const bestSellerProducts =
-    initialProducts.length >= 5
-      ? initialProducts.slice(0, 5)
-      : [
-          ...initialProducts,
-          ...fallbackProducts.slice(0, 5 - initialProducts.length),
-        ];
 
   return (
     <>
@@ -356,38 +274,6 @@ export function Storefront({
                   );
                 })}
               </div>
-            </div>
-          </div>
-        </section>
-
-        {/* BEST SELLER SECTION */}
-        <section className="home-section home-bestseller" aria-labelledby="bestseller-title">
-          <div className="home-shell">
-            <div className="bestseller-header">
-              <div className="bestseller-title-group">
-                <span className="bestseller-badge-icon" aria-hidden="true">
-                  <Award size={24} />
-                </span>
-                <h2 id="bestseller-title" className="bestseller-heading">
-                  Best Seller
-                </h2>
-                <span className="bestseller-divider" aria-hidden="true">|</span>
-                <span className="bestseller-sub">Produk favorit pelanggan</span>
-              </div>
-              <a href="#koleksi" className="bestseller-link-all">
-                Lihat Semua <ArrowRight size={15} />
-              </a>
-            </div>
-
-            <div className="bestseller-grid">
-              {bestSellerProducts.map((product) => (
-                <ProductCard
-                  key={product.id}
-                  product={product}
-                  badge="Terlaris"
-                  priority
-                />
-              ))}
             </div>
           </div>
         </section>
