@@ -114,7 +114,7 @@ export function Storefront({
         <section className="home-hero-custom" aria-labelledby="home-title">
           <div className="home-hero-bg-layer">
             <Image
-              src="/images/stitch/hero-banner.jpg"
+              src="/images/stitch/hero-banner.png"
               alt="LICHARY Florist Studio & Bouquet"
               fill
               priority
