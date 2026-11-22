@@ -10,14 +10,16 @@ function validName(name: string): string {
   return name;
 }
 
+const getUploadRoot = () =>
+  resolve(process.env.UPLOAD_DIR?.trim() || resolve(process.cwd(), 'uploads'));
+
 @Controller('files/product-images')
 export class PublicFilesController {
   @Public()
   @Get(':name')
   get(@Param('name') name: string, @Res() response: Response): void {
     const filePath = resolve(
-      process.cwd(),
-      'uploads',
+      getUploadRoot(),
       'product-images',
       validName(name),
     );
@@ -37,8 +39,7 @@ export class ProtectedFilesController {
   @Get(':name')
   get(@Param('name') name: string, @Res() response: Response): void {
     const filePath = resolve(
-      process.cwd(),
-      'uploads',
+      getUploadRoot(),
       'payment-proofs',
       validName(name),
     );
