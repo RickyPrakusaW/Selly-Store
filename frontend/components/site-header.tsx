@@ -2,14 +2,17 @@
 
 import {
   ChevronDown,
+  CircleHelp,
   Heart,
   LogOut,
+  MapPin,
   MessageCircle,
   PackageCheck,
   Search,
   Settings,
   ShieldCheck,
   ShoppingBag,
+  Truck,
   UserRound,
 } from "lucide-react";
 import Image from "next/image";
@@ -133,39 +136,56 @@ export function SiteHeader() {
   return (
     <header className="site-header" suppressHydrationWarning>
       <div className="header-announcement">
-        <div>
-          <p><ShieldCheck size={13} /> DP 50% untuk mengamankan pesanan</p>
-          <span>Pengiriman dan pengambilan terjadwal setiap hari</span>
-          <a href={whatsappUrl} target="_blank" rel="noopener noreferrer">
-            <MessageCircle size={13} /> Tanya florist
-          </a>
+        <div className="announcement-shell">
+          <div className="announcement-left">
+            <span className="announcement-item">
+              <Truck size={13} /> Gratis Ongkir minimal belanja Rp150.000
+            </span>
+            <span className="announcement-sep">|</span>
+            <span className="announcement-item">
+              Pengiriman Cepat, Kualitas Bunga Terjamin
+            </span>
+          </div>
+          <div className="announcement-right">
+            <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="announcement-item">
+              <CircleHelp size={13} /> Pusat Bantuan
+            </a>
+            <span className="announcement-sep">|</span>
+            <span className="announcement-item">
+              <MapPin size={13} /> Surabaya
+            </span>
+          </div>
         </div>
       </div>
 
       <div className="header-inner">
         <Link href="/" className="brand" aria-label="LICHARY — Beranda">
-          <Image
-            src="/logo.jpeg"
-            alt="Logo LICHARY Florist"
-            width={44}
-            height={44}
-            className="brand-logo-img"
-            priority
-          />
+          <span className="brand-flower-emblem" aria-hidden="true">
+            <svg width="34" height="34" viewBox="0 0 32 32" fill="none">
+              <path d="M16 5C17.6 8.5 17.6 12.5 16 16C14.4 12.5 14.4 8.5 16 5Z" fill="#701a35" />
+              <path d="M16 27C17.6 23.5 17.6 19.5 16 16C14.4 19.5 14.4 23.5 16 27Z" fill="#701a35" />
+              <path d="M5 16C8.5 17.6 12.5 17.6 16 16C12.5 14.4 8.5 14.4 5 16Z" fill="#701a35" />
+              <path d="M27 16C23.5 17.6 19.5 17.6 16 16C19.5 14.4 23.5 14.4 27 16Z" fill="#701a35" />
+              <path d="M8.2 8.2C11 10.5 13.5 13.2 16 16C13.5 13.8 10.8 11.2 8.2 8.2Z" fill="#a4284d" />
+              <path d="M23.8 23.8C21 21.5 18.5 18.8 16 16C18.5 18.2 21.2 20.8 23.8 23.8Z" fill="#a4284d" />
+              <path d="M8.2 23.8C10.5 21 13.2 18.5 16 16C13.8 18.5 11.2 21.2 8.2 23.8Z" fill="#a4284d" />
+              <path d="M23.8 8.2C21.5 11 18.8 13.5 16 16C18.2 13.5 20.8 10.8 23.8 8.2Z" fill="#a4284d" />
+              <circle cx="16" cy="16" r="3.2" fill="#f472b6" />
+            </svg>
+          </span>
           <span className="brand-text">
-            LICHARY
-            <small>Bespoke Floral Studio</small>
+            <span className="brand-name">LICHARY</span>
+            <small className="brand-sub">FLORAL STUDIO</small>
           </span>
         </Link>
 
         <label className="header-search">
-          <Search size={17} className="search-icon" />
+          <Search size={16} className="search-icon" />
           <input
             aria-label="Cari produk"
-            placeholder="Cari buket, hampers, atau papan ucapan…"
+            placeholder="Cari buket bunga, papan ucapan, atau hampers..."
             onFocus={() => setSearchOpen(true)}
           />
-          <kbd>Ctrl K</kbd>
         </label>
 
         <nav className="desktop-nav" aria-label="Navigasi utama">
@@ -179,17 +199,19 @@ export function SiteHeader() {
             </Link>
             <Link
               href="/#koleksi"
-              className={displayedActiveNav === "katalog" ? "active" : ""}
+              className={`nav-with-arrow ${displayedActiveNav === "katalog" ? "active" : ""}`}
               onClick={(e) => handleNavClick(e, "katalog", "/#koleksi")}
             >
-              Katalog
+              Katalog <ChevronDown size={12} className="nav-chevron" />
             </Link>
             <Link
-              href="/#rental"
-              className={displayedActiveNav === "rental" ? "active" : ""}
-              onClick={(e) => handleNavClick(e, "rental", "/#rental")}
+              href="/#promo"
+              onClick={(e) => {
+                e.preventDefault();
+                document.getElementById("promo")?.scrollIntoView({ behavior: "smooth" });
+              }}
             >
-              Rental
+              Promo
             </Link>
             <Link
               href="/#cara-pesan"
@@ -198,12 +220,9 @@ export function SiteHeader() {
             >
               Cara Pesan
             </Link>
-            <Link
-              href="/pesanan"
-              className={pathname.startsWith("/pesanan") ? "active" : ""}
-            >
-              Pesanan Saya
-            </Link>
+            <a href="#kontak">
+              Tentang Kami
+            </a>
           </div>
 
           <button
@@ -227,17 +246,18 @@ export function SiteHeader() {
 
           <Link
             href="/keranjang"
-            className="header-cart-pill badge-button"
+            className="icon-button badge-button"
             aria-label={`Keranjang, ${currentCartCount} item`}
+            title="Keranjang Belanja"
             suppressHydrationWarning
           >
-            <span className="header-cart-icon"><ShoppingBag size={17} /></span>
-            <span className="header-cart-copy">
-              <small>Keranjang</small>
-              <b>{currentCartCount} item</b>
-            </span>
-            {currentCartCount > 0 && <i>{currentCartCount}</i>}
+            <ShoppingBag size={18} />
+            {currentCartCount > 0 && (
+              <b className="cart-badge">{currentCartCount}</b>
+            )}
           </Link>
+
+          <span className="header-nav-divider" aria-hidden="true" />
 
           {currentUser ? (
             <div className="profile-dropdown-wrap" suppressHydrationWarning>
@@ -309,12 +329,11 @@ export function SiteHeader() {
             </div>
           ) : (
             <button
-              className="profile-pill login-pill"
+              className="header-auth-pill"
               onClick={() => setAuthOpen(true)}
               suppressHydrationWarning
             >
-              <div className="avatar-circle"><UserRound size={15} /></div>
-              <span>Masuk</span>
+              <UserRound size={15} /> Masuk / Daftar
             </button>
           )}
         </nav>

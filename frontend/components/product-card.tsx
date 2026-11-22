@@ -25,7 +25,8 @@ const rupiah = new Intl.NumberFormat("id-ID", {
 export function ProductCard({
   product,
   priority = false,
-}: Readonly<{ product: Product; priority?: boolean }>) {
+  badge,
+}: Readonly<{ product: Product; priority?: boolean; badge?: string }>) {
   const router = useRouter();
   const addToCart = useSeliStore((state) => state.addToCart);
   const showToast = useSeliStore((state) => state.showToast);
@@ -92,13 +93,14 @@ export function ProductCard({
         )}
 
         <span
-          className={`stock-badge ${isBoard ? "rental" : isPo ? "po" : "ready"}`}
+          className={`stock-badge ${badge ? "bestseller" : isBoard ? "rental" : isPo ? "po" : "ready"}`}
         >
-          {isBoard
-            ? "Sewa Papan"
-            : isPo
-              ? `Pre-Order (${product.poDays ?? 3}H)`
-              : "Ready Stock"}
+          {badge ??
+            (isBoard
+              ? "Sewa Papan"
+              : isPo
+                ? `Pre-Order (${product.poDays ?? 3}H)`
+                : "Ready Stock")}
         </span>
 
         <button

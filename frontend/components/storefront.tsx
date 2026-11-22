@@ -1,9 +1,14 @@
 import {
   ArrowRight,
+  Award,
   CalendarDays,
   Camera,
   Clock3,
   CreditCard,
+  Flower2,
+  Gift,
+  Headphones,
+  Heart,
   Leaf,
   LockKeyhole,
   Mail,
@@ -12,6 +17,8 @@ import {
   PackageCheck,
   PhoneCall,
   ShieldCheck,
+  ShoppingBag,
+  SlidersHorizontal,
   Sparkles,
   Star,
   Truck,
@@ -22,39 +29,16 @@ import type { Category, Product } from "@/lib/types";
 import { normalizeWhatsAppNumber } from "@/lib/phone-number";
 import { CopyVoucherButton } from "./copy-voucher-button";
 import { HomeCatalog } from "./home-catalog";
+import { ProductCard } from "./product-card";
 
-const categoryCards = [
-  {
-    eyebrow: "Terpopuler",
-    title: "Buket Bunga",
-    detail: "Rangkaian eksklusif untuk momen manis",
-    price: "Mulai dari Rp 180.000",
-    image: "/images/stitch/category-bouquet.jpg",
-    href: "#koleksi",
-  },
-  {
-    eyebrow: "Rental Butik",
-    title: "Papan Ucapan Akrilik",
-    detail: "Papan elegan, modern, dan bebas repot",
-    price: "Mulai dari Rp 450.000 / hari",
-    image: "/images/stitch/category-board.jpg",
-    href: "#rental",
-  },
-  {
-    eyebrow: "Gift Set",
-    title: "Hampers Eksklusif",
-    detail: "Koleksi kado terkurasi siap dikirim",
-    price: "Mulai dari Rp 320.000",
-    image: "/images/stitch/category-hampers.jpg",
-    href: "#koleksi",
-  },
-] as const;
-
-const servicePoints = [
-  { icon: Leaf, label: "Garansi bunga segar" },
-  { icon: Clock3, label: "Pengerjaan terjadwal" },
-  { icon: ShieldCheck, label: "Bebas double-booking" },
-  { icon: CreditCard, label: "Fleksibel DP 50%" },
+const FLOATING_CATEGORIES = [
+  { label: "Buket Bunga", icon: Flower2, href: "#koleksi", slug: "bunga" },
+  { label: "Papan Ucapan", icon: ShieldCheck, href: "#rental", slug: "papan_ucapan" },
+  { label: "Hampers", icon: Gift, href: "#koleksi", slug: "kado" },
+  { label: "Bunga Artificial", icon: Sparkles, href: "#koleksi", slug: "bunga" },
+  { label: "Bunga Segar", icon: Leaf, href: "#koleksi", slug: "bunga" },
+  { label: "Dekorasi Acara", icon: CalendarDays, href: "#koleksi", slug: "papan_ucapan" },
+  { label: "Lainnya", icon: Heart, href: "#koleksi", slug: "" },
 ] as const;
 
 const orderSteps = [
@@ -112,6 +96,79 @@ const testimonials = [
   },
 ] as const;
 
+const fallbackProducts: Product[] = [
+  {
+    id: "fb-1",
+    name: "Classic Lilac Blossom Bouquet",
+    slug: "classic-lilac-blossom-bouquet",
+    basePrice: "385000",
+    stockType: "READY_STOCK",
+    stockQty: 10,
+    availableQty: 10,
+    reservedQty: 0,
+    description: "Buket bunga bernuansa ungu pastel eksklusif",
+    category: { id: "c-1", slug: "bunga", name: "Buket Bunga" },
+    variants: [],
+    images: [{ id: "img-1", imageUrl: "/images/stitch/hero-banner.jpg", isPrimary: true, sortOrder: 0 }],
+  },
+  {
+    id: "fb-2",
+    name: "Crimson Red Roses Luxury",
+    slug: "crimson-red-roses-luxury",
+    basePrice: "450000",
+    stockType: "READY_STOCK",
+    stockQty: 15,
+    availableQty: 15,
+    reservedQty: 0,
+    description: "Mawar merah premium pilihan istimewa",
+    category: { id: "c-1", slug: "bunga", name: "Buket Bunga" },
+    variants: [],
+    images: [{ id: "img-2", imageUrl: "/images/stitch/product-pastel.jpg", isPrimary: true, sortOrder: 0 }],
+  },
+  {
+    id: "fb-3",
+    name: "Sweet Pastel Lily Cascade",
+    slug: "sweet-pastel-lily-cascade",
+    basePrice: "420000",
+    stockType: "READY_STOCK",
+    stockQty: 8,
+    availableQty: 8,
+    reservedQty: 0,
+    description: "Rangkaian bunga lily pastel menawan",
+    category: { id: "c-1", slug: "bunga", name: "Buket Bunga" },
+    variants: [],
+    images: [{ id: "img-3", imageUrl: "/images/stitch/product-blush.jpg", isPrimary: true, sortOrder: 0 }],
+  },
+  {
+    id: "fb-4",
+    name: "Ethereal Blue Hydrangea Symphony",
+    slug: "ethereal-blue-hydrangea-symphony",
+    basePrice: "490000",
+    stockType: "READY_STOCK",
+    stockQty: 12,
+    availableQty: 12,
+    reservedQty: 0,
+    description: "Kombinasi mawar biru dan putih elegan",
+    category: { id: "c-1", slug: "bunga", name: "Buket Bunga" },
+    variants: [],
+    images: [{ id: "img-4", imageUrl: "/images/stitch/product-board.jpg", isPrimary: true, sortOrder: 0 }],
+  },
+  {
+    id: "fb-5",
+    name: "Golden Sunflower Sunshine",
+    slug: "golden-sunflower-sunshine",
+    basePrice: "360000",
+    stockType: "READY_STOCK",
+    stockQty: 20,
+    availableQty: 20,
+    reservedQty: 0,
+    description: "Buket bunga matahari cerah penuh sukacita",
+    category: { id: "c-1", slug: "bunga", name: "Buket Bunga" },
+    variants: [],
+    images: [{ id: "img-5", imageUrl: "/images/stitch/product-hamper.jpg", isPrimary: true, sortOrder: 0 }],
+  },
+];
+
 export function Storefront({
   initialProducts,
   categories,
@@ -120,91 +177,216 @@ export function Storefront({
     process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "6289517880077",
   );
   const consultationUrl = `https://wa.me/${waNumber}?text=${encodeURIComponent(
-    "Halo LICHARY Florist, saya ingin konsultasi rangkaian bunga.",
+    "Halo LICHARY Florist, saya ingin konsultasi rangkaian buket bunga custom.",
   )}`;
   const promoCode = process.env.NEXT_PUBLIC_PROMO_CODE ?? "LICHARYBLOOM";
+
+  const bestSellerProducts =
+    initialProducts.length >= 5
+      ? initialProducts.slice(0, 5)
+      : [
+          ...initialProducts,
+          ...fallbackProducts.slice(0, 5 - initialProducts.length),
+        ];
 
   return (
     <>
       <main className="home-main">
-        <section className="home-hero" aria-labelledby="home-title">
-          <div className="home-hero-glow home-hero-glow-left" />
-          <div className="home-hero-glow home-hero-glow-right" />
-          <div className="home-shell home-hero-grid">
-            <div className="home-hero-copy">
-              <p className="home-kicker">
-                <span /> Atelier bunga & papan akrilik
-              </p>
-              <h1 id="home-title">
-                Rangkai Momen Berharga dengan Sentuhan{" "}
-                <em>Bunga Butik</em>
+        {/* HERO SECTION MATCHING DESIGN & IMAGE 2 */}
+        <section className="home-hero-custom" aria-labelledby="home-title">
+          <div className="home-hero-bg-layer">
+            <Image
+              src="/images/stitch/hero-banner.jpg"
+              alt="LICHARY Florist Studio & Bouquet"
+              fill
+              priority
+              className="home-hero-bg-img"
+              sizes="100vw"
+            />
+            <div className="home-hero-bg-scrim" />
+          </div>
+
+          <div className="home-shell home-hero-content-wrap">
+            <div className="home-hero-left-box">
+              <div className="hero-kicker-row">
+                <span className="hero-kicker-text">BUKET BUNGA PREMIUM</span>
+                <span className="hero-kicker-line" aria-hidden="true" />
+              </div>
+
+              <h1 id="home-title" className="hero-custom-heading">
+                Rangkai Momen Berharga<br />
+                dengan Sentuhan <em>Bunga Butik</em>
               </h1>
-              <p className="home-hero-lead">
-                Buket bunga segar terkurasi, hampers eksklusif, dan rental
-                papan ucapan akrilik elegan dengan sistem pembayaran bertahap
-                DP 50%.
+
+              <p className="hero-custom-lead">
+                Buket bunga segar, rapi, dan elegan untuk berbagai momen spesial.
+                Pilihan desain eksklusif, bisa custom sesuai keinginanmu.
               </p>
-              <div className="home-hero-actions">
-                <a className="home-button home-button-primary" href="#koleksi">
-                  Belanja Sekarang <ArrowRight size={17} />
+
+              <div className="hero-custom-actions">
+                <a className="hero-btn-primary" href="#koleksi">
+                  <ShoppingBag size={18} />
+                  <span>Belanja Sekarang</span>
+                  <ArrowRight size={17} />
                 </a>
-                <a className="home-button home-button-light" href="#rental">
-                  <CalendarDays size={17} /> Sewa Papan Ucapan
+                <a
+                  className="hero-btn-secondary"
+                  href={consultationUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <SlidersHorizontal size={17} />
+                  <span>Custom Buket</span>
                 </a>
               </div>
-              <div className="home-service-wrap">
-                <p>Standar pelayanan butik LICHARY</p>
-                <ul>
-                  {servicePoints.map(({ icon: Icon, label }) => (
-                    <li key={label}>
-                      <Icon size={14} aria-hidden="true" /> {label}
-                    </li>
-                  ))}
-                </ul>
+
+              <div className="hero-trust-grid">
+                <div className="trust-item">
+                  <div className="trust-icon-box"><Truck size={20} /></div>
+                  <div className="trust-item-copy">
+                    <b>Pengiriman Cepat</b>
+                    <small>Area Surabaya</small>
+                  </div>
+                </div>
+                <div className="trust-item">
+                  <div className="trust-icon-box"><Award size={20} /></div>
+                  <div className="trust-item-copy">
+                    <b>Bunga Segar</b>
+                    <small>Berkualitas</small>
+                  </div>
+                </div>
+                <div className="trust-item">
+                  <div className="trust-icon-box"><ShieldCheck size={20} /></div>
+                  <div className="trust-item-copy">
+                    <b>Bisa Custom</b>
+                    <small>Sesuai Keinginan</small>
+                  </div>
+                </div>
+                <div className="trust-item">
+                  <div className="trust-icon-box"><Headphones size={20} /></div>
+                  <div className="trust-item-copy">
+                    <b>Layanan Ramah</b>
+                    <small>&amp; Responsif</small>
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div className="home-hero-visual" aria-label="Rangkaian unggulan LICHARY Florist">
-              <div className="home-hero-image">
-                <Image
-                  src="/images/stitch/hero.jpg"
-                  alt="Buket bunga pastel mewah di studio florist"
-                  fill
-                  priority
-                  sizes="(max-width: 860px) 92vw, 42vw"
-                />
+            {/* Right overlay: Handwritten annotation with doodle curved arrow & pagination dots */}
+            <div className="home-hero-right-overlay">
+              <div className="hero-doodle-annotation">
+                <div className="hero-doodle-text">
+                  <span>Buket Bunga</span>
+                  <span>Eksklusif ♡</span>
+                </div>
+                <svg
+                  className="hero-doodle-arrow-svg"
+                  width="76"
+                  height="48"
+                  viewBox="0 0 76 48"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M70 10 C 50 4, 25 14, 8 36"
+                    stroke="#ffffff"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                  />
+                  <path
+                    d="M6 26 L 8 37 L 18 35"
+                    stroke="#ffffff"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
               </div>
-              <div className="home-hero-card home-hero-card-top">
-                <Sparkles size={18} />
-                <span><b>Dirangkai personal</b> sesuai detail pesanan</span>
-              </div>
-              <div className="home-hero-card home-hero-card-bottom">
-                <ShieldCheck size={19} />
-                <span><b>DP 50%</b> untuk amankan jadwal</span>
+
+              <div className="hero-dots-indicator" aria-hidden="true">
+                <span className="hero-dot active" />
+                <span className="hero-dot" />
+                <span className="hero-dot" />
+                <span className="hero-dot" />
               </div>
             </div>
           </div>
         </section>
 
-        <section className="home-section home-categories" aria-labelledby="category-title">
+        {/* FLOATING CATEGORY BAR */}
+        <section className="home-floating-category-bar" aria-label="Kategori Pilihan">
           <div className="home-shell">
-            <div className="home-heading home-heading-centered">
-              <p>Kurasi koleksi</p>
-              <h2 id="category-title">Kategori Rangkaian Pilihan</h2>
+            <div className="category-bar-inner">
+              <div className="category-bar-brand">
+                <span className="category-flower-icon" aria-hidden="true">
+                  <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                    <path d="M16 6C17.5 9 17.5 13 16 16C14.5 13 14.5 9 16 6Z" fill="#b5005d" />
+                    <path d="M16 26C17.5 23 17.5 19 16 16C14.5 19 14.5 23 16 26Z" fill="#b5005d" />
+                    <path d="M6 16C9 17.5 13 17.5 16 16C13 14.5 9 14.5 6 16Z" fill="#b5005d" />
+                    <path d="M26 16C23 17.5 19 17.5 16 16C19 14.5 23 14.5 26 16Z" fill="#b5005d" />
+                    <path d="M8.9 8.9C11.5 11 14 13.5 16 16C13.5 14 11 11.5 8.9 8.9Z" fill="#db2777" />
+                    <path d="M23.1 23.1C20.5 21 18 18.5 16 16C18.5 18 21 20.5 23.1 23.1Z" fill="#db2777" />
+                    <path d="M8.9 23.1C11 20.5 13.5 18 16 16C14 18.5 11.5 21 8.9 23.1Z" fill="#db2777" />
+                    <path d="M23.1 8.9C21 11.5 18.5 14 16 16C18 13.5 20.5 11 23.1 8.9Z" fill="#db2777" />
+                    <circle cx="16" cy="16" r="3.2" fill="#ffffff" />
+                  </svg>
+                </span>
+                <div className="category-bar-label">
+                  <strong>Kategori</strong>
+                  <span>Pilihan</span>
+                </div>
+                <div className="category-bar-sep" aria-hidden="true" />
+              </div>
+
+              <div className="category-bar-items">
+                {FLOATING_CATEGORIES.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <a
+                      key={item.label}
+                      href={item.href}
+                      className="category-pill-card"
+                    >
+                      <div className="category-avatar-circle">
+                        <Icon size={22} className="category-avatar-icon" />
+                      </div>
+                      <span className="category-pill-name">{item.label}</span>
+                    </a>
+                  );
+                })}
+              </div>
             </div>
-            <div className="home-category-grid">
-              {categoryCards.map((card) => (
-                <a className="home-category-card" href={card.href} key={card.title}>
-                  <Image src={card.image} alt="" fill sizes="(max-width: 760px) 92vw, 31vw" />
-                  <span className="home-category-overlay" />
-                  <span className="home-category-content">
-                    <small>{card.eyebrow}</small>
-                    <strong>{card.title}</strong>
-                    <span>{card.detail}</span>
-                    <b>{card.price}</b>
-                    <i><ArrowRight size={16} /></i>
-                  </span>
-                </a>
+          </div>
+        </section>
+
+        {/* BEST SELLER SECTION */}
+        <section className="home-section home-bestseller" aria-labelledby="bestseller-title">
+          <div className="home-shell">
+            <div className="bestseller-header">
+              <div className="bestseller-title-group">
+                <span className="bestseller-badge-icon" aria-hidden="true">
+                  <Award size={24} />
+                </span>
+                <h2 id="bestseller-title" className="bestseller-heading">
+                  Best Seller
+                </h2>
+                <span className="bestseller-divider" aria-hidden="true">|</span>
+                <span className="bestseller-sub">Produk favorit pelanggan</span>
+              </div>
+              <a href="#koleksi" className="bestseller-link-all">
+                Lihat Semua <ArrowRight size={15} />
+              </a>
+            </div>
+
+            <div className="bestseller-grid">
+              {bestSellerProducts.map((product) => (
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                  badge="Terlaris"
+                  priority
+                />
               ))}
             </div>
           </div>
