@@ -160,19 +160,14 @@ export function SiteHeader() {
 
       <div className="header-inner">
         <Link href="/" className="brand" aria-label="LICHARY — Beranda">
-          <span className="brand-flower-emblem" aria-hidden="true">
-            <svg width="34" height="34" viewBox="0 0 32 32" fill="none">
-              <path d="M16 5C17.6 8.5 17.6 12.5 16 16C14.4 12.5 14.4 8.5 16 5Z" fill="#701a35" />
-              <path d="M16 27C17.6 23.5 17.6 19.5 16 16C14.4 19.5 14.4 23.5 16 27Z" fill="#701a35" />
-              <path d="M5 16C8.5 17.6 12.5 17.6 16 16C12.5 14.4 8.5 14.4 5 16Z" fill="#701a35" />
-              <path d="M27 16C23.5 17.6 19.5 17.6 16 16C19.5 14.4 23.5 14.4 27 16Z" fill="#701a35" />
-              <path d="M8.2 8.2C11 10.5 13.5 13.2 16 16C13.5 13.8 10.8 11.2 8.2 8.2Z" fill="#a4284d" />
-              <path d="M23.8 23.8C21 21.5 18.5 18.8 16 16C18.5 18.2 21.2 20.8 23.8 23.8Z" fill="#a4284d" />
-              <path d="M8.2 23.8C10.5 21 13.2 18.5 16 16C13.8 18.5 11.2 21.2 8.2 23.8Z" fill="#a4284d" />
-              <path d="M23.8 8.2C21.5 11 18.8 13.5 16 16C18.2 13.5 20.8 10.8 23.8 8.2Z" fill="#a4284d" />
-              <circle cx="16" cy="16" r="3.2" fill="#f472b6" />
-            </svg>
-          </span>
+          <Image
+            src="/logo.jpeg"
+            alt="Logo LICHARY Florist"
+            width={44}
+            height={44}
+            className="brand-logo-img"
+            priority
+          />
           <span className="brand-text">
             <span className="brand-name">LICHARY</span>
             <small className="brand-sub">FLORAL STUDIO</small>

@@ -172,6 +172,12 @@
   border: 2px solid #f6dce6;
   display: block;
   flex-shrink: 0;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.brand:hover .brand-logo-img {
+  transform: scale(1.06);
+  box-shadow: 0 7px 20px rgba(94, 31, 59, 0.2);
 }
 
 .brand-logo-img.large {
