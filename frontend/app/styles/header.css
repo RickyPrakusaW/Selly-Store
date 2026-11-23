@@ -280,7 +280,7 @@
 .header-links {
   display: inline-flex;
   align-items: center;
-  gap: clamp(14px, 1.8vw, 24px);
+  gap: clamp(18px, 2.2vw, 30px);
   padding: 0;
   background: transparent;
   border: none;

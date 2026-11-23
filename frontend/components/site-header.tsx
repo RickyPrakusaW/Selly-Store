@@ -50,18 +50,12 @@ export function SiteHeader() {
 
     const updateActiveByScroll = () => {
       const scrollY = window.scrollY;
-      const kontak = document.getElementById("kontak");
-      const caraPesan = document.getElementById("cara-pesan");
       const rental = document.getElementById("rental");
       const koleksi = document.getElementById("koleksi");
 
       const threshold = 180;
 
-      if (kontak && scrollY >= kontak.offsetTop - threshold - 300) {
-        setActiveNav("kontak");
-      } else if (caraPesan && scrollY >= caraPesan.offsetTop - threshold) {
-        setActiveNav("cara-pesan");
-      } else if (rental && scrollY >= rental.offsetTop - threshold) {
+      if (rental && scrollY >= rental.offsetTop - threshold) {
         setActiveNav("rental");
       } else if (koleksi && scrollY >= koleksi.offsetTop - threshold) {
         setActiveNav("katalog");
@@ -208,20 +202,6 @@ export function SiteHeader() {
               className={isPartnerPage ? "active" : ""}
             >
               Partner With Us
-            </Link>
-            <Link
-              href="/#cara-pesan"
-              className={displayedActiveNav === "cara-pesan" ? "active" : ""}
-              onClick={(e) => handleNavClick(e, "cara-pesan", "/#cara-pesan")}
-            >
-              Cara Pesan
-            </Link>
-            <Link
-              href="/#kontak"
-              className={displayedActiveNav === "kontak" ? "active" : ""}
-              onClick={(e) => handleNavClick(e, "kontak", "/#kontak")}
-            >
-              Tentang Kami
             </Link>
           </div>
 
