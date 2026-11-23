@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { resolveImageUrl } from "@/lib/api";
+import { useRealtimeTodayWIB } from "@/lib/dates";
 import { normalizeWhatsAppNumber } from "@/lib/phone-number";
 import { useSeliStore } from "@/lib/store";
 import type { Product } from "@/lib/types";
@@ -340,13 +341,8 @@ export function ProductDetailInteractive({
   const [endTime, setEndTime] = useState("15:00");
   const [loading, setLoading] = useState(false);
 
-  const [minDate] = useState(() => {
-    const d = new Date();
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
-  });
+  const today = useRealtimeTodayWIB();
+  const minDate = today.dateStr;
 
   const selectedVariant = product.variants?.find(
     (v) => v.id === selectedVariantId,
@@ -741,6 +737,7 @@ export function ProductDetailInteractive({
             endTime={endTime}
             onEndTimeChange={setEndTime}
             minDate={minDate}
+            productName={product.name}
           />
         )}
 

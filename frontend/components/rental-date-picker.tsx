@@ -1,6 +1,8 @@
 "use client";
 
 import {
+  AlertCircle,
+  AlertTriangle,
   Ban,
   CalendarDays,
   Check,
@@ -8,10 +10,19 @@ import {
   ChevronRight,
   Clock,
   Info,
+  MessageCircle,
+  PhoneCall,
   Sparkles,
+  X,
 } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
 import { fetchCalendar } from "@/lib/api";
+import {
+  DAY_NAMES_ID,
+  MONTH_NAMES_ID,
+  useRealtimeTodayWIB,
+} from "@/lib/dates";
+import { normalizeWhatsAppNumber } from "@/lib/phone-number";
 import type { BoardBooking, BoardInventory } from "@/lib/types";
 
 type BoardWithBookings = BoardInventory & { bookings?: BoardBooking[] };
@@ -26,32 +37,8 @@ interface RentalDatePickerProps {
   endTime: string;
   onEndTimeChange: (time: string) => void;
   minDate?: string;
+  productName?: string;
 }
-
-const MONTH_NAMES_ID = [
-  "Januari",
-  "Februari",
-  "Maret",
-  "April",
-  "Mei",
-  "Juni",
-  "Juli",
-  "Agustus",
-  "September",
-  "Oktober",
-  "November",
-  "Desember",
-];
-
-const DAY_NAMES_ID = [
-  "Minggu",
-  "Senin",
-  "Selasa",
-  "Rabu",
-  "Kamis",
-  "Jumat",
-  "Sabtu",
-];
 
 type DayStatus = "available" | "soft_locked" | "booked" | "past";
 
@@ -61,6 +48,7 @@ interface DaySlot {
   isCurrentMonth: boolean;
   status: DayStatus;
   isSunday: boolean;
+  isToday: boolean;
   lockRemaining?: string | undefined;
   availableStock?: number;
 }
@@ -82,16 +70,16 @@ export function RentalDatePicker({
   endTime,
   onEndTimeChange,
   minDate,
+  productName = "Papan Ucapan Akrilik",
 }: Readonly<RentalDatePickerProps>) {
-  // Determine initial month from selectedDate or today
-  const today = useMemo(() => new Date(), []);
-  const todayStr = useMemo(() => {
-    const y = today.getFullYear();
-    const m = String(today.getMonth() + 1).padStart(2, "0");
-    const d = String(today.getDate()).padStart(2, "0");
-    return `${y}-${m}-${d}`;
-  }, [today]);
+  // Real-time WIB (Asia/Jakarta) date hook
+  const today = useRealtimeTodayWIB();
+  const todayStr = today.dateStr;
 
+  // Track modal alert for today's selection
+  const [todayAlertOpen, setTodayAlertOpen] = useState(false);
+
+  // Month navigation state
   const [currentYear, setCurrentYear] = useState(() => {
     if (selectedDate) {
       const part = selectedDate.split("-")[0];
@@ -100,7 +88,7 @@ export function RentalDatePicker({
         if (!Number.isNaN(parsed)) return parsed;
       }
     }
-    return today.getFullYear();
+    return today.year;
   });
 
   const [currentMonth, setCurrentMonth] = useState(() => {
@@ -111,8 +99,23 @@ export function RentalDatePicker({
         if (!Number.isNaN(parsed)) return parsed - 1;
       }
     }
-    return today.getMonth();
+    return today.month;
   });
+
+  // Keep month view in sync if selected date changes externally
+  useEffect(() => {
+    if (selectedDate) {
+      const [yStr, mStr] = selectedDate.split("-");
+      if (yStr && mStr) {
+        const y = parseInt(yStr, 10);
+        const m = parseInt(mStr, 10) - 1;
+        if (!Number.isNaN(y) && !Number.isNaN(m)) {
+          setCurrentYear(y);
+          setCurrentMonth(m);
+        }
+      }
+    }
+  }, [selectedDate]);
 
   const [boardsData, setBoardsData] = useState<BoardWithBookings[]>([]);
 
@@ -124,10 +127,8 @@ export function RentalDatePicker({
     let isCancelled = false;
     fetchCalendar(monthKey)
       .then((data) => {
-        if (!isCancelled) {
-          if (Array.isArray(data)) {
-            setBoardsData(data as unknown as BoardWithBookings[]);
-          }
+        if (!isCancelled && Array.isArray(data)) {
+          setBoardsData(data as unknown as BoardWithBookings[]);
         }
       })
       .catch(() => {
@@ -139,8 +140,13 @@ export function RentalDatePicker({
     };
   }, [monthKey]);
 
-  // Navigate months
+  // Prevent navigating before the current real-time month
+  const isPastMonthBoundary =
+    currentYear < today.year ||
+    (currentYear === today.year && currentMonth <= today.month);
+
   const handlePrevMonth = () => {
+    if (isPastMonthBoundary) return;
     if (currentMonth === 0) {
       setCurrentMonth(11);
       setCurrentYear((y) => y - 1);
@@ -158,9 +164,16 @@ export function RentalDatePicker({
     }
   };
 
-  // Build calendar matrix
+  // WhatsApp link generator for same-day inquiry
+  const rawWaNumber =
+    process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "6289517880077";
+  const waNumber = normalizeWhatsAppNumber(rawWaNumber);
+  const todayWaMessage = `Halo Florist LICHARY, saya ingin memesan sewa "${productName}" untuk HARI INI (${today.formatted}). Apakah slot masih tersedia dan bisa dikirim hari ini?`;
+  const todayWaUrl = `https://wa.me/${waNumber}?text=${encodeURIComponent(todayWaMessage)}`;
+
+  // Build calendar matrix (guaranteed accurate day of week alignment)
   const calendarDays = useMemo(() => {
-    const firstDayOfWeek = new Date(currentYear, currentMonth, 1).getDay(); // 0 = Sun
+    const firstDayOfWeek = new Date(currentYear, currentMonth, 1).getDay(); // 0 = Sun, 1 = Mon ...
     const totalDaysInMonth = new Date(
       currentYear,
       currentMonth + 1,
@@ -188,6 +201,7 @@ export function RentalDatePicker({
         isCurrentMonth: false,
         status: "past",
         isSunday: slots.length % 7 === 0,
+        isToday: false,
       });
     }
 
@@ -199,24 +213,22 @@ export function RentalDatePicker({
         2,
         "0",
       )}-${String(day).padStart(2, "0")}`;
-      const isPast =
-        monthKey === "2026-05"
-          ? false
-          : minDate
-            ? dateStr < minDate
-            : dateStr < todayStr;
-      const isSunday = slots.length % 7 === 0;
+
+      const effectiveMinDate = minDate || todayStr;
+      const isPast = dateStr < effectiveMinDate;
+      const isToday = dateStr === todayStr;
+      const isSunday = (firstDayOfWeek + day - 1) % 7 === 0;
 
       let status: DayStatus = "available";
       let lockRemaining: string | undefined = undefined;
 
+      let bookedCount = 0;
+      let softLockedCount = 0;
+
       if (isPast) {
         status = "past";
       } else {
-        // 1. Check real bookings from backend
-        let bookedCount = 0;
-        let softLockedCount = 0;
-
+        // Check real bookings from backend
         if (boardsData && boardsData.length > 0) {
           const slotDate = new Date(`${dateStr}T00:00:00Z`);
           for (const board of boardsData) {
@@ -242,20 +254,27 @@ export function RentalDatePicker({
           status = "soft_locked";
           lockRemaining = "TERKUNCI 1J 45M";
         }
-
-        slots.push({
-          dayNum: day,
-          dateStr,
-          isCurrentMonth: true,
-          status,
-          isSunday,
-          lockRemaining,
-          availableStock: availableUnits,
-        });
       }
+
+      const availableUnits = Math.max(
+        0,
+        totalActiveBoards - bookedCount - softLockedCount,
+      );
+
+      // Crucial: ALWAYS push every day so calendar layout never skips or shifts
+      slots.push({
+        dayNum: day,
+        dateStr,
+        isCurrentMonth: true,
+        status,
+        isSunday,
+        isToday,
+        lockRemaining,
+        availableStock: isPast ? 0 : availableUnits,
+      });
     }
 
-    // Trailing days from next month to complete row of 7
+    // Trailing days from next month to complete the row of 7
     const remainingInGrid = (7 - (slots.length % 7)) % 7;
     for (let nextDay = 1; nextDay <= remainingInGrid; nextDay++) {
       const nextMonth = currentMonth === 11 ? 0 : currentMonth + 1;
@@ -269,13 +288,14 @@ export function RentalDatePicker({
         isCurrentMonth: false,
         status: "past",
         isSunday: slots.length % 7 === 0,
+        isToday: false,
       });
     }
 
     return slots;
-  }, [currentYear, currentMonth, boardsData, minDate, todayStr, monthKey]);
+  }, [currentYear, currentMonth, boardsData, todayStr, minDate]);
 
-  // Selected date formatted in Indonesian: e.g. "16 Mei 2026 (Sabtu)"
+  // Selected date formatted in Indonesian: e.g. "24 November 2026 (Selasa)"
   const formattedSelectedDate = useMemo(() => {
     if (!selectedDate) return null;
     const parts = selectedDate.split("-");
@@ -287,23 +307,43 @@ export function RentalDatePicker({
     const m = parseInt(p1, 10) - 1;
     const d = parseInt(p2, 10);
     const dateObj = new Date(y, m, d);
-    const dayOfWeek = DAY_NAMES_ID[dateObj.getDay()];
-    const monthName = MONTH_NAMES_ID[m];
+    const dayOfWeek = DAY_NAMES_ID[dateObj.getDay()] || "";
+    const monthName = MONTH_NAMES_ID[m] || "";
     return `${d} ${monthName} ${y} (${dayOfWeek})`;
   }, [selectedDate]);
 
+  const isSelectedToday = selectedDate === todayStr;
+
   const handleSelectDay = (slot: DaySlot) => {
+    // 1. Never allow selecting past dates or booked dates
     if (
       !slot.isCurrentMonth ||
       slot.status === "booked" ||
-      slot.status === "past"
+      slot.status === "past" ||
+      slot.dateStr < todayStr
     ) {
       return;
     }
+
+    // 2. If user chooses TODAY: Alert to contact store first
+    if (slot.dateStr === todayStr) {
+      setTodayAlertOpen(true);
+      return;
+    }
+
+    // 3. Normal future date selection
     onSelectDate(slot.dateStr);
     if (onSelectEndDate) {
       onSelectEndDate(slot.dateStr);
     }
+  };
+
+  const handleConfirmSelectToday = () => {
+    onSelectDate(todayStr);
+    if (onSelectEndDate) {
+      onSelectEndDate(todayStr);
+    }
+    setTodayAlertOpen(false);
   };
 
   return (
@@ -328,7 +368,12 @@ export function RentalDatePicker({
             type="button"
             className="month-nav-btn"
             onClick={handlePrevMonth}
+            disabled={isPastMonthBoundary}
             aria-label="Bulan Sebelumnya"
+            style={{
+              opacity: isPastMonthBoundary ? 0.35 : 1,
+              cursor: isPastMonthBoundary ? "not-allowed" : "pointer",
+            }}
           >
             <ChevronLeft size={16} />
           </button>
@@ -351,6 +396,10 @@ export function RentalDatePicker({
         <div className="legend-item">
           <span className="legend-dot dot-available" />
           <span className="legend-label">Tersedia (Bisa Sewa)</span>
+        </div>
+        <div className="legend-item">
+          <span className="legend-dot dot-today" />
+          <span className="legend-label">Hari Ini (Kontak Toko)</span>
         </div>
         <div className="legend-item">
           <span className="legend-dot dot-softlocked" />
@@ -401,12 +450,12 @@ export function RentalDatePicker({
           const isSelected = isStartDate || isEndDate;
           const isInRange = Boolean(
             selectedDate &&
-            selectedEndDate &&
-            slot.dateStr > selectedDate &&
-            slot.dateStr < selectedEndDate,
+              selectedEndDate &&
+              slot.dateStr > selectedDate &&
+              slot.dateStr < selectedEndDate,
           );
 
-          // In-month days
+          // 1. Selected State
           if (isSelected) {
             return (
               <button
@@ -430,6 +479,44 @@ export function RentalDatePicker({
             );
           }
 
+          // 2. Past State (CANNOT BE SELECTED)
+          if (slot.status === "past") {
+            return (
+              <div
+                key={slot.dateStr}
+                className="calendar-day-slot is-past"
+                title="Tanggal telah lewat (tidak dapat dipilih)"
+                aria-disabled="true"
+              >
+                <span className="slot-day-number past-num">{slot.dayNum}</span>
+                <span className="slot-past-label">Lewat</span>
+              </div>
+            );
+          }
+
+          // 3. Today State (Requires Contacting Store First)
+          if (slot.isToday) {
+            return (
+              <button
+                key={slot.dateStr}
+                type="button"
+                className={`calendar-day-slot is-today ${isInRange ? "is-in-range" : ""}`}
+                onClick={() => handleSelectDay(slot)}
+                title="Hari Ini (Pemesanan memerlukan konfirmasi WhatsApp toko)"
+                aria-label={`Pilih tanggal ${slot.dayNum} (Hari Ini): Hubungi toko terlebih dahulu`}
+              >
+                <div className="slot-number-row">
+                  <span className="slot-day-number today-num">
+                    {slot.dayNum}
+                  </span>
+                  <span className="slot-today-dot" title="Hari Ini" />
+                </div>
+                <span className="slot-status-pill today-pill">Kontak Toko</span>
+              </button>
+            );
+          }
+
+          // 4. Booked State (Full)
           if (slot.status === "booked") {
             return (
               <div
@@ -449,6 +536,7 @@ export function RentalDatePicker({
             );
           }
 
+          // 5. Soft-Locked State (Temporary hold)
           if (slot.status === "soft_locked") {
             return (
               <button
@@ -471,27 +559,15 @@ export function RentalDatePicker({
             );
           }
 
-          if (slot.status === "past") {
-            return (
-              <div
-                key={slot.dateStr}
-                className="calendar-day-slot is-past"
-                title="Tanggal telah berlalu"
-                aria-disabled="true"
-              >
-                <span className="slot-day-number past-num">{slot.dayNum}</span>
-                <span className="slot-past-label">-</span>
-              </div>
-            );
-          }
-
-          // Available
+          // 6. Available Future Date
           const stock = slot.availableStock ?? 1;
           return (
             <button
               key={slot.dateStr}
               type="button"
-              className={`calendar-day-slot is-available ${isInRange ? "is-in-range" : ""}`}
+              className={`calendar-day-slot is-available ${
+                isInRange ? "is-in-range" : ""
+              }`}
               onClick={() => handleSelectDay(slot)}
               aria-label={`Pilih tanggal ${slot.dayNum}: Tersedia ${stock} unit`}
             >
@@ -537,22 +613,50 @@ export function RentalDatePicker({
             <p className="summary-description">
               Unit papan dibatasi agar kualitas bunga dan jadwal antar tetap
               presisi. Tanggal dengan label &apos;Booked&apos; telah
-              dikonfirmasi dan tidak dapat disewa.
+              dikonfirmasi dan tidak dapat disewa. Tanggal yang sudah lewat tidak
+              dapat dipilih.
             </p>
           </div>
         </div>
 
         <div className="summary-banner-right">
           {formattedSelectedDate ? (
-            <div className="ready-badge">
+            <div className={`ready-badge ${isSelectedToday ? "today-badge-flag" : ""}`}>
               <Check size={14} className="ready-icon" />
-              <span>Siap Dipesan</span>
+              <span>{isSelectedToday ? "Hari Ini (Perlu Konfirmasi)" : "Siap Dipesan"}</span>
             </div>
           ) : (
             <div className="empty-badge">Pilih Tanggal</div>
           )}
         </div>
       </div>
+
+      {/* ─── Alert Notice When Today is Selected ─── */}
+      {isSelectedToday && (
+        <div className="calendar-today-warning-callout">
+          <div className="callout-content">
+            <div className="callout-icon-wrap">
+              <AlertTriangle size={18} className="callout-icon" />
+            </div>
+            <div>
+              <strong>Pemesanan Hari Ini Memerlukan Konfirmasi Toko</strong>
+              <p>
+                Untuk sewa jadwal hari ini ({today.formatted}), pastikan Anda
+                sudah menghubungi florist kami via WhatsApp untuk memastikan
+                kesiapan bunga dan kurir express.
+              </p>
+            </div>
+          </div>
+          <a
+            href={todayWaUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="callout-wa-link"
+          >
+            <MessageCircle size={15} /> Hubungi Florist WhatsApp
+          </a>
+        </div>
+      )}
 
       {/* ─── Time & Logistics Section ─── */}
       <div className="rental-logistics-section">
@@ -618,12 +722,80 @@ export function RentalDatePicker({
           <Sparkles size={14} className="logistics-note-icon" />
           <span>
             <strong>Layanan All-in:</strong> Sewa papan akrilik / ucapan sudah
-            termasuk pengantaran ke venue di Malang &amp; sekitarnya, standing
-            kokoh, pemasangan rapi, serta penjemputan kembali unit setelah acara
-            selesai.
+            termasuk pengantaran ke venue, standing kokoh, pemasangan rapi,
+            serta penjemputan kembali unit setelah acara selesai.
           </span>
         </div>
       </div>
+
+      {/* ─── Modal Alert: Konfirmasi Pesan Hari Ini ─── */}
+      {todayAlertOpen && (
+        <div
+          className="calendar-modal-backdrop"
+          onClick={() => setTodayAlertOpen(false)}
+        >
+          <div
+            className="calendar-alert-dialog"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="today-alert-title"
+          >
+            <button
+              type="button"
+              className="alert-dialog-close-btn"
+              onClick={() => setTodayAlertOpen(false)}
+              aria-label="Tutup"
+            >
+              <X size={18} />
+            </button>
+
+            <div className="alert-dialog-icon-wrap">
+              <PhoneCall size={28} className="alert-dialog-icon" />
+            </div>
+
+            <h4 id="today-alert-title" className="alert-dialog-title">
+              Pemesanan Hari Ini ({today.formatted})
+            </h4>
+
+            <p className="alert-dialog-desc">
+              Untuk pesanan sewa papan dengan jadwal <strong>HARI INI (Same-Day)</strong>,
+              Anda harus <strong>menghubungi toko terlebih dahulu</strong> melalui
+              WhatsApp guna memastikan ketersediaan unit dan jadwal pengiriman express.
+            </p>
+
+            <div className="alert-dialog-actions">
+              <a
+                href={todayWaUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="alert-dialog-btn-wa"
+                onClick={() => {
+                  handleConfirmSelectToday();
+                }}
+              >
+                <MessageCircle size={18} /> Hubungi WhatsApp Toko
+              </a>
+
+              <button
+                type="button"
+                className="alert-dialog-btn-secondary"
+                onClick={handleConfirmSelectToday}
+              >
+                Tetap Pilih Hari Ini (Sudah Konfirmasi)
+              </button>
+
+              <button
+                type="button"
+                className="alert-dialog-btn-cancel"
+                onClick={() => setTodayAlertOpen(false)}
+              >
+                Pilih Tanggal Lain
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

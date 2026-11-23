@@ -161,6 +161,11 @@
   box-shadow: 0 0 0 2px rgba(134, 239, 172, 0.35);
 }
 
+.legend-dot.dot-today {
+  background: #f59e0b;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.35);
+}
+
 .legend-dot.dot-softlocked {
   background: #fcd34d;
   box-shadow: 0 0 0 2px rgba(252, 211, 77, 0.35);
@@ -297,6 +302,58 @@
   border-color: #fde047;
   background: #fefce8;
   transform: translateY(-1px);
+}
+
+/* Today state */
+.calendar-day-slot.is-today {
+  background: #fffbeb;
+  border-color: #fde68a;
+  cursor: pointer;
+}
+
+.calendar-day-slot.is-today:hover {
+  background: #fef3c7;
+  border-color: #f59e0b;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 14px rgba(245, 158, 11, 0.15);
+}
+
+.slot-day-number.today-num {
+  color: #b45309;
+  font-weight: 800;
+}
+
+.slot-today-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #f59e0b;
+  display: inline-block;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.25);
+}
+
+.slot-status-pill.today-pill {
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fde68a;
+  font-size: 8.5px;
+  font-weight: 750;
+  padding: 1px 5px;
+  border-radius: 9999px;
+  white-space: nowrap;
+}
+
+.slot-past-label {
+  font-size: 9.5px;
+  font-weight: 700;
+  color: #94a3b8;
+  letter-spacing: 0.02em;
+}
+
+.ready-badge.today-badge-flag {
+  background: #fef3c7;
+  color: #b45309;
+  border-color: #fde68a;
 }
 
 /* Past state */
@@ -668,4 +725,225 @@
   color: #9d174d;
   flex-shrink: 0;
   margin-top: 2px;
+}
+
+/* ─── Today Warning Callout Banner ─── */
+.calendar-today-warning-callout {
+  margin-top: 14px;
+  margin-bottom: 20px;
+  padding: 14px 18px;
+  background: #fffbeb;
+  border: 1.5px solid #fcd34d;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  animation: calendarFadeIn 0.25s ease;
+}
+
+.calendar-today-warning-callout .callout-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  flex: 1;
+  min-width: 240px;
+}
+
+.calendar-today-warning-callout .callout-icon-wrap {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: #fef3c7;
+  border: 1px solid #fde68a;
+  color: #d97706;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.calendar-today-warning-callout strong {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 750;
+  color: #92400e;
+}
+
+.calendar-today-warning-callout p {
+  margin: 3px 0 0;
+  font-size: 12px;
+  color: #b45309;
+  line-height: 1.45;
+}
+
+.calendar-today-warning-callout .callout-wa-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: #25d366;
+  color: #ffffff;
+  padding: 9px 16px;
+  border-radius: 10px;
+  font-size: 12.5px;
+  font-weight: 750;
+  text-decoration: none;
+  box-shadow: 0 4px 12px rgba(37, 211, 102, 0.25);
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.calendar-today-warning-callout .callout-wa-link:hover {
+  background: #1ebd5b;
+  transform: translateY(-1px);
+}
+
+/* ─── Modal Alert for Same-Day Rental ─── */
+.calendar-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(4px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: calendarFadeIn 0.2s ease-out;
+}
+
+.calendar-alert-dialog {
+  background: #ffffff;
+  border-radius: 22px;
+  max-width: 440px;
+  width: 100%;
+  padding: 28px 24px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  text-align: center;
+  position: relative;
+  border: 1.5px solid #fee2e2;
+  animation: calendarPopIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.alert-dialog-close-btn {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: #f1f5f9;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.alert-dialog-close-btn:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.alert-dialog-icon-wrap {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: #fff1f2;
+  border: 2px solid #fecdd3;
+  color: #e11d48;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 16px;
+  box-shadow: 0 8px 16px rgba(225, 29, 72, 0.15);
+}
+
+.alert-dialog-title {
+  font-size: 19px;
+  font-weight: 800;
+  color: #1e293b;
+  margin: 0 0 10px;
+  line-height: 1.3;
+}
+
+.alert-dialog-desc {
+  font-size: 13.5px;
+  color: #475569;
+  line-height: 1.55;
+  margin: 0 0 24px;
+}
+
+.alert-dialog-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.alert-dialog-btn-wa {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: #25d366;
+  color: #ffffff;
+  padding: 13px 20px;
+  border-radius: 12px;
+  font-weight: 750;
+  font-size: 14px;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  box-shadow: 0 6px 16px rgba(37, 211, 102, 0.25);
+}
+
+.alert-dialog-btn-wa:hover {
+  background: #1ebd5b;
+  transform: translateY(-1px);
+}
+
+.alert-dialog-btn-secondary {
+  background: #fdf2f8;
+  color: #9d174d;
+  border: 1.5px solid #fbcfe8;
+  padding: 11px 18px;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.alert-dialog-btn-secondary:hover {
+  background: #fce7f3;
+  border-color: #f472b6;
+}
+
+.alert-dialog-btn-cancel {
+  background: transparent;
+  border: none;
+  color: #64748b;
+  padding: 8px;
+  font-weight: 600;
+  font-size: 12.5px;
+  cursor: pointer;
+  text-decoration: underline;
+  transition: color 0.15s ease;
+}
+
+.alert-dialog-btn-cancel:hover {
+  color: #0f172a;
+}
+
+@keyframes calendarFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes calendarPopIn {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
 }
