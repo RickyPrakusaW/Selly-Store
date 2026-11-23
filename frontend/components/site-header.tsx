@@ -50,13 +50,16 @@ export function SiteHeader() {
 
     const updateActiveByScroll = () => {
       const scrollY = window.scrollY;
+      const kontak = document.getElementById("kontak");
       const caraPesan = document.getElementById("cara-pesan");
       const rental = document.getElementById("rental");
       const koleksi = document.getElementById("koleksi");
 
       const threshold = 180;
 
-      if (caraPesan && scrollY >= caraPesan.offsetTop - threshold) {
+      if (kontak && scrollY >= kontak.offsetTop - threshold - 300) {
+        setActiveNav("kontak");
+      } else if (caraPesan && scrollY >= caraPesan.offsetTop - threshold) {
         setActiveNav("cara-pesan");
       } else if (rental && scrollY >= rental.offsetTop - threshold) {
         setActiveNav("rental");
@@ -92,6 +95,8 @@ export function SiteHeader() {
             ? "koleksi"
             : sectionId === "rental"
             ? "rental"
+            : sectionId === "kontak"
+            ? "kontak"
             : "cara-pesan";
         const element = document.getElementById(targetId);
         if (element) {
@@ -194,19 +199,17 @@ export function SiteHeader() {
             </Link>
             <Link
               href="/#koleksi"
-              className={`nav-with-arrow ${displayedActiveNav === "katalog" ? "active" : ""}`}
+              className={displayedActiveNav === "katalog" ? "active" : ""}
               onClick={(e) => handleNavClick(e, "katalog", "/#koleksi")}
             >
-              Katalog <ChevronDown size={12} className="nav-chevron" />
+              Katalog
             </Link>
             <Link
-              href="/#promo"
-              onClick={(e) => {
-                e.preventDefault();
-                document.getElementById("promo")?.scrollIntoView({ behavior: "smooth" });
-              }}
+              href="/#rental"
+              className={displayedActiveNav === "rental" ? "active" : ""}
+              onClick={(e) => handleNavClick(e, "rental", "/#rental")}
             >
-              Promo
+              Sewa Papan
             </Link>
             <Link
               href="/#cara-pesan"
@@ -215,9 +218,13 @@ export function SiteHeader() {
             >
               Cara Pesan
             </Link>
-            <a href="#kontak">
+            <Link
+              href="/#kontak"
+              className={displayedActiveNav === "kontak" ? "active" : ""}
+              onClick={(e) => handleNavClick(e, "kontak", "/#kontak")}
+            >
               Tentang Kami
-            </a>
+            </Link>
           </div>
 
           <button
