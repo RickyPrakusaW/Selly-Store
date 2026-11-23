@@ -23,16 +23,7 @@ import type { Category, Product } from "@/lib/types";
 import { normalizeWhatsAppNumber } from "@/lib/phone-number";
 import { CopyVoucherButton } from "./copy-voucher-button";
 import { HomeCatalog } from "./home-catalog";
-
-const FLOATING_CATEGORIES = [
-  { label: "Buket Bunga", iconSrc: "/icons/buket-bunga.webp", href: "#koleksi", slug: "bunga" },
-  { label: "Papan Ucapan", iconSrc: "/icons/papan-ucapan.webp", href: "#rental", slug: "papan_ucapan" },
-  { label: "Hampers", iconSrc: "/icons/hampers.webp", href: "#koleksi", slug: "kado" },
-  { label: "Bunga Artificial", iconSrc: "/icons/bunga-artificial.webp", href: "#koleksi", slug: "bunga" },
-  { label: "Bunga Segar", iconSrc: "/icons/bunga-segar.webp", href: "#koleksi", slug: "bunga" },
-  { label: "Dekorasi Acara", iconSrc: "/icons/dekorasi-acara.webp", href: "#koleksi", slug: "papan_ucapan" },
-  { label: "Lainnya", iconSrc: "/icons/lainnya.webp", href: "#koleksi", slug: "" },
-] as const;
+import { HomeQuickCategories } from "./home-quick-categories";
 
 const orderSteps = [
   {
@@ -126,8 +117,8 @@ export function Storefront({
               </div>
 
               <h1 id="home-title" className="hero-custom-heading">
-                Rangkai Momen Berharga<br />
-                dengan Sentuhan <em>Bunga Butik</em>
+                <span>Rangkai Momen Berharga</span>
+                <span>dengan Sentuhan <em>Bunga Butik</em></span>
               </h1>
 
               <p className="hero-custom-lead">
@@ -283,24 +274,7 @@ export function Storefront({
                 <div className="category-bar-sep" aria-hidden="true" />
               </div>
 
-              <div className="category-bar-items">
-                {FLOATING_CATEGORIES.map((item) => (
-                  <a
-                    key={item.label}
-                    href={item.href}
-                    className="category-pill-card"
-                  >
-                    <Image
-                      src={item.iconSrc}
-                      alt={item.label}
-                      width={80}
-                      height={80}
-                      className="category-icon"
-                    />
-                    <span className="category-pill-name">{item.label}</span>
-                  </a>
-                ))}
-              </div>
+              <HomeQuickCategories categories={categories} />
             </div>
           </div>
         </section>

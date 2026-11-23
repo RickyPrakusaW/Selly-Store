@@ -46,5 +46,8 @@
 /* 8. Seli Florist Atelier Admin & Operations */
 @import "./styles/admin.css";
 
-/* 9. Luxury Footer & Mobile Navigation */
+/* 9. Partner With Us & B2B Kemitraan */
+@import "./styles/partner.css";
+
+/* 10. Luxury Footer & Mobile Navigation */
 @import "./styles/footer.css";

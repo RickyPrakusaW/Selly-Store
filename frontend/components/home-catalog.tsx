@@ -18,6 +18,11 @@ import { subscribeToCatalogChanges } from "@/lib/catalog-events";
 import { useSeliStore } from "@/lib/store";
 import type { Category, Product } from "@/lib/types";
 import { ProductCard } from "./product-card";
+import {
+  HOME_CATEGORY_FILTER_EVENT,
+  HOME_CATEGORY_STATE_EVENT,
+  type HomeCategoryFilterDetail,
+} from "./home-quick-categories";
 
 type ProductSort = "featured" | "price-asc" | "price-desc" | "name";
 type ProductType = "all" | "ready" | "preorder" | "rental";
@@ -260,6 +265,30 @@ export function HomeCatalog({
   );
 
   useEffect(() => {
+    const applyQuickCategory = (event: Event) => {
+      const detail = (event as CustomEvent<HomeCategoryFilterDetail>).detail;
+      if (!detail) return;
+      setCategory(detail.category);
+      setSearch(detail.search);
+      setType("all");
+      setPriceRange("all");
+      setSort("featured");
+    };
+
+    window.addEventListener(HOME_CATEGORY_FILTER_EVENT, applyQuickCategory);
+    return () =>
+      window.removeEventListener(HOME_CATEGORY_FILTER_EVENT, applyQuickCategory);
+  }, []);
+
+  const clearQuickCategoryState = () => {
+    window.dispatchEvent(
+      new CustomEvent<HomeCategoryFilterDetail>(HOME_CATEGORY_STATE_EVENT, {
+        detail: { key: "", category: "", search: "" },
+      }),
+    );
+  };
+
+  useEffect(() => {
     if (!searchOpen) return;
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") setSearchOpen(false);
@@ -307,6 +336,7 @@ export function HomeCatalog({
     setType("all");
     setPriceRange("all");
     setSort("featured");
+    clearQuickCategoryState();
   };
 
   const submitSearch = () => {
@@ -439,7 +469,10 @@ export function HomeCatalog({
                 <div className="home-filter-pills" aria-label="Filter kategori">
                   <button
                     className={!category ? "active" : ""}
-                    onClick={() => setCategory("")}
+                    onClick={() => {
+                      setCategory("");
+                      clearQuickCategoryState();
+                    }}
                     type="button"
                   >
                     Semua
@@ -447,7 +480,10 @@ export function HomeCatalog({
                   {categories.map((item) => (
                     <button
                       className={category === item.slug ? "active" : ""}
-                      onClick={() => setCategory(item.slug)}
+                      onClick={() => {
+                        setCategory(item.slug);
+                        clearQuickCategoryState();
+                      }}
                       type="button"
                       key={item.id}
                     >

@@ -127,7 +127,8 @@ export function SiteHeader() {
   if (pathname?.startsWith("/admin")) return null;
 
   const currentUser = mounted ? user : null;
-  const displayedActiveNav = pathname === "/" ? activeNav : "";
+  const isPartnerPage = pathname === "/partner-with-us";
+  const displayedActiveNav = pathname === "/" ? activeNav : isPartnerPage ? "partner" : "";
   const currentCartCount = mounted ? cartCount : 0;
   const currentWishlistCount = mounted && currentUser ? wishlistCount : 0;
   const firstName = currentUser?.fullName?.trim().split(/\s+/)[0];
@@ -201,6 +202,12 @@ export function SiteHeader() {
               onClick={(e) => handleNavClick(e, "rental", "/#rental")}
             >
               Sewa Papan
+            </Link>
+            <Link
+              href="/partner-with-us"
+              className={isPartnerPage ? "active" : ""}
+            >
+              Partner With Us
             </Link>
             <Link
               href="/#cara-pesan"

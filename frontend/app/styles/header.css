@@ -264,7 +264,7 @@
   }
   .header-links {
     margin-right: auto;
-    margin-left: 36px;
+    margin-left: clamp(16px, 2.5vw, 32px);
   }
   .mobile-search-trigger {
     display: none !important;
@@ -280,7 +280,7 @@
 .header-links {
   display: inline-flex;
   align-items: center;
-  gap: 28px;
+  gap: clamp(14px, 1.8vw, 24px);
   padding: 0;
   background: transparent;
   border: none;
