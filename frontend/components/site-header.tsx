@@ -179,15 +179,6 @@ export function SiteHeader() {
           </span>
         </Link>
 
-        <label className="header-search">
-          <Search size={16} className="search-icon" />
-          <input
-            aria-label="Cari produk"
-            placeholder="Cari buket bunga, papan ucapan, atau hampers..."
-            onFocus={() => setSearchOpen(true)}
-          />
-        </label>
-
         <nav className="desktop-nav" aria-label="Navigasi utama">
           <div className="header-links">
             <Link
@@ -227,37 +218,50 @@ export function SiteHeader() {
             </Link>
           </div>
 
-          <button
-            className="icon-button badge-button"
-            onClick={() => {
-              if (!currentUser) {
-                setAuthOpen(true);
-                return;
-              }
-              setWishlistOpen(true);
-            }}
-            aria-label={`Wishlist, ${currentWishlistCount} produk`}
-            title="Wishlist"
-            suppressHydrationWarning
-          >
-            <Heart size={18} />
-            {currentWishlistCount > 0 && (
-              <b className="wishlist-badge">{currentWishlistCount}</b>
-            )}
-          </button>
+          <div className="header-icon-actions">
+            <button
+              type="button"
+              className="icon-button"
+              onClick={() => setSearchOpen(true)}
+              aria-label="Cari produk"
+              title="Cari Produk"
+            >
+              <Search size={18} />
+            </button>
 
-          <Link
-            href="/keranjang"
-            className="icon-button badge-button"
-            aria-label={`Keranjang, ${currentCartCount} item`}
-            title="Keranjang Belanja"
-            suppressHydrationWarning
-          >
-            <ShoppingBag size={18} />
-            {currentCartCount > 0 && (
-              <b className="cart-badge">{currentCartCount}</b>
-            )}
-          </Link>
+            <button
+              type="button"
+              className="icon-button badge-button"
+              onClick={() => {
+                if (!currentUser) {
+                  setAuthOpen(true);
+                  return;
+                }
+                setWishlistOpen(true);
+              }}
+              aria-label={`Wishlist, ${currentWishlistCount} produk`}
+              title="Wishlist"
+              suppressHydrationWarning
+            >
+              <Heart size={18} />
+              {currentWishlistCount > 0 && (
+                <b className="wishlist-badge">{currentWishlistCount}</b>
+              )}
+            </button>
+
+            <Link
+              href="/keranjang"
+              className="icon-button badge-button"
+              aria-label={`Keranjang, ${currentCartCount} item`}
+              title="Keranjang Belanja"
+              suppressHydrationWarning
+            >
+              <ShoppingBag size={18} />
+              {currentCartCount > 0 && (
+                <b className="cart-badge">{currentCartCount}</b>
+              )}
+            </Link>
+          </div>
 
           <span className="header-nav-divider" aria-hidden="true" />
 

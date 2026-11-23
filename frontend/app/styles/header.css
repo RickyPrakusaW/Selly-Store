@@ -258,11 +258,23 @@
   .desktop-nav {
     display: flex !important;
     align-items: center;
-    gap: 12px;
+    gap: 16px;
+    flex: 1;
+    justify-content: flex-end;
+  }
+  .header-links {
+    margin-right: auto;
+    margin-left: 36px;
   }
   .mobile-search-trigger {
     display: none !important;
   }
+}
+
+.header-icon-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .header-links {
