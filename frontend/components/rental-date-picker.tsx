@@ -352,7 +352,7 @@ export function RentalDatePicker({
       <div className="calendar-top-header">
         <div className="calendar-header-titles">
           <div className="calendar-header-icon-wrap">
-            <CalendarDays size={22} className="calendar-header-icon" />
+            <CalendarDays size={18} className="calendar-header-icon" />
           </div>
           <div>
             <h3 className="calendar-main-title">Pilih Tanggal Acara</h3>
@@ -592,7 +592,7 @@ export function RentalDatePicker({
       <div className="calendar-summary-banner">
         <div className="summary-banner-left">
           <div className="summary-info-icon-wrap">
-            <Info size={18} className="summary-info-icon" />
+            <Info size={15} className="summary-info-icon" />
           </div>
           <div className="summary-texts">
             <h4 className="summary-selected-heading">
